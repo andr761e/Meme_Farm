@@ -151,6 +151,14 @@ function updateUI(key) {
   document.getElementById(`count-${key}`).textContent = `x${tower.amount}`;
 }
 
+function updateAllTowersUI() {
+  for (const key in playerTowers) {
+    if (playerTowers.hasOwnProperty(key)) {
+      updateUI(key);
+    }
+  }
+}
+
 function buyTower(key) {
   const tower = playerTowers[key];
   if (totalLikes >= tower.currentCost) {
@@ -185,6 +193,14 @@ function updateUpgradeUI(key) {
   const upgrade = playerUpgrades[key];
   document.getElementById(`price-${key}`).textContent = `${upgrade.currentPrice} Likes`;
   document.getElementById(`count-${key}`).textContent = `Lvl. ${upgrade.currentLevel}`;
+}
+
+function updateAllUpgradesUI() {
+  for (const key in playerUpgrades) {
+    if (playerUpgrades.hasOwnProperty(key)) {
+      updateUpgradeUI(key);
+    }
+  }
 }
 
 
@@ -248,11 +264,24 @@ memeButton.addEventListener("click", (e) => {
   createLikePopup(`+${gain}`, x, y);
 });
 
+document.getElementById("reset-box").addEventListener("click", () => {
+  playerTowers = JSON.parse(JSON.stringify(baseTowers));
+  playerUpgrades = JSON.parse(JSON.stringify(baseUpgrades));
+  totalLikes = 0;
+  likesPerSecond = 0;
+  updateDisplay();
+  updateAllUpgradesUI();
+  updateAllTowersUI();
+})
+
 // Likes per second increment
 setInterval(() => {
   totalLikes += likesPerSecond;
   updateDisplay();
-}, 2500);
+}, 1000);
+
+// Local storage hvert 2,5 sekund
+setInterval(saveGame, 500);
 
 function updateDisplay() {
   totalLikesDisplay.textContent = `${totalLikes} Likes`;
@@ -342,3 +371,38 @@ function animateOrbit() {
 }
 
 animateOrbit(); // Start loop
+
+//Load Local Storage
+window.addEventListener('load', loadGame);
+
+function saveGame() {
+  const saveData = {
+    totalLikes,
+    likesPerSecond,
+    playerTowers,
+    playerUpgrades
+  };
+
+  localStorage.setItem('memeFarmSave', JSON.stringify(saveData));
+}
+
+function loadGame() {
+  const save = localStorage.getItem('memeFarmSave');
+  if (!save) return;
+
+  try {
+    const data = JSON.parse(save);
+    totalLikes = data.totalLikes || 0;
+    likesPerSecond = data.likesPerSecond || 0;
+
+    playerTowers = data.playerTowers || JSON.parse(JSON.stringify(baseTowers));
+    playerUpgrades = data.playerUpgrades || JSON.parse(JSON.stringify(baseUpgrades));
+
+    updateDisplay();;
+    updateAllTowersUI();
+    updateAllUpgradesUI();
+  } catch (e) {
+    console.error("Fejl under indlæsning af spil:", e);
+  }
+}
+
