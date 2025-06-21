@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Meme Farm</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- Top Navigation Bar -->
+  <header class="top-bar">
+    <div class="title">Meme Farm</div>
+    <nav class="nav-tabs">
+      <button>Stats</button>
+      <button>Upgrades</button>
+      <button>Options</button>
+      <button>Info</button>
+    </nav>
+  </header>
+
+  <div class="main-container">
+    <!-- Left: Meme Button Section -->
+    <section class="left-panel">
+      <div class="likes-box">
+        <div id="total-likes">0 Likes</div>
+        <div id="likes-per-sec">0 LPS</div>
+      </div>
+      <div class="meme-button-wrapper">
+        <div id="orbit-container"></div> <!-- 👈 orbit div -->
+        <div class="meme-button-glow"></div>
+        <button id="meme-button"></button>
+      </div>
+
+    </section>
+
+    <!-- Divider Left -->
+    <div class="divider"></div>
+
+    <!-- Middle: Level & Challenges -->
+    <section class="middle-panel">
+
+      <div class="level-img-box">
+        <img src="../assets/images/ui/Challenge-box.png" alt="level frame" class="level-frame">
+        <img src="../assets/images/icons/icon 1 - Tower-baserede challenges.png" alt="level icon" class="level-icon">
+        <span id="level-text" class="level-text">Level 1: Dank Basement</span>
+      </div>
+
+      <div class="challenges">
+        <div class="challenge-img-box">
+          <img src="../assets/images/ui/Challenge-box.png" alt="frame" class="challenge-frame">
+          <img src="../assets/images/icons/icon 1 - Tower-baserede challenges.png" alt="icon" class="challenge-icon">
+          <span class="challenge-text">Post 10 memes in under 1 minute</span>
+        </div>
+
+        <div class="challenge-img-box">
+          <img src="../assets/images/ui/Challenge-box.png" alt="frame" class="challenge-frame">
+          <img src="../assets/images/icons/icon 1 - Tower-baserede challenges.png" alt="icon" class="challenge-icon">
+          <span class="challenge-text">Earn 1000 Likes total</span>
+        </div>
+
+        <div class="challenge-img-box">
+          <img src="../assets/images/ui/Challenge-box.png" alt="frame" class="challenge-frame">
+          <img src="../assets/images/icons/icon 1 - Tower-baserede challenges.png" alt="icon" class="challenge-icon">
+          <span class="challenge-text">Reach 20 LPS</span>
+        </div>
+
+        <div class="reward-img-box">
+          <img src="../assets/images/ui/Challenge-box.png" alt="Reward frame" class="reward-frame">
+          <span class="reward-text">Claim Reward</span>
+        </div>
+
+
+      </div>
+    </section>
+
+    <!-- Divider Right -->
+    <div class="divider"></div>
+
+    <!-- Right: Shop -->
+    <section class="right-panel">
+      <div class="shop-tabs">
+        <button id="tab-towers" class="active">Towers</button>
+        <button id="tab-upgrades">Upgrades</button>
+      </div>
+      <div class="shop-content" id="shop-towers">
+
+        <div class="tower-img-box" data-key="swirling_like_button">
+          <img src="../assets/images/ui/tower-box.png" alt="Tower Frame" class="tower-frame">
+          <img src="../assets/images/Towers/Tower 1 - Swirling Like Button.png" alt="Cursor" class="tower-icon">
+          <div class="tower-text">
+            <span class="tower-name" >Swirling Like Button</span>
+            <span class="tower-price" id="price-swirling_like_button">10 Likes</span>
+          </div>
+          <span class="tower-count" id="count-swirling_like_button">x0</span>
+        </div>
+
+        <div class="tower-img-box" data-key="shitposter_intern">
+          <img src="../assets/images/ui/tower-box.png" alt="Tower Frame" class="tower-frame">
+          <img src="../assets/images/Towers/Tower 2 - Shitposter Intern.png" alt="Cursor" class="tower-icon">
+          <div class="tower-text">
+            <span class="tower-name">Shitposter Intern</span>
+            <span class="tower-price" id="price-shitposter_intern">10 Likes</span>
+          </div>
+          <span class="tower-count" id="count-shitposter_intern">x0</span>
+        </div>
+
+        <div class="tower-img-box" data-key="outdated_meme_reposter">
+          <img src="../assets/images/ui/tower-box.png" alt="Tower Frame" class="tower-frame">
+          <img src="../assets/images/Towers/Tower 3 - Outdated Meme Reposter.png" alt="Cursor" class="tower-icon">
+          <div class="tower-text">
+            <span class="tower-name">Outdated Meme Reposter</span>
+            <span class="tower-price" id="price-outdated_meme_reposter">50 Likes</span>
+          </div>
+          <span class="tower-count" id="count-outdated_meme_reposter">x0</span>
+        </div>
+
+        <div class="tower-img-box" data-key="edgy_teen">
+          <img src="../assets/images/ui/tower-box.png" alt="Tower Frame" class="tower-frame">
+          <img src="../assets/images/Towers/Tower 4 - Edgy Teen.png" alt="Cursor" class="tower-icon">
+          <div class="tower-text">
+            <span class="tower-name">Edgy Teen</span>
+            <span class="tower-price" id="price-edgy_teen">50 Likes</span>
+          </div>
+          <span class="tower-count" id="count-edgy_teen">x0</span>
+        </div>
+
+        <div class="tower-img-box" data-key="botnet">
+          <img src="../assets/images/ui/tower-box.png" alt="Tower Frame" class="tower-frame">
+          <img src="../assets/images/Towers/Tower 5 - Botnet.png" alt="Cursor" class="tower-icon">
+          <div class="tower-text">
+            <span class="tower-name">Botnet</span>
+            <span class="tower-price" id="price-botnet">50 Likes</span>
+          </div>
+          <span class="tower-count" id="count-botnet">x0</span>
+        </div>
+
+        <div class="tower-img-box" data-key="doomscroller">
+          <img src="../assets/images/ui/tower-box.png" alt="Tower Frame" class="tower-frame">
+          <img src="../assets/images/Towers/Tower 6 - Doomscroller.png" alt="Cursor" class="tower-icon">
+          <div class="tower-text">
+            <span class="tower-name">Doomscroller</span>
+            <span class="tower-price" id="price-doomscroller">50 Likes</span>
+          </div>
+          <span class="tower-count" id="count-doomscroller">x0</span>
+        </div>
+
+        <div class="tower-img-box" data-key="meme_subreddit">
+          <img src="../assets/images/ui/tower-box.png" alt="Tower Frame" class="tower-frame">
+          <img src="../assets/images/Towers/Tower 7 - Meme Subreddit.png" alt="Cursor" class="tower-icon">
+          <div class="tower-text">
+            <span class="tower-name">Meme Subreddit</span>
+            <span class="tower-price" id="price-meme_subreddit">50 Likes</span>
+          </div>
+          <span class="tower-count" id="count-meme_subreddit">x0</span>
+        </div>
+
+        <div class="tower-img-box" data-key="discord_mod">
+          <img src="../assets/images/ui/tower-box.png" alt="Tower Frame" class="tower-frame">
+          <img src="../assets/images/Towers/Tower 8 - Discord Mod.png" alt="Cursor" class="tower-icon">
+          <div class="tower-text">
+            <span class="tower-name">Discord Mod</span>
+            <span class="tower-price" id="price-discord_mod">50 Likes</span>
+          </div>
+          <span class="tower-count" id="count-discord_mod">x0</span>
+        </div>
+
+        <div class="tower-img-box" data-key="tikTok_zoomer">
+          <img src="../assets/images/ui/tower-box.png" alt="Tower Frame" class="tower-frame">
+          <img src="../assets/images/Towers/Tower 9 - TikTok Zoomer.png" alt="Cursor" class="tower-icon">
+          <div class="tower-text">
+            <span class="tower-name">TikTok Zoomer</span>
+            <span class="tower-price" id="price-tikTok_zoomer">50 Likes</span>
+          </div>
+          <span class="tower-count" id="count-tikTok_zoomer">x0</span>
+        </div>
+
+        <div class="tower-img-box" data-key="meme_lord">
+          <img src="../assets/images/ui/tower-box.png" alt="Tower Frame" class="tower-frame">
+          <img src="../assets/images/Towers/Tower 10 - Meme Lord.png" alt="Cursor" class="tower-icon">
+          <div class="tower-text">
+            <span class="tower-name">Meme Lord</span>
+            <span class="tower-price" id="price-meme_lord">50 Likes</span>
+          </div>
+          <span class="tower-count" id="count-meme_lord">x0</span>
+        </div>
+
+        <div class="tower-img-box" data-key="AI_meme_generator">
+          <img src="../assets/images/ui/tower-box.png" alt="Tower Frame" class="tower-frame">
+          <img src="../assets/images/Towers/Tower 11 - AI Meme Generator.png" alt="Cursor" class="tower-icon">
+          <div class="tower-text">
+            <span class="tower-name">AI Meme Generator</span>
+            <span class="tower-price" id="price-AI_meme_generator">50 Likes</span>
+          </div>
+          <span class="tower-count" id="count-AI_meme_generator">x0</span>
+        </div>
+
+        <div class="tower-img-box" data-key="internet_historian">
+          <img src="../assets/images/ui/tower-box.png" alt="Tower Frame" class="tower-frame">
+          <img src="../assets/images/Towers/Tower 12 - Internet Historian.png" alt="Cursor" class="tower-icon">
+          <div class="tower-text">
+            <span class="tower-name">Internet Historian</span>
+            <span class="tower-price" id="price-internet_historian">50 Likes</span>
+          </div>
+          <span class="tower-count" id="count-internet_historian">x0</span>
+        </div>
+
+        <div class="tower-img-box" data-key="viral_singularity">
+          <img src="../assets/images/ui/tower-box.png" alt="Tower Frame" class="tower-frame">
+          <img src="../assets/images/Towers/Tower 13 - Viral Singularity.png" alt="Cursor" class="tower-icon">
+          <div class="tower-text">
+            <span class="tower-name">Viral Singularity</span>
+            <span class="tower-price" id="price-viral_singularity">50 Likes</span>
+          </div>
+          <span class="tower-count" id="count-viral_singularity">x0</span>
+        </div>
+
+        <div class="tower-img-box" data-key="cursed_content_forge">
+          <img src="../assets/images/ui/tower-box.png" alt="Tower Frame" class="tower-frame">
+          <img src="../assets/images/Towers/Tower 14 - Cursed Content Forge.png" alt="Cursor" class="tower-icon">
+          <div class="tower-text">
+            <span class="tower-name">Cursed Content Forge</span>
+            <span class="tower-price" id="price-cursed_content_forge">50 Likes</span>
+          </div>
+          <span class="tower-count" id="count-cursed_content_forge">x0</span>
+        </div>
+
+        <div class="tower-img-box" data-key="elons_meme_brainchip">
+          <img src="../assets/images/ui/tower-box.png" alt="Tower Frame" class="tower-frame">
+          <img src="../assets/images/Towers/Tower 15 - Elon’s Meme Brainchip.png" alt="Cursor" class="tower-icon">
+          <div class="tower-text">
+            <span class="tower-name">Elon’s Meme Brainchip</span>
+            <span class="tower-price" id="price-elons_meme_brainchip">50 Likes</span>
+          </div>
+          <span class="tower-count" id="count-elons_meme_brainchip">x0</span>
+        </div>
+
+        <div class="tower-img-box" data-key="based_reality_distorter">
+          <img src="../assets/images/ui/tower-box.png" alt="Tower Frame" class="tower-frame">
+          <img src="../assets/images/Towers/Tower 16 - Based Reality Distorter.png" alt="Cursor" class="tower-icon">
+          <div class="tower-text">
+            <span class="tower-name">Based Reality Distorter</span>
+            <span class="tower-price" id="price-based_reality_distorter">50 Likes</span>
+          </div>
+          <span class="tower-count" id="count-based_reality_distorter">x0</span>
+        </div>
+
+        <div class="tower-img-box" data-key="meme_multiverse_server">
+          <img src="../assets/images/ui/tower-box.png" alt="Tower Frame" class="tower-frame">
+          <img src="../assets/images/Towers/Tower 17 - Meme Multiverse Server.png" alt="Cursor" class="tower-icon">
+          <div class="tower-text">
+            <span class="tower-name">Meme Multiverse Server</span>
+            <span class="tower-price" id="price-meme_multiverse_server">50 Likes</span>
+          </div>
+          <span class="tower-count" id="count-meme_multiverse_server">x0</span>
+        </div>
+
+        <div class="tower-img-box" data-key="clout_god">
+          <img src="../assets/images/ui/tower-box.png" alt="Tower Frame" class="tower-frame">
+          <img src="../assets/images/Towers/Tower 18 - Clout God.png" alt="Cursor" class="tower-icon">
+          <div class="tower-text">
+            <span class="tower-name">Clout God</span>
+            <span class="tower-price" id="price-clout_god">50 Likes</span>
+          </div>
+          <span class="tower-count" id="count-clout_god">x0</span>
+        </div>
+        <!-- Additional towers go here -->
+      </div>
+      <div class="shop-content" id="shop-upgrades" style="display: none;">
+        <div class="upgrade-img-box" data-key="power_click">
+          <img src="../assets/images/ui/tower-box.png" alt="Upgrade Frame" class="upgrade-frame">
+          <img src="../assets/images/Towers/Tower 1 - Swirling Like Button.png" alt="Click Boost" class="upgrade-icon">
+          <div class="upgrade-text">
+            <span class="upgrade-name">Click Boost</span>
+            <span class="upgrade-effect">+2x Click Power</span>
+            <span class="upgrade-price" id="price-power_click">500 Likes</span>
+          </div>
+          <span class="upgrade-count" id="count-power_click">Lvl. 0</span>
+        </div>
+        <!-- Additional upgrades go here -->
+      </div>
+    </section>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
