@@ -4,6 +4,7 @@ const baseTowers = {
     currentCost: 10,
     lps: 1,
     amount: 0,
+    totalProduced: 0,
     description: "Spins around your meme. It’s basic, but it vibes.",
   },
   shitposter_intern: {
@@ -11,6 +12,7 @@ const baseTowers = {
     currentCost: 200,
     lps: 2,
     amount: 0,
+    totalProduced: 0,
     description: "Works for exposure. And chaos. Mostly chaos.",
   },
   outdated_meme_reposter: {
@@ -18,6 +20,7 @@ const baseTowers = {
     currentCost: 200,
     lps: 5,
     amount: 0,
+    totalProduced: 0,
     description: "Posts Trollface and expects praise. Gets it.",
   },
   edgy_teen: {
@@ -25,6 +28,7 @@ const baseTowers = {
     currentCost: 200,
     lps: 10,
     amount: 0,
+    totalProduced: 0,
     description: "Posts aggressively ironic memes from their mom’s Wi-Fi.",
   },
   botnet: {
@@ -32,6 +36,7 @@ const baseTowers = {
     currentCost: 200,
     lps: 20,
     amount: 0,
+    totalProduced: 0,
     description: "Works for exposure. And chaos. Mostly chaos.",
   },
   doomscroller: {
@@ -39,6 +44,7 @@ const baseTowers = {
     currentCost: 200,
     lps: 50,
     amount: 0,
+    totalProduced: 0,
     description: "Consumes so many memes, the algorithm starts generating them.",
   },
   meme_subreddit: {
@@ -46,6 +52,7 @@ const baseTowers = {
     currentCost: 200,
     lps: 100,
     amount: 0,
+    totalProduced: 0,
     description: "Power of 1 million Redditors with strong opinions.",
   },
   discord_mod: {
@@ -53,6 +60,7 @@ const baseTowers = {
     currentCost: 200,
     lps: 200,
     amount: 0,
+    totalProduced: 0,
     description: "Will delete your meme, then repost it for clout.",
   },
   tikTok_zoomer: {
@@ -60,6 +68,7 @@ const baseTowers = {
     currentCost: 200,
     lps: 500,
     amount: 0,
+    totalProduced: 0,
     description: "Edits lightning-fast memes with zero coherence.",
   },
   meme_lord: {
@@ -67,6 +76,7 @@ const baseTowers = {
     currentCost: 200,
     lps: 1000,
     amount: 0,
+    totalProduced: 0,
     description: "Speaks only in deep-fried memes and obscure references.",
   },
   AI_meme_generator: {
@@ -74,6 +84,7 @@ const baseTowers = {
     currentCost: 200,
     lps: 2500,
     amount: 0,
+    totalProduced: 0,
     description: "Posts memes 24/7, most of which shouldn’t exist.",
   },
   internet_historian: {
@@ -81,6 +92,7 @@ const baseTowers = {
     currentCost: 200,
     lps: 10000,
     amount: 0,
+    totalProduced: 0,
     description: "Powers up your entire meme empire with sacred meme lore.",
   },
   viral_singularity: {
@@ -88,6 +100,7 @@ const baseTowers = {
     currentCost: 200,
     lps: 25000,
     amount: 0,
+    totalProduced: 0,
     description: "A meme so viral it bends the algorithm. Everyone’s For You Page becomes you.",
   },
   cursed_content_forge: {
@@ -95,6 +108,7 @@ const baseTowers = {
     currentCost: 200,
     lps: 50000,
     amount: 0,
+    totalProduced: 0,
     description: "Combines deep-fried memes with forbidden formats. You’ve created something… unnatural.",
   },
   elons_meme_brainchip: {
@@ -102,6 +116,7 @@ const baseTowers = {
     currentCost: 200,
     lps: 100000,
     amount: 0,
+    totalProduced: 0,
     description: "Direct neural meme injection. Also tweets itself every 3 seconds.",
   },
   based_reality_distorter: {
@@ -109,6 +124,7 @@ const baseTowers = {
     currentCost: 200,
     lps: 250000,
     amount: 0,
+    totalProduced: 0,
     description: "Alters reality to fit your memes. “Cringe” is now illegal.",
   },
   meme_multiverse_server: {
@@ -116,6 +132,7 @@ const baseTowers = {
     currentCost: 200,
     lps: 500000,
     amount: 0,
+    totalProduced: 0,
     description: "Crossposts across infinite universes. Even Rick Astley is farming likes now.",
   },
   clout_god: {
@@ -123,6 +140,7 @@ const baseTowers = {
     currentCost: 10,
     lps: 1000000,
     amount: 0,
+    totalProduced: 0,
     description: "You no longer post memes. You are the meme. Worshipped by ironic teens and boomers alike.",
   }
   // ... flere towers
@@ -139,18 +157,22 @@ baseUpgrades = {
   }
 }
 
+//Game Stats
 let totalLikes = 0;
 let likesPerSecond = 0;
+let totalLikesEver = 0;
 
 let playerTowers = JSON.parse(JSON.stringify(baseTowers));
 let playerUpgrades = JSON.parse(JSON.stringify(baseUpgrades));
 
+//Funktion til at opdatere et tower's display værdier
 function updateUI(key) {
   const tower = playerTowers[key];
   document.getElementById(`price-${key}`).textContent = `${tower.currentCost} Likes`;
   document.getElementById(`count-${key}`).textContent = `x${tower.amount}`;
 }
 
+//Funktion til at opdatere alle tower's display værdier
 function updateAllTowersUI() {
   for (const key in playerTowers) {
     if (playerTowers.hasOwnProperty(key)) {
@@ -159,6 +181,7 @@ function updateAllTowersUI() {
   }
 }
 
+//Funktion til at købe et tower
 function buyTower(key) {
   const tower = playerTowers[key];
   if (totalLikes >= tower.currentCost) {
@@ -171,6 +194,7 @@ function buyTower(key) {
   }
 }
 
+//Funktion til at købe et upgrade
 function buyUpgrade(key) {
   const upgrade = playerUpgrades[key];
 
@@ -189,12 +213,14 @@ function buyUpgrade(key) {
   }
 }
 
+//Funktion til at opdatere et upgrade's display værdier
 function updateUpgradeUI(key) {
   const upgrade = playerUpgrades[key];
   document.getElementById(`price-${key}`).textContent = `${upgrade.currentPrice} Likes`;
   document.getElementById(`count-${key}`).textContent = `Lvl. ${upgrade.currentLevel}`;
 }
 
+//Funktion til at opdatere alle upgrade's display værdier
 function updateAllUpgradesUI() {
   for (const key in playerUpgrades) {
     if (playerUpgrades.hasOwnProperty(key)) {
@@ -203,7 +229,17 @@ function updateAllUpgradesUI() {
   }
 }
 
+//Funktion der tilføjer tower produktion til totalProduced variablen (det er bare en stats variabel, ingen effekt på selve spillet)
+function updateTotalProduced() {
+  for (const key in playerTowers) {
+    if (playerTowers.hasOwnProperty(key)) {
+      const tower = playerTowers[key];
+      tower.totalProduced += tower.amount * tower.lps;
+    }
+  }
+}
 
+//Tjekker om en opgrade boks bliver klikket og kalder derefter køb upgrade
 document.querySelectorAll('.upgrade-img-box').forEach(box => {
   box.addEventListener('click', () => {
     const key = box.dataset.key;
@@ -211,7 +247,7 @@ document.querySelectorAll('.upgrade-img-box').forEach(box => {
   });
 });
 
-
+//Tjekker om en tower boks bliver klikket og kalder derefter køb tower
 document.querySelectorAll('.tower-img-box').forEach(box => {
   box.addEventListener('click', () => {
     const key = box.dataset.key; // fx "cursor"
@@ -219,6 +255,7 @@ document.querySelectorAll('.tower-img-box').forEach(box => {
   });
 });
 
+//Funktion der får tal til at poppe op, når man klikker på meme knappen
 function createLikePopup(text, x, y) {
   const wrapper = document.querySelector('.meme-button-wrapper');
   const button = document.getElementById('meme-button');
@@ -242,11 +279,12 @@ function createLikePopup(text, x, y) {
 }
 
 
-
+//Henter elementerne der er meme-knappen, viser total likes og 
 const memeButton = document.getElementById("meme-button");
 const totalLikesDisplay = document.getElementById("total-likes");
 const lpsDisplay = document.getElementById("likes-per-sec");
 
+//Henter objekterne, der styrer skift imellem towers og upgrades
 const tabTowers = document.getElementById("tab-towers");
 const tabUpgrades = document.getElementById("tab-upgrades");
 const shopTowers = document.getElementById("shop-towers");
@@ -257,13 +295,24 @@ memeButton.addEventListener("click", (e) => {
   const gain = playerUpgrades.power_click.currentPower;
   totalLikes += gain;
   updateDisplay();
+  totalLikesEver += gain;
 
   const rect = e.target.getBoundingClientRect();
   const x = e.clientX - rect.left;
   const y = e.clientY - rect.top;
   createLikePopup(`+${gain}`, x, y);
+  console.log(playerTowers.swirling_like_button.totalProduced)
 });
 
+// Likes per second increment
+setInterval(() => {
+  totalLikes += likesPerSecond;
+  totalLikesEver += likesPerSecond
+  updateDisplay();
+  updateTotalProduced();
+}, 1000);
+
+//Knap der resetter alle værdier ved tryk
 document.getElementById("reset-box").addEventListener("click", () => {
   playerTowers = JSON.parse(JSON.stringify(baseTowers));
   playerUpgrades = JSON.parse(JSON.stringify(baseUpgrades));
@@ -273,12 +322,6 @@ document.getElementById("reset-box").addEventListener("click", () => {
   updateAllUpgradesUI();
   updateAllTowersUI();
 })
-
-// Likes per second increment
-setInterval(() => {
-  totalLikes += likesPerSecond;
-  updateDisplay();
-}, 1000);
 
 // Local storage hvert 2,5 sekund
 setInterval(saveGame, 500);
@@ -303,6 +346,7 @@ function switchTab(tab) {
   }
 }
 
+//Event listeners til tryk på tower og upgrade tabs (så man kan skifte mellem dem)
 tabTowers.addEventListener("click", () => switchTab("towers"));
 tabUpgrades.addEventListener("click", () => switchTab("upgrades"));
 
@@ -372,6 +416,8 @@ function animateOrbit() {
 
 animateOrbit(); // Start loop
 
+
+//LOCAL STORAGE DEL, VERY IMPORTANT
 //Load Local Storage
 window.addEventListener('load', loadGame);
 
