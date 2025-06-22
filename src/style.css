@@ -500,16 +500,32 @@ section {
 
 .tooltip {
   position: absolute;
-  background: rgba(0, 0, 0, 0.85);
-  color: white;
-  padding: 8px 10px;
-  border-radius: 6px;
+  background: #222;
+  color: #eee;
+  padding: 12px;
+  border-radius: 8px;
   font-size: 0.75rem;
-  max-width: 250px;
+  max-width: 300px;
   z-index: 999;
   pointer-events: none;
-  box-shadow: 0 0 8px #000;
+  box-shadow: 0 0 12px rgba(0, 0, 0, 0.6);
   white-space: pre-line;
+  border: 2px solid #555;
+  font-family: 'Tahoma', sans-serif;
+}
+
+.tooltip .tooltip-title {
+  font-weight: bold;
+  font-size: 0.85rem;
+  margin-bottom: 6px;
+  color: white;
+}
+
+.tooltip .tooltip-line {
+  margin-top: 5px;
+  padding: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
 }
 
 

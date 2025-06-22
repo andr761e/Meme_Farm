@@ -207,6 +207,12 @@ function buyTower(key) {
     tower.amount += 1;
     tower.currentCost = Math.floor(tower.baseCost * Math.pow(1.20, tower.amount));
     likesPerSecond += tower.lps
+    // Hvis tooltip stadig er åben og relevant, opdater indholdet
+    const hovered = document.querySelector(`.tower-img-box[data-key="${key}"]:hover`);
+    if (hovered) {
+      const fakeEvent = { pageX: hovered.getBoundingClientRect().left, pageY: hovered.getBoundingClientRect().top };
+      showTowerTooltip(fakeEvent, key);
+    }
     updateUI(key);
     updateDisplay();
   }
@@ -261,14 +267,16 @@ function showTowerTooltip(e, key) {
   const tower = playerTowers[key];
   const tooltip = document.getElementById('tooltip');
   tooltip.innerHTML = `
-    <strong>${tower.displayName}</strong>\n
-    ${tower.description}\n
-    Produces ${tower.lps} LPS\n
-    Owned: ${tower.amount}
-  `;
+  <div class="tooltip-title">${tower.displayName}</div>
+  <div style="color: #aaa; font-style: italic;">${tower.description || "No description."}</div>
+  <div class="tooltip-line">Each tower produces <b>${tower.lps}</b> Likes/sec</div>
+  <div class="tooltip-line">${tower.amount} owned = <b>${tower.amount * tower.lps}</b> LPS</div>
+  <div class="tooltip-line"><b>${tower.totalProduced}</b> Likes produced in total</div>
+`;
   tooltip.style.display = 'block';
-  tooltip.style.left = `${e.pageX + 15}px`;
-  tooltip.style.top = `${e.pageY + 15}px`;
+  const towerBox = e.currentTarget.getBoundingClientRect();
+  tooltip.style.left = `${towerBox.left - tooltip.offsetWidth - 10}px`; // fast venstre side
+  tooltip.style.top = `${e.pageY - 20}px`; // vertikal placering ift. mus
 }
 
 function hideTowerTooltip() {
@@ -283,9 +291,9 @@ document.querySelectorAll('.tower-img-box').forEach(box => {
   box.addEventListener('mouseenter', (e) => showTowerTooltip(e, key));
   box.addEventListener('mousemove', (e) => {
     const tooltip = document.getElementById('tooltip');
-    tooltip.style.left = `${e.pageX + 15}px`;
-    tooltip.style.top = `${e.pageY + 15}px`;
+    tooltip.style.top = `${e.pageY - 20}px`; // kun Y flytter sig
   });
+
   box.addEventListener('mouseleave', hideTowerTooltip);
 
   box.addEventListener('click', () => {
