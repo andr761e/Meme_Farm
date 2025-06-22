@@ -411,6 +411,7 @@ setInterval(() => {
   totalLikesEver += likesPerSecond
   updateDisplay();
   updateTotalProduced();
+  updateDocumentTitle();
 }, 1000);
 
 //Opdaterer farven på cost-teksterne og gemmer spillet til local storage hvert 100 ms. 
@@ -534,6 +535,20 @@ function animateOrbit() {
 }
 
 animateOrbit(); // Start loop
+
+//Funktion til at Opdatere Fane-hovedet med current likes
+function updateDocumentTitle() {
+  document.title = `${formatNumber(totalLikes)} Likes - Meme Farm`;
+}
+
+//Funktion til at formatere tal
+function formatNumber(num) {
+  if (num >= 1e9) return (num / 1e9).toFixed(3) + " billion";
+  if (num >= 1e6) return (num / 1e6).toFixed(3) + " million";
+  if (num >= 1e3) return (num / 1e3).toFixed(0) + "K";
+  return Math.floor(num);
+}
+
 
 
 //LOCAL STORAGE DEL, VERY IMPORTANT
