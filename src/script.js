@@ -255,6 +255,23 @@ document.querySelectorAll('.tower-img-box').forEach(box => {
   });
 });
 
+//Funktion der opdaterer farven på cost teksterne alt efter om vi har råd eller ej. 
+function updateTowerAffordability() {
+  for (const key in playerTowers) {
+    if (playerTowers.hasOwnProperty(key)) {
+      const tower = playerTowers[key];
+      const priceEl = document.getElementById(`price-${key}`);
+      if (!priceEl) continue;
+
+      if (totalLikes >= tower.currentCost) {
+        priceEl.style.color = '#9fff99'; // eller fx '#7fff00'
+      } else {
+        priceEl.style.color = 'crimson'; // eller '#ff4d4d'
+      }
+    }
+  }
+}
+
 //Funktion der får tal til at poppe op, når man klikker på meme knappen
 function createLikePopup(text, x, y) {
   const wrapper = document.querySelector('.meme-button-wrapper');
@@ -311,6 +328,11 @@ setInterval(() => {
   updateDisplay();
   updateTotalProduced();
 }, 1000);
+
+//Opdaterer farven på cost-teksterne hvert 100 ms. 
+setInterval(() => {
+  updateTowerAffordability();
+}, 100)
 
 //Knap der resetter alle værdier ved tryk
 document.getElementById("reset-box").addEventListener("click", () => {
