@@ -179,6 +179,8 @@ baseUpgrades = {
 let totalLikes = 0;
 let likesPerSecond = 0;
 let totalLikesEver = 0;
+let hoveredKey = null;
+let lastHoverY = null;
 
 let playerTowers = JSON.parse(JSON.stringify(baseTowers));
 let playerUpgrades = JSON.parse(JSON.stringify(baseUpgrades));
@@ -210,7 +212,11 @@ function buyTower(key) {
     // Hvis tooltip stadig er åben og relevant, opdater indholdet
     const hovered = document.querySelector(`.tower-img-box[data-key="${key}"]:hover`);
     if (hovered) {
-      const fakeEvent = { pageX: hovered.getBoundingClientRect().left, pageY: hovered.getBoundingClientRect().top };
+      const rect = hovered.getBoundingClientRect();
+      const fakeEvent = {
+        currentTarget: hovered,
+        pageY: window.mouseY || hovered.getBoundingClientRect().top + window.scrollY
+      };
       showTowerTooltip(fakeEvent, key);
     }
     updateUI(key);
@@ -267,16 +273,17 @@ function showTowerTooltip(e, key) {
   const tower = playerTowers[key];
   const tooltip = document.getElementById('tooltip');
   tooltip.innerHTML = `
-  <div class="tooltip-title">${tower.displayName}</div>
-  <div style="color: #aaa; font-style: italic;">${tower.description || "No description."}</div>
-  <div class="tooltip-line">Each tower produces <b>${tower.lps}</b> Likes/sec</div>
-  <div class="tooltip-line">${tower.amount} owned = <b>${tower.amount * tower.lps}</b> LPS</div>
-  <div class="tooltip-line"><b>${tower.totalProduced}</b> Likes produced in total</div>
-`;
+    <div class="tooltip-title">${tower.displayName}</div>
+    <div style="color: #aaa; font-style: italic;">${tower.description || "No description."}</div>
+    <div class="tooltip-line">Each tower produces <b>${tower.lps}</b> Likes/sec</div>
+    <div class="tooltip-line">${tower.amount} owned = <b>${tower.amount * tower.lps}</b> LPS</div>
+    <div class="tooltip-line"><b>${tower.totalProduced}</b> Likes produced in total</div>
+  `;
   tooltip.style.display = 'block';
+
   const towerBox = e.currentTarget.getBoundingClientRect();
-  tooltip.style.left = `${towerBox.left - tooltip.offsetWidth - 10}px`; // fast venstre side
-  tooltip.style.top = `${e.pageY - 20}px`; // vertikal placering ift. mus
+  tooltip.style.left = `${towerBox.left - tooltip.offsetWidth - 10}px`; // Fast venstre placering
+  tooltip.style.top = `${towerBox.top + window.scrollY}px`;             // Fast top ift. tower
 }
 
 function hideTowerTooltip() {
@@ -288,13 +295,18 @@ function hideTowerTooltip() {
 document.querySelectorAll('.tower-img-box').forEach(box => {
   const key = box.dataset.key;
 
-  box.addEventListener('mouseenter', (e) => showTowerTooltip(e, key));
-  box.addEventListener('mousemove', (e) => {
-    const tooltip = document.getElementById('tooltip');
-    tooltip.style.top = `${e.pageY - 20}px`; // kun Y flytter sig
+  box.addEventListener('mouseenter', (e) => {
+    hoveredKey = key;
+    lastHoverY = e.pageY;
+    showTowerTooltip(e, key);
   });
 
-  box.addEventListener('mouseleave', hideTowerTooltip);
+  box.addEventListener('mouseleave', () => {
+    hoveredKey = null;
+    lastHoverY = null;
+    hideTowerTooltip();
+  });
+
 
   box.addEventListener('click', () => {
     buyTower(key);
@@ -405,6 +417,16 @@ setInterval(() => {
 setInterval(() => {
   updateTowerAffordability();
   updateUpgradeAffordability();
+  if (hoveredKey !== null) {
+  const hovered = document.querySelector(`.tower-img-box[data-key="${hoveredKey}"]`);
+  if (hovered) {
+    const fakeEvent = {
+      currentTarget: hovered,
+      pageY: lastHoverY
+    };
+    showTowerTooltip(fakeEvent, hoveredKey);
+  }
+}
   saveGame();
 }, 100)
 
@@ -452,6 +474,10 @@ towerBoxes.forEach(box => {
 const upgradeBoxes = document.querySelectorAll(".upgrade-box");
 upgradeBoxes.forEach(box => {
   box.setAttribute("data-tooltip", "Upgrades click efficiency");
+});
+
+document.addEventListener('mousemove', (e) => {
+  window.mouseY = e.pageY;
 });
 
 
