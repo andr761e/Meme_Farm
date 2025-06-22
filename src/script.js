@@ -257,19 +257,48 @@ function updateTotalProduced() {
   }
 }
 
+function showTowerTooltip(e, key) {
+  const tower = playerTowers[key];
+  const tooltip = document.getElementById('tooltip');
+  tooltip.innerHTML = `
+    <strong>${tower.displayName}</strong>\n
+    ${tower.description}\n
+    Produces ${tower.lps} LPS\n
+    Owned: ${tower.amount}
+  `;
+  tooltip.style.display = 'block';
+  tooltip.style.left = `${e.pageX + 15}px`;
+  tooltip.style.top = `${e.pageY + 15}px`;
+}
+
+function hideTowerTooltip() {
+  const tooltip = document.getElementById('tooltip');
+  tooltip.style.display = 'none';
+}
+
+//Tjekker om en tower boks bliver klikket og kalder derefter køb tower. Viser også info boks
+document.querySelectorAll('.tower-img-box').forEach(box => {
+  const key = box.dataset.key;
+
+  box.addEventListener('mouseenter', (e) => showTowerTooltip(e, key));
+  box.addEventListener('mousemove', (e) => {
+    const tooltip = document.getElementById('tooltip');
+    tooltip.style.left = `${e.pageX + 15}px`;
+    tooltip.style.top = `${e.pageY + 15}px`;
+  });
+  box.addEventListener('mouseleave', hideTowerTooltip);
+
+  box.addEventListener('click', () => {
+    buyTower(key);
+  });
+});
+
+
 //Tjekker om en opgrade boks bliver klikket og kalder derefter køb upgrade
 document.querySelectorAll('.upgrade-img-box').forEach(box => {
   box.addEventListener('click', () => {
     const key = box.dataset.key;
     buyUpgrade(key);
-  });
-});
-
-//Tjekker om en tower boks bliver klikket og kalder derefter køb tower. Viser også info boks
-document.querySelectorAll('.tower-img-box').forEach(box => {
-  box.addEventListener('click', () => {
-    const key = box.dataset.key; // fx "cursor"
-    buyTower(key);
   });
 });
 

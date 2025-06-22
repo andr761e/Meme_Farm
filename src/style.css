@@ -498,3 +498,18 @@ section {
   color: white;
 }
 
+.tooltip {
+  position: absolute;
+  background: rgba(0, 0, 0, 0.85);
+  color: white;
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  max-width: 250px;
+  z-index: 999;
+  pointer-events: none;
+  box-shadow: 0 0 8px #000;
+  white-space: pre-line;
+}
+
+
