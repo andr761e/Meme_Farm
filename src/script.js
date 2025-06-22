@@ -1,5 +1,6 @@
 const baseTowers = {
   swirling_like_button: {
+    displayName: "Swirling Like Button",
     baseCost: 10,
     currentCost: 10,
     lps: 1,
@@ -8,6 +9,7 @@ const baseTowers = {
     description: "Spins around your meme. It’s basic, but it vibes.",
   },
   shitposter_intern: {
+    displayName: "Shitposter Intern",
     baseCost: 200,
     currentCost: 200,
     lps: 2,
@@ -16,6 +18,7 @@ const baseTowers = {
     description: "Works for exposure. And chaos. Mostly chaos.",
   },
   outdated_meme_reposter: {
+    displayName: "Outdated Meme Reposter",
     baseCost: 200,
     currentCost: 200,
     lps: 5,
@@ -24,6 +27,7 @@ const baseTowers = {
     description: "Posts Trollface and expects praise. Gets it.",
   },
   edgy_teen: {
+    displayName: "Edgy Teen",
     baseCost: 200,
     currentCost: 200,
     lps: 10,
@@ -32,6 +36,7 @@ const baseTowers = {
     description: "Posts aggressively ironic memes from their mom’s Wi-Fi.",
   },
   botnet: {
+    displayName: "Botnet",
     baseCost: 200,
     currentCost: 200,
     lps: 20,
@@ -40,6 +45,7 @@ const baseTowers = {
     description: "Works for exposure. And chaos. Mostly chaos.",
   },
   doomscroller: {
+    displayName: "Doomscroller",
     baseCost: 200,
     currentCost: 200,
     lps: 50,
@@ -48,6 +54,7 @@ const baseTowers = {
     description: "Consumes so many memes, the algorithm starts generating them.",
   },
   meme_subreddit: {
+    displayName: "Meme Subreddit",
     baseCost: 200,
     currentCost: 200,
     lps: 100,
@@ -56,6 +63,7 @@ const baseTowers = {
     description: "Power of 1 million Redditors with strong opinions.",
   },
   discord_mod: {
+    displayName: "Discord Mod",
     baseCost: 200,
     currentCost: 200,
     lps: 200,
@@ -64,6 +72,7 @@ const baseTowers = {
     description: "Will delete your meme, then repost it for clout.",
   },
   tikTok_zoomer: {
+    displayName: "TikTok Zoomer",
     baseCost: 200,
     currentCost: 200,
     lps: 500,
@@ -72,6 +81,7 @@ const baseTowers = {
     description: "Edits lightning-fast memes with zero coherence.",
   },
   meme_lord: {
+    displayName: "Meme Lord",
     baseCost: 200,
     currentCost: 200,
     lps: 1000,
@@ -80,6 +90,7 @@ const baseTowers = {
     description: "Speaks only in deep-fried memes and obscure references.",
   },
   AI_meme_generator: {
+    displayName: "AI Meme Generator",
     baseCost: 200,
     currentCost: 200,
     lps: 2500,
@@ -88,6 +99,7 @@ const baseTowers = {
     description: "Posts memes 24/7, most of which shouldn’t exist.",
   },
   internet_historian: {
+    displayName: "Internet Historian",
     baseCost: 200,
     currentCost: 200,
     lps: 10000,
@@ -96,6 +108,7 @@ const baseTowers = {
     description: "Powers up your entire meme empire with sacred meme lore.",
   },
   viral_singularity: {
+    displayName: "Viral Singularity",
     baseCost: 200,
     currentCost: 200,
     lps: 25000,
@@ -104,6 +117,7 @@ const baseTowers = {
     description: "A meme so viral it bends the algorithm. Everyone’s For You Page becomes you.",
   },
   cursed_content_forge: {
+    displayName: "Cursed Content Forge",
     baseCost: 200,
     currentCost: 200,
     lps: 50000,
@@ -112,6 +126,7 @@ const baseTowers = {
     description: "Combines deep-fried memes with forbidden formats. You’ve created something… unnatural.",
   },
   elons_meme_brainchip: {
+    displayName: "Elon's Meme Brainchip",
     baseCost: 200,
     currentCost: 200,
     lps: 100000,
@@ -120,6 +135,7 @@ const baseTowers = {
     description: "Direct neural meme injection. Also tweets itself every 3 seconds.",
   },
   based_reality_distorter: {
+    displayName: "Based Reality Distorter",
     baseCost: 200,
     currentCost: 200,
     lps: 250000,
@@ -128,6 +144,7 @@ const baseTowers = {
     description: "Alters reality to fit your memes. “Cringe” is now illegal.",
   },
   meme_multiverse_server: {
+    displayName: "Meme Multiverse Server",
     baseCost: 200,
     currentCost: 200,
     lps: 500000,
@@ -136,6 +153,7 @@ const baseTowers = {
     description: "Crossposts across infinite universes. Even Rick Astley is farming likes now.",
   },
   clout_god: {
+    displayName: "Clout God",
     baseCost: 200,
     currentCost: 10,
     lps: 1000000,
@@ -247,7 +265,7 @@ document.querySelectorAll('.upgrade-img-box').forEach(box => {
   });
 });
 
-//Tjekker om en tower boks bliver klikket og kalder derefter køb tower
+//Tjekker om en tower boks bliver klikket og kalder derefter køb tower. Viser også info boks
 document.querySelectorAll('.tower-img-box').forEach(box => {
   box.addEventListener('click', () => {
     const key = box.dataset.key; // fx "cursor"
@@ -255,7 +273,7 @@ document.querySelectorAll('.tower-img-box').forEach(box => {
   });
 });
 
-//Funktion der opdaterer farven på cost teksterne alt efter om vi har råd eller ej. 
+//Funktion der opdaterer farven på cost teksterne på towers alt efter om vi har råd eller ej. 
 function updateTowerAffordability() {
   for (const key in playerTowers) {
     if (playerTowers.hasOwnProperty(key)) {
@@ -271,6 +289,24 @@ function updateTowerAffordability() {
     }
   }
 }
+
+//Funktion der opdaterer farven på cost teksterne på upgrades alt efter om vi har råd eller ej. 
+function updateUpgradeAffordability() {
+  for (const key in playerUpgrades) {
+    if (playerUpgrades.hasOwnProperty(key)) {
+      const upgrade = playerUpgrades[key];
+      const priceEl = document.getElementById(`price-${key}`);
+      if (!priceEl) continue;
+
+      if (totalLikes >= upgrade.currentPrice) {
+        priceEl.style.color = '#9fff99'; // fx '#7fff00'
+      } else {
+        priceEl.style.color = 'crimson';   // fx '#ff4d4d'
+      }
+    }
+  }
+}
+
 
 //Funktion der får tal til at poppe op, når man klikker på meme knappen
 function createLikePopup(text, x, y) {
@@ -318,7 +354,6 @@ memeButton.addEventListener("click", (e) => {
   const x = e.clientX - rect.left;
   const y = e.clientY - rect.top;
   createLikePopup(`+${gain}`, x, y);
-  console.log(playerTowers.swirling_like_button.totalProduced)
 });
 
 // Likes per second increment
@@ -329,9 +364,11 @@ setInterval(() => {
   updateTotalProduced();
 }, 1000);
 
-//Opdaterer farven på cost-teksterne hvert 100 ms. 
+//Opdaterer farven på cost-teksterne og gemmer spillet til local storage hvert 100 ms. 
 setInterval(() => {
   updateTowerAffordability();
+  updateUpgradeAffordability();
+  saveGame();
 }, 100)
 
 //Knap der resetter alle værdier ved tryk
@@ -344,9 +381,6 @@ document.getElementById("reset-box").addEventListener("click", () => {
   updateAllUpgradesUI();
   updateAllTowersUI();
 })
-
-// Local storage hvert 2,5 sekund
-setInterval(saveGame, 500);
 
 function updateDisplay() {
   totalLikesDisplay.textContent = `${totalLikes} Likes`;
