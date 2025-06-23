@@ -447,8 +447,12 @@ document.getElementById("reset-box").addEventListener("click", () => {
 function updateDisplay() {
   totalLikesDisplay.textContent = `${totalLikes} Likes`;
   lpsDisplay.textContent = `${likesPerSecond} LPS`;
+<<<<<<< HEAD
   totalSubsDisplay.textContent = `${totalSubscribers} Subscriers`;
 
+=======
+  window.totalLikes = totalLikes; // <-- Add this line to keep window.totalLikes updated
+>>>>>>> 224c2bac127e6452ee35b5149a278f3bc7d8772f
 }
 
 // Tab switching
