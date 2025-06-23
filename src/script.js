@@ -181,6 +181,7 @@ let likesPerSecond = 0;
 let totalLikesEver = 0;
 let hoveredKey = null;
 let lastHoverY = null;
+let totalSubscribers = 0;
 
 let playerTowers = JSON.parse(JSON.stringify(baseTowers));
 let playerUpgrades = JSON.parse(JSON.stringify(baseUpgrades));
@@ -385,6 +386,7 @@ function createLikePopup(text, x, y) {
 const memeButton = document.getElementById("meme-button");
 const totalLikesDisplay = document.getElementById("total-likes");
 const lpsDisplay = document.getElementById("likes-per-sec");
+const totalSubsDisplay = document.getElementById("subscriber-count");
 
 //Henter objekterne, der styrer skift imellem towers og upgrades
 const tabTowers = document.getElementById("tab-towers");
@@ -445,6 +447,8 @@ document.getElementById("reset-box").addEventListener("click", () => {
 function updateDisplay() {
   totalLikesDisplay.textContent = `${totalLikes} Likes`;
   lpsDisplay.textContent = `${likesPerSecond} LPS`;
+  totalSubsDisplay.textContent = `${totalSubscribers} Subscriers`;
+
 }
 
 // Tab switching
@@ -549,11 +553,46 @@ function formatNumber(num) {
   return Math.floor(num);
 }
 
+function spawnSubscriber() {
+  const container = document.getElementById("subscriber-container");
+  const sub = document.createElement("div");
+  sub.classList.add("subscriber");
 
+  // Tilfældigt horisontalt spawnpunkt
+  const left = Math.random() * 90; // i %
+  sub.style.left = `${left}%`;
+
+  // Når spilleren klikker på subscriber
+  sub.addEventListener("click", () => {
+    totalSubscribers += 1; // Du definerer denne variabel
+    container.removeChild(sub);
+    // Du kan fx vise en flyvende "+1 subscriber"-effekt her
+  });
+
+  container.appendChild(sub);
+
+  // Fjern automatisk efter animationen
+  setTimeout(() => {
+    if (container.contains(sub)) container.removeChild(sub);
+  }, 6000);
+}
+
+// Spawn én subscriber hvert 15–25 sekund
+setInterval(() => {
+  if (Math.random() < 0.5) spawnSubscriber();
+}, 15000);
+
+function updateSubscribersUI() {
+  const subText = document.getElementById("subscriber-count");
+  if (subText) {
+    subText.textContent = `${totalSubscribers} Subscribers`;
+  }
+}
 
 //LOCAL STORAGE DEL, VERY IMPORTANT
 //Load Local Storage
 window.addEventListener('load', loadGame);
+updateSubscribersUI();
 
 function saveGame() {
   const saveData = {
