@@ -474,6 +474,8 @@ function saveGame() {
   const saveData = {
     totalLikes,
     likesPerSecond,
+    totalLikesEver,
+    totalSubscribers,
     playerTowers,
     playerUpgrades
   };
@@ -489,6 +491,8 @@ function loadGame() {
     const data = JSON.parse(save);
     totalLikes = data.totalLikes || 0;
     likesPerSecond = data.likesPerSecond || 0;
+    totalLikesEver = data.totalLikesEver || 0;
+    totalSubscribers = data.totalSubscribers || 0;
 
     playerTowers = data.playerTowers || JSON.parse(JSON.stringify(baseTowers));
     playerUpgrades = data.playerUpgrades || JSON.parse(JSON.stringify(baseUpgrades));

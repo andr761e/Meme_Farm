@@ -97,6 +97,8 @@ document.getElementById("reset-box").addEventListener("click", () => {
   playerUpgrades = JSON.parse(JSON.stringify(baseUpgrades));
   totalLikes = 0;
   likesPerSecond = 0;
+  totalLikesEver = 0; 
+  totalSubscribers = 0;
   updateDisplay();
   updateAllUpgradesUI();
   updateAllTowersUI();
