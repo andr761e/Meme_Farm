@@ -146,12 +146,28 @@ let orbitAngleOffset = 0;
 
 animateOrbit(); // Start loop
 
-// Spawn én subscriber hvert 15–25 sekund
+// Spawn én subscriber baseret på en normfordeling over 1 minut
+let seconds = 0;
+
+function normalPDF(x, mean, std) {
+  const expPart = Math.exp(-0.5 * ((x - mean) / std) ** 2);
+  return (1 / (std * Math.sqrt(2 * Math.PI))) * expPart;
+}
+
 setInterval(() => {
-  if (Math.random() < 0.5) spawnSubscriber();
-}, 15000);
+  const mean = 45;
+  const std = 4; // mindre = skarpere kurve, større = bredere top
+  const probability = normalPDF(seconds, mean, std) * 20; // skaler for at matche ønsket spawnrate
+
+  if (Math.random() < probability) {
+    spawnSubscriber();
+    seconds = 0; // reset efter spawn
+  } else {
+    seconds++;
+    if (seconds > 90) seconds = 0;
+  }
+}, 1000);
 
 //LOCAL STORAGE DEL, VERY IMPORTANT
 //Load Local Storage
 window.addEventListener('load', loadGame);
-updateSubscribersUI();
