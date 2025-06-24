@@ -58,7 +58,11 @@ memeButton.addEventListener("click", (e) => {
   totalLikes += gain;
   updateDisplay();
   totalLikesEver += gain;
-
+      // Afspil lyd
+    const effect = new Audio('../assets/sounds/pop-sound.mp3');
+    effect.volume = 0.1;
+    effect.play();
+  
   const rect = e.target.getBoundingClientRect();
   const x = e.clientX - rect.left;
   const y = e.clientY - rect.top;
