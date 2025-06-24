@@ -318,7 +318,11 @@ function buyTower(key) {
     totalLikes -= tower.currentCost;
     tower.amount += 1;
     tower.currentCost = Math.floor(tower.baseCost * Math.pow(1.20, tower.amount));
-    likesPerSecond += tower.lps
+    likesPerSecond += tower.lps;
+    // Afspil lyd
+    const effect = new Audio('../assets/sounds/pop-sound.mp3');
+    effect.volume = 0.1;
+    effect.play();
     // Hvis tooltip stadig er åben og relevant, opdater indholdet
     const hovered = document.querySelector(`.tower-img-box[data-key="${key}"]:hover`);
     if (hovered) {
@@ -347,7 +351,10 @@ function buyUpgrade(key) {
 
     // Ny pris (fx x2 pr. level)
     upgrade.currentPrice = Math.floor(upgrade.basePrice * Math.pow(2, upgrade.currentLevel));
-
+    // Afspil lyd
+    const effect = new Audio('../assets/sounds/pop-sound.mp3');
+    effect.volume = 0.1;
+    effect.play();
     updateUpgradeUI(key);
     updateDisplay();
   }
