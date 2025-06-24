@@ -121,6 +121,19 @@ document.addEventListener('mousemove', (e) => {
   window.mouseY = e.pageY;
 });
 
+document.querySelectorAll('.middle-tab-button').forEach(button => {
+  button.addEventListener('click', () => {
+    const tabId = button.dataset.tab;
+
+    document.querySelectorAll('.middle-tab-button').forEach(btn => btn.classList.remove('active'));
+    button.classList.add('active');
+
+    document.querySelectorAll('.middle-tab-content').forEach(tab => {
+      tab.style.display = tab.id === tabId ? 'block' : 'none';
+    });
+  });
+});
+
 
 //SWIRLING LIKES BUTTONS OMKRING MEME BUTTON
 let orbitAngleOffset = 0;

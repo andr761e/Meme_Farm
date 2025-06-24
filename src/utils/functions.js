@@ -1,3 +1,123 @@
+//LEFT SIDE (MEME BUTTON SIDE) FUNCTIONS
+//Funktion der får tal til at poppe op, når man klikker på meme knappen
+function createLikePopup(text, x, y) {
+  const wrapper = document.querySelector('.meme-button-wrapper');
+  const button = document.getElementById('meme-button');
+
+  const popup = document.createElement('div');
+  popup.classList.add('like-popup');
+  popup.textContent = text;
+
+  // Position relativ til knappen
+  popup.style.left = `${x}px`;
+  popup.style.top = `${y}px`;
+
+  // Variation i animation (valgfri)
+  popup.style.transform = `translate(-50%, -50%)`;
+
+  button.appendChild(popup);
+
+  setTimeout(() => {
+    popup.remove();
+  }, 1000);
+}
+
+//Funktion til at opdatere likes, likes per second og subscriber display
+function updateDisplay() {
+  totalLikesDisplay.textContent = `${totalLikes} Likes`;
+  lpsDisplay.textContent = `${likesPerSecond} LPS`;
+  totalSubsDisplay.textContent = `${totalSubscribers} Subscribers`;
+
+}
+
+//Funktion til at opdatere like buttons omkring meme-button
+function updateOrbiters() {
+  const container = document.getElementById('orbit-container');
+  container.innerHTML = "";
+
+  const count = playerTowers['swirling_like_button']?.amount || 0;
+  const baseRadius = 160;
+  const orbitSpacing = 0.15;
+
+  const orbsPerRing = [42]; // første ring har 42
+  while (orbsPerRing.reduce((a, b) => a + b, 0) < count) {
+    const last = orbsPerRing[orbsPerRing.length - 1];
+    orbsPerRing.push(last + 3); // +3 per ekstra ring
+  }
+
+  let orbIndex = 0;
+
+  for (let ring = 0; ring < orbsPerRing.length; ring++) {
+    const ringCount = orbsPerRing[ring];
+    const radius = baseRadius + ring * 25;
+
+    for (let i = 0; i < ringCount && orbIndex < count; i++, orbIndex++) {
+      const orb = document.createElement('div');
+      orb.classList.add('orbit-item');
+
+      const angle = orbitAngleOffset + i * orbitSpacing;
+      const sway = 4 * Math.sin(angle * 3 + Date.now() / 300);
+      const r = radius + sway;
+
+      const x = 150 + r * Math.cos(angle);
+      const y = 150 + r * Math.sin(angle);
+
+      const angleDeg = angle * (180 / Math.PI);
+
+      orb.style.left = `${x}px`;
+      orb.style.top = `${y}px`;
+      orb.style.transform = `translate(-50%, -50%) rotate(${angleDeg + 270}deg)`;
+
+      container.appendChild(orb);
+    }
+  }
+}
+
+//Funktion der animerer like buttons
+function animateOrbit() {
+  orbitAngleOffset += 0.005;
+  updateOrbiters();
+  requestAnimationFrame(animateOrbit);
+}
+
+//Funktion til at spawne subscribers der falder 
+function spawnSubscriber() {
+  const container = document.getElementById("subscriber-container");
+  const sub = document.createElement("div");
+  sub.classList.add("subscriber");
+
+  // Tilfældigt horisontalt spawnpunkt
+  const left = Math.random() * 90; // i %
+  sub.style.left = `${left}%`;
+
+  // Når spilleren klikker på subscriber
+  sub.addEventListener("click", () => {
+    totalSubscribers += 1; // Du definerer denne variabel
+    container.removeChild(sub);
+    // Du kan fx vise en flyvende "+1 subscriber"-effekt her
+  });
+
+  container.appendChild(sub);
+
+  // Fjern automatisk efter animationen
+  setTimeout(() => {
+    if (container.contains(sub)) container.removeChild(sub);
+  }, 6000);
+}
+
+//Funktion til at opdatere subscriber count tekst
+function updateSubscribersUI() {
+  const subText = document.getElementById("subscriber-count");
+  if (subText) {
+    subText.textContent = `${totalSubscribers} Subscribers`;
+  }
+}
+
+//MIDDLE COLUMN FUNCTIONS
+
+
+
+//RIGHT SIDE (ITEM SHOP) FUNCTIONS
 const baseTowers = {
   swirling_like_button: {
     displayName: "Swirling Like Button",
@@ -317,38 +437,6 @@ function updateUpgradeAffordability() {
   }
 }
 
-
-//Funktion der får tal til at poppe op, når man klikker på meme knappen
-function createLikePopup(text, x, y) {
-  const wrapper = document.querySelector('.meme-button-wrapper');
-  const button = document.getElementById('meme-button');
-
-  const popup = document.createElement('div');
-  popup.classList.add('like-popup');
-  popup.textContent = text;
-
-  // Position relativ til knappen
-  popup.style.left = `${x}px`;
-  popup.style.top = `${y}px`;
-
-  // Variation i animation (valgfri)
-  popup.style.transform = `translate(-50%, -50%)`;
-
-  button.appendChild(popup);
-
-  setTimeout(() => {
-    popup.remove();
-  }, 1000);
-}
-
-//Funktion til at opdatere likes, likes per second og subscriber display
-function updateDisplay() {
-  totalLikesDisplay.textContent = `${totalLikes} Likes`;
-  lpsDisplay.textContent = `${likesPerSecond} LPS`;
-  totalSubsDisplay.textContent = `${totalSubscribers} Subscribers`;
-
-}
-
 //Funktion til Tab switching
 function switchTab(tab) {
   if (tab === "towers") {
@@ -364,56 +452,9 @@ function switchTab(tab) {
   }
 }
 
-//Funktion til at opdatere like buttons omkring meme-button
-function updateOrbiters() {
-  const container = document.getElementById('orbit-container');
-  container.innerHTML = "";
 
-  const count = playerTowers['swirling_like_button']?.amount || 0;
-  const baseRadius = 160;
-  const orbitSpacing = 0.15;
 
-  const orbsPerRing = [42]; // første ring har 42
-  while (orbsPerRing.reduce((a, b) => a + b, 0) < count) {
-    const last = orbsPerRing[orbsPerRing.length - 1];
-    orbsPerRing.push(last + 3); // +3 per ekstra ring
-  }
-
-  let orbIndex = 0;
-
-  for (let ring = 0; ring < orbsPerRing.length; ring++) {
-    const ringCount = orbsPerRing[ring];
-    const radius = baseRadius + ring * 25;
-
-    for (let i = 0; i < ringCount && orbIndex < count; i++, orbIndex++) {
-      const orb = document.createElement('div');
-      orb.classList.add('orbit-item');
-
-      const angle = orbitAngleOffset + i * orbitSpacing;
-      const sway = 4 * Math.sin(angle * 3 + Date.now() / 300);
-      const r = radius + sway;
-
-      const x = 150 + r * Math.cos(angle);
-      const y = 150 + r * Math.sin(angle);
-
-      const angleDeg = angle * (180 / Math.PI);
-
-      orb.style.left = `${x}px`;
-      orb.style.top = `${y}px`;
-      orb.style.transform = `translate(-50%, -50%) rotate(${angleDeg + 270}deg)`;
-
-      container.appendChild(orb);
-    }
-  }
-}
-
-//Funktion der animerer like buttons
-function animateOrbit() {
-  orbitAngleOffset += 0.005;
-  updateOrbiters();
-  requestAnimationFrame(animateOrbit);
-}
-
+//GENERAL FUNCTIONS OR TOP BAR FUNCTIONS
 //Funktion til at Opdatere Fane-hovedet med current likes
 function updateDocumentTitle() {
   document.title = `${formatNumber(totalLikes)} Likes - Meme Farm`;
@@ -425,39 +466,6 @@ function formatNumber(num) {
   if (num >= 1e6) return (num / 1e6).toFixed(3) + " million";
   if (num >= 1e3) return (num / 1e3).toFixed(0) + "K";
   return Math.floor(num);
-}
-
-//Funktion til at spawne subscribers der falder 
-function spawnSubscriber() {
-  const container = document.getElementById("subscriber-container");
-  const sub = document.createElement("div");
-  sub.classList.add("subscriber");
-
-  // Tilfældigt horisontalt spawnpunkt
-  const left = Math.random() * 90; // i %
-  sub.style.left = `${left}%`;
-
-  // Når spilleren klikker på subscriber
-  sub.addEventListener("click", () => {
-    totalSubscribers += 1; // Du definerer denne variabel
-    container.removeChild(sub);
-    // Du kan fx vise en flyvende "+1 subscriber"-effekt her
-  });
-
-  container.appendChild(sub);
-
-  // Fjern automatisk efter animationen
-  setTimeout(() => {
-    if (container.contains(sub)) container.removeChild(sub);
-  }, 6000);
-}
-
-//Funktion til at opdatere subscriber count tekst
-function updateSubscribersUI() {
-  const subText = document.getElementById("subscriber-count");
-  if (subText) {
-    subText.textContent = `${totalSubscribers} Subscribers`;
-  }
 }
 
 //LOCAL STORAGE

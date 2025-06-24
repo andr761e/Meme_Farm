@@ -20,36 +20,54 @@
   </header>
 
   <div class="main-container">
-    <!-- Left: Meme Button Section -->
-    <section class="left-panel">
-      <div class="likes-box">
-        <span id="total-likes">0 Likes</span>
-        <span id="likes-per-sec">0 LPS</span>
-        <div id="subscriber-count">0 Subscribers</div>
+
+      <!-- Left: Meme Button Section -->
+      <section class="left-panel">
+        <div class="likes-box">
+          <span id="total-likes">0 Likes</span>
+          <span id="likes-per-sec">0 LPS</span>
+          <div id="subscriber-count">0 Subscribers</div>
+        </div>
+        <div class="meme-button-wrapper">
+          <div id="orbit-container"></div> <!-- 👈 orbit div -->
+          <div class="meme-button-glow"></div>
+          <button id="meme-button"></button>
+        </div>
+
+        <div id="subscriber-container"></div>
+
+      </section>
+
+      <!-- Divider Left -->
+      <div class="divider"></div>
+
+      <section class="middle-panel">
+
+    <!-- Tab Buttons -->
+     <div class="middle-tab-wrapper">
+        <div class="middle-tabs">
+          <button class="middle-tab-button active" data-tab="tab-challenges">Challenges</button>
+          <button class="middle-tab-button" data-tab="tab-lucky-spin">Lucky Spin</button>
+          <button class="middle-tab-button" data-tab="tab-time-machine">Time Machine</button>
+          <button class="middle-tab-button" data-tab="tab-meme-stock">Meme Stock</button>
+          <button class="middle-tab-button" data-tab="tab-subscriber-raffle">Subscriber Raffle</button>
+          <button class="middle-tab-button" data-tab="tab-dark-web-trade">Dark Web Trade</button>
+        </div>
       </div>
-      <div class="meme-button-wrapper">
-        <div id="orbit-container"></div> <!-- 👈 orbit div -->
-        <div class="meme-button-glow"></div>
-        <button id="meme-button"></button>
-      </div>
 
-      <div id="subscriber-container"></div>
+      <div class="middle-tab-divider"></div>
 
-    </section>
 
-    <!-- Divider Left -->
-    <div class="divider"></div>
-
-    <!-- Middle: Level & Challenges -->
-    <section class="middle-panel">
-
-      <div class="level-img-box">
-        <img src="../assets/images/ui/Challenge-box.png" alt="level frame" class="level-frame">
-        <img src="../assets/images/icons/icon 1 - Tower-baserede challenges.png" alt="level icon" class="level-icon">
-        <span id="level-text" class="level-text">Level 1: Dank Basement</span>
-      </div>
-
+    <!-- Tab Content -->
+    <div class="middle-tab-content" id="tab-challenges" style="display: block;">
       <div class="challenges">
+
+        <div class="level-img-box">
+          <img src="../assets/images/ui/Challenge-box.png" alt="level frame" class="level-frame">
+          <img src="../assets/images/icons/icon 1 - Tower-baserede challenges.png" alt="level icon" class="level-icon">
+          <span id="level-text" class="level-text">Level 1: Dank Basement</span>
+        </div>
+
         <div class="challenge-img-box">
           <img src="../assets/images/ui/Challenge-box.png" alt="frame" class="challenge-frame">
           <img src="../assets/images/icons/icon 1 - Tower-baserede challenges.png" alt="icon" class="challenge-icon">
@@ -59,7 +77,7 @@
         <div class="challenge-img-box">
           <img src="../assets/images/ui/Challenge-box.png" alt="frame" class="challenge-frame">
           <img src="../assets/images/icons/icon 1 - Tower-baserede challenges.png" alt="icon" class="challenge-icon">
-          <span class="challenge-text">Earn 1000 Likes total</span>
+          <span class="challenge-text">Earn <b>1000</b> Likes total</span>
         </div>
 
         <div class="challenge-img-box">
@@ -73,14 +91,35 @@
           <span class="reward-text">Claim Reward</span>
         </div>
 
-        <div class="reward-img-box" id = "reset-box">
+        <div class="reward-img-box" id="reset-box">
           <img src="../assets/images/ui/Challenge-box.png" alt="Reward frame" class="reward-frame">
           <span class="reward-text">Reset</span>
         </div>
-
-
       </div>
-    </section>
+    </div>
+
+    <div class="middle-tab-content" id="tab-lucky-spin" style="display: none;">
+      <p>Lucky spin content goes here.</p>
+    </div>
+
+    <div class="middle-tab-content" id="tab-time-machine" style="display: none;">
+      <p>Time machine content goes here.</p>
+    </div>
+
+    <div class="middle-tab-content" id="tab-meme-stock" style="display: none;">
+      <p>Meme stock content goes here.</p>
+    </div>
+
+    <div class="middle-tab-content" id="tab-subscriber-raffle" style="display: none;">
+      <p>Subscriber raffle content goes here.</p>
+    </div>
+
+    <div class="middle-tab-content" id="tab-dark-web-trade" style="display: none;">
+      <p>Dark web trade content goes here.</p>
+    </div>
+
+  </section>
+
 
     <!-- Divider Right -->
     <div class="divider"></div>
