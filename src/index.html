@@ -8,6 +8,7 @@
   <link rel="icon" type="image/png" href="../assets/images/meme-button/meme-button.png">
 </head>
 <body>
+
   <!-- Top Navigation Bar -->
   <header class="top-bar">
     <div class="title">Meme Farm</div>
@@ -42,6 +43,14 @@
       <div class="divider"></div>
 
       <section class="middle-panel">
+
+        <!-- Overlay til nav-tabs -->
+        <div id="nav-overlay" class="nav-overlay" style="display: none;">
+          <button class="overlay-close" onclick="closeOverlay()">×</button>
+          <div id="overlay-content" class="overlay-content">
+            <!-- Dynamisk indhold fra nav-tabs vises her -->
+          </div>
+        </div>
 
     <!-- Tab Buttons -->
      <div class="middle-tab-wrapper">

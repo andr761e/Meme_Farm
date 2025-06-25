@@ -9,6 +9,15 @@ let totalSubscribers = 0;
 let playerTowers = JSON.parse(JSON.stringify(baseTowers));
 let playerUpgrades = JSON.parse(JSON.stringify(baseUpgrades));
 
+// Automatisk tilknytter overlay-åbning til hver nav-tab
+document.querySelectorAll(".nav-tabs button").forEach(button => {
+  button.addEventListener("click", () => {
+    const tabName = button.textContent.trim(); // fx "Stats"
+    openOverlay(tabName);
+  });
+});
+
+
 //Tjekker om en tower boks bliver klikket og kalder derefter køb tower. Viser også info boks
 document.querySelectorAll('.tower-img-box').forEach(box => {
   const key = box.dataset.key;
@@ -155,8 +164,8 @@ function normalPDF(x, mean, std) {
 }
 
 setInterval(() => {
-  const mean = 45;
-  const std = 4; // mindre = skarpere kurve, større = bredere top
+  const mean = 60;
+  const std = 10; // mindre = skarpere kurve, større = bredere top
   const probability = normalPDF(seconds, mean, std) * 20; // skaler for at matche ønsket spawnrate
 
   if (Math.random() < probability) {
@@ -164,7 +173,7 @@ setInterval(() => {
     seconds = 0; // reset efter spawn
   } else {
     seconds++;
-    if (seconds > 90) seconds = 0;
+    if (seconds > 120) seconds = 0;
   }
 }, 1000);
 

@@ -1,3 +1,32 @@
+//TOP BAR FUNCTIONS
+function openOverlay(tabName) {
+  const overlay = document.getElementById("nav-overlay");
+  const content = document.getElementById("overlay-content");
+
+  // Du kan tilføje mere kompleks logik her for hvert tab
+  switch (tabName) {
+    case "Stats":
+      content.innerHTML = "<h2>Stats</h2><p>Her vises dine likes, LPS og subscribers osv.</p>";
+      break;
+    case "Upgrades":
+      content.innerHTML = "<h2>Upgrades</h2><p>Oversigt over permanente opgraderinger.</p>";
+      break;
+    case "Options":
+      content.innerHTML = "<h2>Options</h2><p>Her kan du ændre spilindstillinger.</p>";
+      break;
+    case "Info":
+      content.innerHTML = "<h2>Info</h2><p>Lavet af dig – det sejeste idle game nogensinde.</p>";
+      break;
+  }
+
+  overlay.style.display = "flex";
+}
+
+function closeOverlay() {
+  document.getElementById("nav-overlay").style.display = "none";
+}
+
+
 //LEFT SIDE (MEME BUTTON SIDE) FUNCTIONS
 //Funktion der får tal til at poppe op, når man klikker på meme knappen
 function createLikePopup(text, x, y) {
@@ -309,7 +338,7 @@ function buyTower(key) {
   if (totalLikes >= tower.currentCost) {
     totalLikes -= tower.currentCost;
     tower.amount += 1;
-    tower.currentCost = Math.floor(tower.baseCost * Math.pow(1.20, tower.amount));
+    tower.currentCost = Math.floor(tower.baseCost * Math.pow(1.25, tower.amount));
     likesPerSecond += tower.lps;
     // Afspil lyd
     const effect = new Audio('../assets/sounds/pop-sound.mp3');
