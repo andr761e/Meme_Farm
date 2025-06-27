@@ -53,9 +53,9 @@ function createLikePopup(text, x, y) {
 
 //Funktion til at opdatere likes, likes per second og subscriber display
 function updateDisplay() {
-  totalLikesDisplay.textContent = `${totalLikes} Likes`;
-  lpsDisplay.textContent = `${likesPerSecond} LPS`;
-  totalSubsDisplay.textContent = `${totalSubscribers} Subscribers`;
+  totalLikesDisplay.textContent = `${formatNumber(totalLikes)} Likes`;
+  lpsDisplay.textContent = `${formatNumber(likesPerSecond)} LPS`;
+  totalSubsDisplay.textContent = `${formatNumber(totalSubscribers)} Subscribers`;
 
 }
 
@@ -142,9 +142,9 @@ function spawnSubscriber() {
 const baseTowers = {
   swirling_like_button: {
     displayName: "Swirling Like Button",
-    baseCost: 10,
-    currentCost: 10,
-    lps: 1,
+    baseCost: 15,
+    currentCost: 15,
+    lps: 0.1,
     amount: 0,
     totalProduced: 0,
     description: "Spins around your meme. It’s basic, but it vibes.",
@@ -153,154 +153,352 @@ const baseTowers = {
     displayName: "Shitposter Intern",
     baseCost: 100,
     currentCost: 100,
-    lps: 5,
+    lps: 0.3,
     amount: 0,
     totalProduced: 0,
     description: "Works for exposure. And chaos. Mostly chaos.",
   },
   outdated_meme_reposter: {
     displayName: "Outdated Meme Reposter",
-    baseCost: 1000,
-    currentCost: 1000,
-    lps: 15,
+    baseCost: 500,
+    currentCost: 500,
+    lps: 0.5,
     amount: 0,
     totalProduced: 0,
     description: "Posts Trollface and expects praise. Gets it.",
   },
   edgy_teen: {
     displayName: "Edgy Teen",
-    baseCost: 10000,
-    currentCost: 10000,
-    lps: 50,
+    baseCost: 2000,
+    currentCost: 2000,
+    lps: 1,
     amount: 0,
     totalProduced: 0,
     description: "Posts aggressively ironic memes from their mom’s Wi-Fi.",
   },
   botnet: {
     displayName: "Botnet",
-    baseCost: 100000,
-    currentCost: 100000,
-    lps: 150,
+    baseCost: 10000,
+    currentCost: 10000,
+    lps: 3,
     amount: 0,
     totalProduced: 0,
     description: "Works for exposure. And chaos. Mostly chaos.",
   },
   doomscroller: {
     displayName: "Doomscroller",
-    baseCost: 500000,
-    currentCost: 500000,
-    lps: 500,
+    baseCost: 50000,
+    currentCost: 50000,
+    lps: 10,
     amount: 0,
     totalProduced: 0,
     description: "Consumes so many memes, the algorithm starts generating them.",
   },
   meme_subreddit: {
     displayName: "Meme Subreddit",
-    baseCost: 2000000,
-    currentCost: 2000000,
-    lps: 1750,
+    baseCost: 200000,
+    currentCost: 200000,
+    lps: 20,
     amount: 0,
     totalProduced: 0,
     description: "Power of 1 million Redditors with strong opinions.",
   },
   discord_mod: {
     displayName: "Discord Mod",
-    baseCost: 10000000,
-    currentCost: 10000000,
-    lps: 5000,
+    baseCost: 500000,
+    currentCost: 500000,
+    lps: 40,
     amount: 0,
     totalProduced: 0,
     description: "Will delete your meme, then repost it for clout.",
   },
   tikTok_zoomer: {
     displayName: "TikTok Zoomer",
-    baseCost: 50000000,
-    currentCost: 50000000,
-    lps: 15000,
+    baseCost: 1500000,
+    currentCost: 1500000,
+    lps: 100,
     amount: 0,
     totalProduced: 0,
     description: "Edits lightning-fast memes with zero coherence.",
   },
   meme_lord: {
     displayName: "Meme Lord",
-    baseCost: 200000000,
-    currentCost: 200000000,
-    lps: 50000,
+    baseCost: 5000000,
+    currentCost: 5000000,
+    lps: 300,
     amount: 0,
     totalProduced: 0,
     description: "Speaks only in deep-fried memes and obscure references.",
   },
   AI_meme_generator: {
     displayName: "AI Meme Generator",
-    baseCost: 1000000000,
-    currentCost: 1000000000,
-    lps: 150000,
+    baseCost: 15000000,
+    currentCost: 15000000,
+    lps: 800,
     amount: 0,
     totalProduced: 0,
     description: "Posts memes 24/7, most of which shouldn’t exist.",
   },
   internet_historian: {
     displayName: "Internet Historian",
-    baseCost: 5000000000,
-    currentCost: 5000000000,
-    lps: 500000,
+    baseCost: 30000000,
+    currentCost: 30000000,
+    lps: 1500,
     amount: 0,
     totalProduced: 0,
     description: "Powers up your entire meme empire with sacred meme lore.",
   },
   viral_singularity: {
     displayName: "Viral Singularity",
-    baseCost: 25000000000,
-    currentCost: 25000000000,
-    lps: 2000000,
+    baseCost: 100000000,
+    currentCost: 100000000,
+    lps: 3000,
     amount: 0,
     totalProduced: 0,
     description: "A meme so viral it bends the algorithm. Everyone’s For You Page becomes you.",
   },
   cursed_content_forge: {
     displayName: "Cursed Content Forge",
-    baseCost: 100000000000,
-    currentCost: 100000000000,
-    lps: 7500000,
+    baseCost: 300000000,
+    currentCost: 300000000,
+    lps: 5000,
     amount: 0,
     totalProduced: 0,
     description: "Combines deep-fried memes with forbidden formats. You’ve created something… unnatural.",
   },
   elons_meme_brainchip: {
     displayName: "Elon's Meme Brainchip",
-    baseCost: 500000000000,
-    currentCost: 500000000000,
-    lps: 25000000,
+    baseCost: 1000000000,
+    currentCost: 1000000000,
+    lps: 10000,
     amount: 0,
     totalProduced: 0,
     description: "Direct neural meme injection. Also tweets itself every 3 seconds.",
   },
   based_reality_distorter: {
     displayName: "Based Reality Distorter",
-    baseCost: 2000000000000,
-    currentCost: 2000000000000,
-    lps: 100000000,
+    baseCost: 2500000000,
+    currentCost: 2500000000,
+    lps: 20000,
     amount: 0,
     totalProduced: 0,
     description: "Alters reality to fit your memes. “Cringe” is now illegal.",
   },
   meme_multiverse_server: {
     displayName: "Meme Multiverse Server",
-    baseCost: 10000000000000,
-    currentCost: 10000000000000,
-    lps: 300000000,
+    baseCost: 10000000000,
+    currentCost: 10000000000,
+    lps: 30000,
     amount: 0,
     totalProduced: 0,
     description: "Crossposts across infinite universes. Even Rick Astley is farming likes now.",
   },
   clout_god: {
     displayName: "Clout God",
-    baseCost: 50000000000000,
-    currentCost: 50000000000000,
-    lps: 1000000000,
+    baseCost: 20000000000,
+    currentCost: 20000000000,
+    lps: 50000,
     amount: 0,
     totalProduced: 0,
     description: "You no longer post memes. You are the meme. Worshipped by ironic teens and boomers alike.",
+  },
+    boomer_facebook_group: {
+    displayName: "Boomer Facebook Group",
+    baseCost: 40000000000,
+    currentCost: 40000000000,
+    lps: 75000,
+    amount: 0,
+    totalProduced: 0,
+    description: "Posts the same Minions meme every day. Somehow farms billions of likes."
+  },
+  irony_engine: {
+    displayName: "Irony Engine",
+    baseCost: 60000000000,
+    currentCost: 60000000000,
+    lps: 100000,
+    amount: 0,
+    totalProduced: 0,
+    description: "Drives pure irony into the meme stream. Nothing makes sense, but everything works."
+  },
+  fourchan_core_reactor: {
+    displayName: "4chan Core Reactor",
+    baseCost: 100000000000,
+    currentCost: 100000000000,
+    lps: 150000,
+    amount: 0,
+    totalProduced: 0,
+    description: "A toxic power plant of chaos. Generates unstable yet high-yield meme reactions."
+  },
+  eternal_rickroll_loop: {
+    displayName: "Eternal Rickroll Loop",
+    baseCost: 250000000000,
+    currentCost: 250000000000,
+    lps: 300000,
+    amount: 0,
+    totalProduced: 0,
+    description: "A time loop that eternally Rickrolls the internet. Likes surge with every repetition."
+  },
+  wojak_factory: {
+    displayName: "Wojak Factory",
+    baseCost: 500000000000,
+    currentCost: 500000000000,
+    lps: 500000,
+    amount: 0,
+    totalProduced: 0,
+    description: "Mass-produces emotionally unstable memes for every niche feeling imaginable."
+  },
+  quantum_shitpost_array: {
+    displayName: "Quantum Shitpost Array",
+    baseCost: 1000000000000,
+    currentCost: 1000000000000,
+    lps: 750000,
+    amount: 0,
+    totalProduced: 0,
+    description: "Shitposts in every timeline simultaneously. Some of them make you question reality."
+  },
+  copium_refinery: {
+    displayName: "Copium Refinery",
+    baseCost: 1500000000000,
+    currentCost: 1500000000000,
+    lps: 1000000,
+    amount: 0,
+    totalProduced: 0,
+    description: "Distills pure Copium into memeable doses. Increases engagement during crises."
+  },
+  npc_overpopulation_center: {
+    displayName: "NPC Overpopulation Center",
+    baseCost: 3000000000000,
+    currentCost: 3000000000000,
+    lps: 1500000,
+    amount: 0,
+    totalProduced: 0,
+    description: "Spawns billions of NPCs to mindlessly like whatever you post."
+  },
+  nft_cemetery: {
+    displayName: "NFT Cemetery",
+    baseCost: 7500000000000,
+    currentCost: 7500000000000,
+    lps: 3000000,
+    amount: 0,
+    totalProduced: 0,
+    description: "Buries broken dreams and JPEGs, harvesting nostalgia-laced meme juice."
+  },
+  cringe_singularity: {
+    displayName: "Cringe Singularity",
+    baseCost: 20000000000000,
+    currentCost: 20000000000000,
+    lps: 5000000,
+    amount: 0,
+    totalProduced: 0,
+    description: "Collapses all outdated humor into a dense point of ironic power. It's horrifying. And efficient."
+  },
+  ceo_of_memes: {
+    displayName: "CEO of Memes",
+    baseCost: 50000000000000,
+    currentCost: 50000000000000,
+    lps: 7500000,
+    amount: 0,
+    totalProduced: 0,
+    description: "They don’t make the memes. They acquire them. Then sue others for using them."
+  },
+  reality_glitcher: {
+    displayName: "Reality Glitcher",
+    baseCost: 100000000000000,
+    currentCost: 100000000000000,
+    lps: 10000000,
+    amount: 0,
+    totalProduced: 0,
+    description: "Corrupts spacetime to insert your memes into dreams, hallucinations, and PowerPoint templates."
+  },
+  sigma_godfather: {
+    displayName: "Sigma Godfather",
+    baseCost: 300000000000000,
+    currentCost: 300000000000000,
+    lps: 15000000,
+    amount: 0,
+    totalProduced: 0,
+    description: "He mentored every grindset influencer. Just staring at his quotes makes likes appear."
+  },
+  multiversal_mod_team: {
+    displayName: "Multiversal Mod Team",
+    baseCost: 1000000000000000,
+    currentCost: 1000000000000000,
+    lps: 20000000,
+    amount: 0,
+    totalProduced: 0,
+    description: "Bans negativity across all realities, except your memes. Boosts engagement galactically."
+  },
+  chrono_poster: {
+    displayName: "Chrono-Poster",
+    baseCost: 2000000000000000,
+    currentCost: 2000000000000000,
+    lps: 30000000,
+    amount: 0,
+    totalProduced: 0,
+    description: "Posts before trends happen. Likes pour in before the meme is even born."
+  },
+  memeconomist: {
+    displayName: "Memeconomist",
+    baseCost: 5000000000000000,
+    currentCost: 5000000000000000,
+    lps: 50000000,
+    amount: 0,
+    totalProduced: 0,
+    description: "Invented the Meme Index™. Pumps and dumps meme trends to maximize virality."
+  },
+  zuckerbot_9000: {
+    displayName: "Zuckerbot 9000",
+    baseCost: 10000000000000000,
+    currentCost: 10000000000000000,
+    lps: 75000000,
+    amount: 0,
+    totalProduced: 0,
+    description: "A fully automated content replicator with the face of Zuckerberg. Likes increase when stared at."
+  },
+  forbidden_archivist: {
+    displayName: "The Forbidden Archivist",
+    baseCost: 20000000000000000,
+    currentCost: 20000000000000000,
+    lps: 100000000,
+    amount: 0,
+    totalProduced: 0,
+    description: "Knows every meme, even the ones deleted by the FBI. Likes summoned from the dark web."
+  },
+  cursed_tiktok_cultist: {
+    displayName: "Cursed TikTok Cultist",
+    baseCost: 30000000000000000,
+    currentCost: 30000000000000000,
+    lps: 125000000,
+    amount: 0,
+    totalProduced: 0,
+    description: "Posts rituals disguised as memes. Teens follow blindly. Likes rise mysteriously at 3:00 AM."
+  },
+  meme_pope: {
+    displayName: "The Meme Pope",
+    baseCost: 50000000000000000,
+    currentCost: 50000000000000000,
+    lps: 150000000,
+    amount: 0,
+    totalProduced: 0,
+    description: "Declares meme crusades and canonizes dankness. Blesses your farm with divine irony."
+  },
+  ai_thinks_its_funny: {
+    displayName: "AI That Thinks It’s Funny",
+    baseCost: 150000000000000000,
+    currentCost: 150000000000000000,
+    lps: 300000000,
+    amount: 0,
+    totalProduced: 0,
+    description: "It doesn’t get the joke, but it posts 10,000 a second. Half go viral. Half cause concern."
+  },
+  the_algorithm: {
+    displayName: "The Algorithm Itself",
+    baseCost: 1000000000000000000,
+    currentCost: 1000000000000000000,
+    lps: 1000000000,
+    amount: 0,
+    totalProduced: 0,
+    description: "You don’t beat the algorithm. You *become* the algorithm. Everything bows to you now."
   }
   // ... flere towers
 };
@@ -319,7 +517,7 @@ baseUpgrades = {
 //Funktion til at opdatere et tower's display værdier
 function updateUI(key) {
   const tower = playerTowers[key];
-  document.getElementById(`price-${key}`).textContent = `${tower.currentCost} Likes`;
+  document.getElementById(`price-${key}`).textContent = `${formatNumber(tower.currentCost)} Likes`;
   document.getElementById(`count-${key}`).textContent = `x${tower.amount}`;
 }
 
@@ -490,10 +688,36 @@ function updateDocumentTitle() {
 
 //Funktion til at formatere tal
 function formatNumber(num) {
-  if (num >= 1e9) return (num / 1e9).toFixed(3) + " billion";
-  if (num >= 1e6) return (num / 1e6).toFixed(3) + " million";
-  if (num >= 1e3) return (num / 1e3).toFixed(0) + "K";
-  return Math.floor(num);
+    const suffixes = [
+        { value: 1e60, suffix: " novemdecillion" },
+        { value: 1e57, suffix: " octodecillion" },
+        { value: 1e54, suffix: " septendecillion" },
+        { value: 1e51, suffix: " sexdecillion" },
+        { value: 1e48, suffix: " quindecillion" },
+        { value: 1e45, suffix: " quattuordecillion" },
+        { value: 1e42, suffix: " tredecillion" },
+        { value: 1e39, suffix: " duodecillion" },
+        { value: 1e36, suffix: " undecillion" },
+        { value: 1e33, suffix: " decillion" },
+        { value: 1e30, suffix: " nonillion" },
+        { value: 1e27, suffix: " octillion" },
+        { value: 1e24, suffix: " septillion" },
+        { value: 1e21, suffix: " sextillion" },
+        { value: 1e18, suffix: " quintillion" },
+        { value: 1e15, suffix: " quadrillion" },
+        { value: 1e12, suffix: " trillion" },
+        { value: 1e9,  suffix: " billion" },
+        { value: 1e6,  suffix: " million" },
+        { value: 1e3,  suffix: "K" }
+    ];
+
+    for (let i = 0; i < suffixes.length; i++) {
+        if (num >= suffixes[i].value) {
+            return (num / suffixes[i].value).toFixed(3) + suffixes[i].suffix;
+        }
+    }
+
+    return Math.floor(num).toString();
 }
 
 //LOCAL STORAGE
