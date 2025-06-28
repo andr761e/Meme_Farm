@@ -122,6 +122,7 @@ function spawnSubscriber() {
   // Når spilleren klikker på subscriber
   sub.addEventListener("click", () => {
     totalSubscribers += 1; // Du definerer denne variabel
+    totalSubscribersEver += 1; 
     container.removeChild(sub);
     // Du kan fx vise en flyvende "+1 subscriber"-effekt her
   });
@@ -728,6 +729,7 @@ function saveGame() {
     likesPerSecond,
     totalLikesEver,
     totalSubscribers,
+    totalSubscribersEver,
     playerTowers,
     playerUpgrades
   };
@@ -745,6 +747,7 @@ function loadGame() {
     likesPerSecond = data.likesPerSecond || 0;
     totalLikesEver = data.totalLikesEver || 0;
     totalSubscribers = data.totalSubscribers || 0;
+     totalSubscribersEver = data.totalSubscribersEver || 0;
 
     playerTowers = data.playerTowers || JSON.parse(JSON.stringify(baseTowers));
     playerUpgrades = data.playerUpgrades || JSON.parse(JSON.stringify(baseUpgrades));

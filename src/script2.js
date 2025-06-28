@@ -2,9 +2,14 @@
 let totalLikes = 0;
 let likesPerSecond = 0;
 let totalLikesEver = 0;
+let totalSubscribers = 0;
+let totalSubscribersEver = 0;
+let playTimeSeconds = 0;
+let totalClicks = 0; 
+let totalLikesFromClicks = 0;
+
 let hoveredKey = null;
 let lastHoverY = null;
-let totalSubscribers = 0;
 
 let playerTowers = JSON.parse(JSON.stringify(baseTowers));
 let playerUpgrades = JSON.parse(JSON.stringify(baseUpgrades));
@@ -66,6 +71,8 @@ memeButton.addEventListener("click", (e) => {
   const gain = playerUpgrades.power_click.currentPower;
   totalLikes += gain;
   updateDisplay();
+  totalClicks += 1;
+  totalLikesFromClicks += gain;
   totalLikesEver += gain;
       // Afspil lyd
     const effect = new Audio('../assets/sounds/pop-sound.mp3');
@@ -82,6 +89,7 @@ memeButton.addEventListener("click", (e) => {
 setInterval(() => {
   totalLikes += likesPerSecond;
   totalLikesEver += likesPerSecond
+  playTimeSeconds += 1;
   updateDisplay();
   updateTotalProduced();
   updateDocumentTitle();
@@ -112,6 +120,7 @@ document.getElementById("reset-box").addEventListener("click", () => {
   likesPerSecond = 0;
   totalLikesEver = 0; 
   totalSubscribers = 0;
+  totalSubscribersEver = 0;
   updateDisplay();
   updateAllUpgradesUI();
   updateAllTowersUI();
