@@ -1,16 +1,23 @@
 //Game Stats
+//Values displayed in game
 let totalLikes = 0;
 let likesPerSecond = 0;
-let totalLikesEver = 0;
 let totalSubscribers = 0;
+//Background values
+let totalLikesEver = 0;
 let totalSubscribersEver = 0;
 let playTimeSeconds = 0;
 let totalClicks = 0; 
 let totalLikesFromClicks = 0;
+let luckySpinsUsed = 0;
+let totalTowersOwned = 0;
+let totalLikesSpent = 0;
+
 
 let hoveredKey = null;
 let lastHoverY = null;
 
+//Directionaries med Towers og Upgrades
 let playerTowers = JSON.parse(JSON.stringify(baseTowers));
 let playerUpgrades = JSON.parse(JSON.stringify(baseUpgrades));
 
@@ -121,6 +128,12 @@ document.getElementById("reset-box").addEventListener("click", () => {
   totalLikesEver = 0; 
   totalSubscribers = 0;
   totalSubscribersEver = 0;
+  playTimeSeconds = 0;
+  totalClicks = 0;
+  totalLikesFromClicks = 0;
+  luckySpinsUsed = 0;
+  totalTowersOwned = 0;
+  totalLikesSpent = 0;
   updateDisplay();
   updateAllUpgradesUI();
   updateAllTowersUI();

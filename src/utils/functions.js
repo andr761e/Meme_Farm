@@ -22,10 +22,6 @@ function openOverlay(tabName) {
   overlay.style.display = "flex";
 }
 
-function closeOverlay() {
-  document.getElementById("nav-overlay").style.display = "none";
-}
-
 
 //LEFT SIDE (MEME BUTTON SIDE) FUNCTIONS
 //Funktion der får tal til at poppe op, når man klikker på meme knappen
@@ -535,10 +531,13 @@ function updateAllTowersUI() {
 function buyTower(key) {
   const tower = playerTowers[key];
   if (totalLikes >= tower.currentCost) {
-    totalLikes -= tower.currentCost;
+    cost = tower.currentCost;
+    totalLikes -= cost;
+    totalLikesSpent += cost;
     tower.amount += 1;
-    tower.currentCost = Math.floor(tower.baseCost * Math.pow(1.25, tower.amount));
+    tower.currentCost = Math.floor(tower.baseCost * Math.pow(1.20, tower.amount));
     likesPerSecond += tower.lps;
+    totalTowersOwned += 1;
     // Afspil lyd
     const effect = new Audio('../assets/sounds/pop-sound.mp3');
     effect.volume = 0.1;
@@ -689,37 +688,37 @@ function updateDocumentTitle() {
 
 //Funktion til at formatere tal
 function formatNumber(num) {
-    const suffixes = [
-        { value: 1e60, suffix: " novemdecillion" },
-        { value: 1e57, suffix: " octodecillion" },
-        { value: 1e54, suffix: " septendecillion" },
-        { value: 1e51, suffix: " sexdecillion" },
-        { value: 1e48, suffix: " quindecillion" },
-        { value: 1e45, suffix: " quattuordecillion" },
-        { value: 1e42, suffix: " tredecillion" },
-        { value: 1e39, suffix: " duodecillion" },
-        { value: 1e36, suffix: " undecillion" },
-        { value: 1e33, suffix: " decillion" },
-        { value: 1e30, suffix: " nonillion" },
-        { value: 1e27, suffix: " octillion" },
-        { value: 1e24, suffix: " septillion" },
-        { value: 1e21, suffix: " sextillion" },
-        { value: 1e18, suffix: " quintillion" },
-        { value: 1e15, suffix: " quadrillion" },
-        { value: 1e12, suffix: " trillion" },
-        { value: 1e9,  suffix: " billion" },
-        { value: 1e6,  suffix: " million" },
-        { value: 1e3,  suffix: "K" }
-    ];
+  const suffixes = [
+      { value: 1e60, suffix: " novemdecillion" },
+      { value: 1e57, suffix: " octodecillion" },
+      { value: 1e54, suffix: " septendecillion" },
+      { value: 1e51, suffix: " sexdecillion" },
+      { value: 1e48, suffix: " quindecillion" },
+      { value: 1e45, suffix: " quattuordecillion" },
+      { value: 1e42, suffix: " tredecillion" },
+      { value: 1e39, suffix: " duodecillion" },
+      { value: 1e36, suffix: " undecillion" },
+      { value: 1e33, suffix: " decillion" },
+      { value: 1e30, suffix: " nonillion" },
+      { value: 1e27, suffix: " octillion" },
+      { value: 1e24, suffix: " septillion" },
+      { value: 1e21, suffix: " sextillion" },
+      { value: 1e18, suffix: " quintillion" },
+      { value: 1e15, suffix: " quadrillion" },
+      { value: 1e12, suffix: " trillion" },
+      { value: 1e9,  suffix: " billion" },
+      { value: 1e6,  suffix: " million" }
+  ];
 
-    for (let i = 0; i < suffixes.length; i++) {
-        if (num >= suffixes[i].value) {
-            return (num / suffixes[i].value).toFixed(3) + suffixes[i].suffix;
-        }
-    }
-
-    return Math.floor(num).toString();
+  for (let i = 0; i < suffixes.length; i++) {
+      if (num >= suffixes[i].value) {
+          return (num / suffixes[i].value).toFixed(3) + suffixes[i].suffix;
+      }
+  }
+  // Hvis under 1 million, vis normalt tal med tusindtalsseparator
+  return num.toLocaleString("en-US");
 }
+
 
 //LOCAL STORAGE
 //Gem data
@@ -727,9 +726,15 @@ function saveGame() {
   const saveData = {
     totalLikes,
     likesPerSecond,
-    totalLikesEver,
     totalSubscribers,
+    totalLikesEver,
     totalSubscribersEver,
+    playTimeSeconds,
+    totalClicks,
+    totalLikesFromClicks,
+    luckySpinsUsed,
+    totalTowersOwned,
+    totalLikesSpent,
     playerTowers,
     playerUpgrades
   };
