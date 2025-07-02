@@ -48,7 +48,39 @@
         <div id="nav-overlay" class="nav-overlay" style="display: none;">
           <button class="overlay-close" onclick="closeOverlay()">×</button>
           <div id="overlay-content" class="overlay-content">
-            <!-- Dynamisk indhold fra nav-tabs vises her -->
+            
+            <!-- STATS -->
+            <div id="overlay-stats" class="overlay-tab" style="display: none;">
+              <h2>📊 Game Statistics</h2>
+              <div class="stats-list">
+                <div class="stat-line">Total Likes: <span id="stat-totalLikes">0</span></div>
+                <div class="stat-line">Total Likes Ever: <span id="stat-totalLikesEver">0</span></div>
+                <div class="stat-line">Likes Per Second: <span id="stat-lps">0</span></div>
+                <div class="stat-line">Subscribers: <span id="stat-totalSubscribers">0</span></div>
+                <div class="stat-line">Subscribers Ever: <span id="stat-totalSubscribersEver">0</span></div>
+                <div class="stat-line">Total Towers Owned: <span id="stat-totalTowers">0</span></div>
+                <div class="stat-line">Total Likes Produced by Towers: <span id="stat-totalProduced">0</span></div>
+              </div>
+            </div>
+
+            <!-- UPGRADES -->
+            <div id="overlay-upgrades" class="overlay-tab" style="display: none;">
+              <h2>🔧 All Upgrades</h2>
+              <p>Coming soon! Here you'll find a list of all unlocked upgrades and their effects.</p>
+            </div>
+
+            <!-- OPTIONS -->
+            <div id="overlay-options" class="overlay-tab" style="display: none;">
+              <h2>⚙️ Game Options</h2>
+              <button id="reset-box">Reset Game</button>
+            </div>
+
+            <!-- INFO -->
+            <div id="overlay-info" class="overlay-tab" style="display: none;">
+              <h2>ℹ️ About Meme Farm</h2>
+              <p>A Cookie Clicker–inspired idle game where you farm likes and build meme empires.</p>
+            </div>
+
           </div>
         </div>
 
@@ -100,10 +132,6 @@
           <span class="reward-text">Claim Reward</span>
         </div>
 
-        <div class="reward-img-box" id="reset-box">
-          <img src="../assets/images/ui/Challenge-box.png" alt="Reward frame" class="reward-frame">
-          <span class="reward-text">Reset</span>
-        </div>
       </div>
     </div>
 

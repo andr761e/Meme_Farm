@@ -1,25 +1,44 @@
 //TOP BAR FUNCTIONS
 function openOverlay(tabName) {
   const overlay = document.getElementById("nav-overlay");
-  const content = document.getElementById("overlay-content");
+  const tabs = document.querySelectorAll(".overlay-tab");
 
-  // Du kan tilføje mere kompleks logik her for hvert tab
-  switch (tabName) {
-    case "Stats":
-      content.innerHTML = "<h2>Stats</h2><p>Her vises dine likes, LPS og subscribers osv.</p>";
-      break;
-    case "Upgrades":
-      content.innerHTML = "<h2>Upgrades</h2><p>Oversigt over permanente opgraderinger.</p>";
-      break;
-    case "Options":
-      content.innerHTML = "<h2>Options</h2><p>Her kan du ændre spilindstillinger.</p>";
-      break;
-    case "Info":
-      content.innerHTML = "<h2>Info</h2><p>Lavet af dig – det sejeste idle game nogensinde.</p>";
-      break;
+  tabs.forEach(tab => tab.style.display = "none");
+
+  const lower = tabName.toLowerCase();
+  const target = document.getElementById(`overlay-${lower}`);
+  if (target) {
+    target.style.display = "block";
+    if (lower === "stats") updateStatsOverlay();
   }
 
   overlay.style.display = "flex";
+}
+
+
+//Funktion til at vise STATS tab
+function updateStatsOverlay() {
+  const get = (id) => document.getElementById(id);
+  let towerCount = 0;
+  let totalProduced = 0;
+
+  for (const key in playerTowers) {
+    towerCount += playerTowers[key].amount;
+    totalProduced += playerTowers[key].totalProduced;
+  }
+
+  get("stat-totalLikes").textContent = formatNumber(totalLikes);
+  get("stat-totalLikesEver").textContent = formatNumber(totalLikesEver);
+  get("stat-lps").textContent = formatNumber(likesPerSecond);
+  get("stat-totalSubscribers").textContent = formatNumber(totalSubscribers);
+  get("stat-totalSubscribersEver").textContent = formatNumber(totalSubscribersEver);
+  get("stat-totalTowers").textContent = formatNumber(towerCount);
+  get("stat-totalProduced").textContent = formatNumber(totalProduced);
+}
+
+//Close overlay funktion
+function closeOverlay() {
+  document.getElementById("nav-overlay").style.display = "none";
 }
 
 
@@ -535,7 +554,7 @@ function buyTower(key) {
     totalLikes -= cost;
     totalLikesSpent += cost;
     tower.amount += 1;
-    tower.currentCost = Math.floor(tower.baseCost * Math.pow(1.20, tower.amount));
+    tower.currentCost = Math.floor(tower.baseCost * Math.pow(1.15, tower.amount));
     likesPerSecond += tower.lps;
     totalTowersOwned += 1;
     // Afspil lyd
@@ -569,7 +588,7 @@ function buyUpgrade(key) {
     upgrade.currentLevel += 1;
 
     // Ny pris (fx x2 pr. level)
-    upgrade.currentPrice = Math.floor(upgrade.basePrice * Math.pow(2, upgrade.currentLevel));
+    upgrade.currentPrice = Math.floor(upgrade.basePrice * Math.pow(1.20, upgrade.currentLevel));
     // Afspil lyd
     const effect = new Audio('../assets/sounds/pop-sound.mp3');
     effect.volume = 0.1;
@@ -613,8 +632,8 @@ function showTowerTooltip(e, key) {
     <div class="tooltip-title">${tower.displayName}</div>
     <div style="color: #aaa; font-style: italic;">${tower.description || "No description."}</div>
     <div class="tooltip-line">Each tower produces <b>${tower.lps}</b> Likes/sec</div>
-    <div class="tooltip-line">${tower.amount} owned = <b>${tower.amount * tower.lps}</b> LPS</div>
-    <div class="tooltip-line"><b>${tower.totalProduced}</b> Likes produced in total</div>
+    <div class="tooltip-line">${tower.amount} owned = <b>${formatNumber(tower.amount * tower.lps)}</b> LPS</div>
+    <div class="tooltip-line"><b>${formatNumber(tower.totalProduced)}</b> Likes produced in total</div>
   `;
   tooltip.style.display = 'block';
 
