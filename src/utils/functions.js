@@ -738,6 +738,9 @@ function formatNumber(num) {
   return num.toLocaleString("en-US");
 }
 
+//LUCKY SPIN
+
+
 
 //LOCAL STORAGE
 //Gem data
@@ -782,4 +785,15 @@ function loadGame() {
   } catch (e) {
     console.error("Fejl under indlæsning af spil:", e);
   }
+}
+
+//Hjælpefunktioner til at opdatere likes og subscribers til tests
+function addSubscribersManual(amount) {
+  totalSubscribers += amount;
+  updateDisplay();
+}
+
+function addLikesManual(amount) {
+  totalLikes += amount;
+  updateDisplay();
 }

@@ -172,6 +172,100 @@ document.querySelectorAll('.middle-tab-button').forEach(button => {
 });
 
 
+//LUCKY SPIN
+const arm = document.getElementById("slot-arm");
+const slotIcon = document.getElementById("slot-icon");
+const spinResult = document.getElementById("spin-result");
+
+// Mulige mængder man kan vinde – med sandsynlighed
+const towerMultipliers = [
+  { amount: 10, weight: 2 },
+  { amount: 5,  weight: 6 },
+  { amount: 3,  weight: 12 },
+  { amount: 1,  weight: 20 },
+];
+
+// 🎰 Start spin når man klikker armen
+arm.addEventListener("click", () => {
+  if (totalSubscribers < 3) {
+    spinResult.textContent = "Not enough subscribers!";
+    return;
+  }
+
+  totalSubscribers -= 3;
+  updateDisplay();
+
+  arm.disabled = true;
+  spinResult.textContent = "Spinning...";
+
+  // 🎞 Alle tower-ikoner
+  const towerKeys = Object.keys(playerTowers);
+  const towerIcons = towerKeys.map(key => ({
+    key,
+    src: `../assets/images/Towers/Tower ${getTowerIndex(key)} - ${playerTowers[key].displayName}.png`,
+    name: playerTowers[key].displayName
+  }));
+
+  // 🔁 Animation: Rul hurtigt igennem towers
+  let i = 0;
+  let spins = 0;
+  const spinSpeed = 50; // ms mellem billeder
+  const maxSpins = 25;
+
+  const interval = setInterval(() => {
+    const current = towerIcons[i % towerIcons.length];
+    slotIcon.src = current.src;
+    i++;
+    spins++;
+    if (spins >= maxSpins) {
+      clearInterval(interval);
+      const result = getRandomTowerReward(towerIcons);
+      awardTower(result.key, result.amount);
+      spinResult.textContent = `🎉 You won x${result.amount} ${result.name}!`;
+      arm.disabled = false;
+    }
+  }, spinSpeed);
+});
+
+// 📦 Beløn: Tilføj tower og opdater stats/UI
+function awardTower(key, amount) {
+  const tower = playerTowers[key];
+  tower.amount += amount;
+  likesPerSecond += amount * tower.lps;
+  totalTowersOwned += amount;
+  updateUI(key);
+  updateDisplay();
+}
+
+// 🎲 Vælg tower + mængde med vægtning
+function getRandomTowerReward(towerIcons) {
+  const tower = towerIcons[Math.floor(Math.random() * towerIcons.length)];
+  const multiplier = weightedRandom(towerMultipliers);
+  return {
+    key: tower.key,
+    name: tower.name,
+    amount: multiplier.amount
+  };
+}
+
+// 📈 Træk tilfældig mængde baseret på vægt
+function weightedRandom(pool) {
+  const total = pool.reduce((sum, r) => sum + r.weight, 0);
+  let rand = Math.random() * total;
+  for (const item of pool) {
+    if (rand < item.weight) return item;
+    rand -= item.weight;
+  }
+}
+
+// 🔢 Find tower-billede-index baseret på key
+function getTowerIndex(key) {
+  const keys = Object.keys(baseTowers);
+  return keys.indexOf(key) + 1;
+}
+
+
+
 //SWIRLING LIKES BUTTONS OMKRING MEME BUTTON
 let orbitAngleOffset = 0;
 
