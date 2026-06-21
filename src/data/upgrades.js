@@ -4,12 +4,16 @@ const towerImage = (fileName) => `../assets/images/Towers/${fileName}`;
 const iconImage = (fileName) => `../assets/images/icons/${fileName}`;
 
 const STANDARD_TOWER_TIERS = [
-  { tier: 1, costMultiplier: 5, unlockMultiplier: 2 },
-  { tier: 2, costMultiplier: 60, unlockMultiplier: 30 },
-  { tier: 3, costMultiplier: 900, unlockMultiplier: 450 },
-  { tier: 4, costMultiplier: 16000, unlockMultiplier: 8000 },
-  { tier: 5, costMultiplier: 350000, unlockMultiplier: 175000 }
+  { tier: 1, earlyCostMultiplier: 25, lateCostMultiplier: 15 },
+  { tier: 2, earlyCostMultiplier: 500, lateCostMultiplier: 80 },
+  { tier: 3, earlyCostMultiplier: 12000, lateCostMultiplier: 600 },
+  { tier: 4, earlyCostMultiplier: 350000, lateCostMultiplier: 5000 },
+  { tier: 5, earlyCostMultiplier: 12000000, lateCostMultiplier: 50000 }
 ];
+const CROSSFEED_COST_MULTIPLIER = 400;
+const CROSSFEED_UNLOCK_MULTIPLIER = 250;
+const LEGACY_OVERCLOCK_COST_MULTIPLIER = 8000000;
+const LEGACY_OVERCLOCK_UNLOCK_MULTIPLIER = 3000000;
 
 const TOWER_UPGRADE_NAMES = {
   swirling_like_button: "Like Button Swarm",
@@ -104,7 +108,7 @@ const CORE_UPGRADES = [
 ];
 
 const TOWER_UPGRADES = TOWERS.flatMap((tower, index) => [
-  ...createStandardTowerUpgrades(tower),
+  ...createStandardTowerUpgrades(tower, index),
   createTowerSynergyUpgrade(tower, index)
 ]);
 
@@ -118,30 +122,42 @@ export const UPGRADES = [
 
 export const UPGRADE_BY_ID = Object.fromEntries(UPGRADES.map((upgrade) => [upgrade.id, upgrade]));
 
-function createStandardTowerUpgrades(tower) {
-  return STANDARD_TOWER_TIERS.map(({ tier, costMultiplier, unlockMultiplier }) => ({
-    id: `${tower.id}_double_${tier}`,
-    displayName: `${getTowerUpgradeName(tower)} ${tier}`,
-    description: `A one-time upgrade that doubles ${tower.displayName} LPS.`,
-    type: "towerMultiplier",
-    category: "standardTowerDouble",
-    baseCost: Math.ceil(tower.baseCost * costMultiplier),
-    costScale: 1,
-    maxLevel: 1,
-    effect: { towerId: tower.id, multiplier: 2 },
-    image: tower.image,
-    unlockAt: {
-      towerId: tower.id,
-      amount: 1,
-      totalLikesEver: Math.ceil(Math.max(tower.unlockAt?.totalLikesEver ?? 0, tower.baseCost * unlockMultiplier)),
-      ...(tier > 1
-        ? {
-          upgradeId: `${tower.id}_double_${tier - 1}`,
-          level: 1
-        }
-        : {})
-    }
-  }));
+function createStandardTowerUpgrades(tower, towerIndex) {
+  return STANDARD_TOWER_TIERS.map((tierConfig) => {
+    const costMultiplier = getStandardTowerUpgradeCostMultiplier(tierConfig, towerIndex);
+
+    return {
+      id: `${tower.id}_double_${tierConfig.tier}`,
+      displayName: `${getTowerUpgradeName(tower)} ${tierConfig.tier}`,
+      description: `A one-time upgrade that doubles ${tower.displayName} LPS.`,
+      type: "towerMultiplier",
+      category: "standardTowerDouble",
+      baseCost: Math.ceil(tower.baseCost * costMultiplier),
+      costScale: 1,
+      maxLevel: 1,
+      effect: { towerId: tower.id, multiplier: 2 },
+      image: tower.image,
+      unlockAt: {
+        towerId: tower.id,
+        amount: 1,
+        totalLikesEver: Math.ceil(Math.max(tower.unlockAt?.totalLikesEver ?? 0, tower.baseCost * costMultiplier * 0.5)),
+        ...(tierConfig.tier > 1
+          ? {
+            upgradeId: `${tower.id}_double_${tierConfig.tier - 1}`,
+            level: 1
+          }
+          : {})
+      }
+    };
+  });
+}
+
+function getStandardTowerUpgradeCostMultiplier(tierConfig, towerIndex) {
+  const progress = TOWERS.length > 1
+    ? towerIndex / (TOWERS.length - 1)
+    : 0;
+
+  return tierConfig.earlyCostMultiplier * Math.pow(tierConfig.lateCostMultiplier / tierConfig.earlyCostMultiplier, progress);
 }
 
 function createTowerSynergyUpgrade(tower, index) {
@@ -156,7 +172,7 @@ function createTowerSynergyUpgrade(tower, index) {
     displayName: `${tower.displayName} Crossfeed`,
     description: `${tower.displayName} gets +${formatPercent(perTowerBonus)} LPS for each ${sourceTower.displayName} owned, capped at x${maxMultiplier}.`,
     type: "towerAmountSynergy",
-    baseCost: Math.ceil(tower.baseCost * 250),
+    baseCost: Math.ceil(tower.baseCost * CROSSFEED_COST_MULTIPLIER),
     costScale: 1,
     maxLevel: 1,
     effect: {
@@ -169,7 +185,7 @@ function createTowerSynergyUpgrade(tower, index) {
     unlockAt: {
       towerId: tower.id,
       amount: 1,
-      totalLikesEver: Math.ceil(Math.max(tower.unlockAt?.totalLikesEver ?? 0, tower.baseCost * 180))
+      totalLikesEver: Math.ceil(Math.max(tower.unlockAt?.totalLikesEver ?? 0, tower.baseCost * CROSSFEED_UNLOCK_MULTIPLIER))
     }
   };
 }
@@ -187,7 +203,7 @@ function createLegacyTowerUpgrade(config) {
     description: config.description,
     type: "towerMultiplier",
     category: "legacyOverclock",
-    baseCost: Math.ceil(tower.baseCost * 5000000),
+    baseCost: Math.ceil(tower.baseCost * LEGACY_OVERCLOCK_COST_MULTIPLIER),
     costScale: 1,
     maxLevel: 1,
     effect: { towerId: tower.id, multiplier: 1000 },
@@ -195,7 +211,7 @@ function createLegacyTowerUpgrade(config) {
     unlockAt: {
       towerId: tower.id,
       amount: 25,
-      totalLikesEver: Math.ceil(Math.max(tower.unlockAt?.totalLikesEver ?? 0, tower.baseCost * 2000000)),
+      totalLikesEver: Math.ceil(Math.max(tower.unlockAt?.totalLikesEver ?? 0, tower.baseCost * LEGACY_OVERCLOCK_UNLOCK_MULTIPLIER)),
       upgradeId: `${tower.id}_double_5`,
       level: 1
     }

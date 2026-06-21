@@ -55,9 +55,9 @@
       <div class="middle-tab-content active" id="tab-social" role="tabpanel">
         <div class="social-panel">
           <div class="social-header">
-            <span class="eyebrow">Steam-Ready Preview</span>
+            <span class="eyebrow">Leaderboards</span>
             <h2>Social Leaderboards</h2>
-            <p>Compare your meme empire across global and Steam friends boards. Live Steam data can plug into this panel later.</p>
+            <p>Compare your meme empire across global rankings and Steam friends.</p>
           </div>
 
           <div class="social-controls">
@@ -66,10 +66,14 @@
               <button id="leaderboard-friends" type="button" role="tab" aria-selected="false" data-leaderboard-scope="friends">Steam Friends</button>
             </div>
 
-            <label class="leaderboard-metric-picker" for="leaderboard-metric">
-              <span>Metric</span>
-              <select id="leaderboard-metric"></select>
-            </label>
+            <div class="leaderboard-metric-picker">
+              <span id="leaderboard-metric-label">Metric</span>
+              <button id="leaderboard-metric-toggle" class="leaderboard-metric-toggle" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="leaderboard-metric-list">
+                <span data-role="selected-metric">Lifetime Likes</span>
+                <small data-role="selected-metric-description">Total likes earned in this run.</small>
+              </button>
+              <div id="leaderboard-metric-list" class="leaderboard-metric-list" role="listbox" aria-labelledby="leaderboard-metric-label" hidden></div>
+            </div>
           </div>
 
           <div id="leaderboard-status" class="leaderboard-status"></div>

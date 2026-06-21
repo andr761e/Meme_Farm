@@ -62,8 +62,6 @@ export function initUI(options) {
     showToast,
     showOfflineModal,
     setSaveStatus,
-    showExportModal,
-    showImportModal,
     closeOverlay
   };
 }
@@ -104,7 +102,8 @@ function collectElements() {
     nextUnlock: document.getElementById("next-unlock"),
     leaderboardGlobal: document.getElementById("leaderboard-global"),
     leaderboardFriends: document.getElementById("leaderboard-friends"),
-    leaderboardMetric: document.getElementById("leaderboard-metric"),
+    leaderboardMetricToggle: document.getElementById("leaderboard-metric-toggle"),
+    leaderboardMetricList: document.getElementById("leaderboard-metric-list"),
     leaderboardStatus: document.getElementById("leaderboard-status"),
     leaderboardList: document.getElementById("leaderboard-list"),
     labPrograms: document.getElementById("lab-programs"),
@@ -176,10 +175,48 @@ function bindShopTabs() {
 }
 
 function bindSocialControls() {
-  elements.leaderboardMetric.innerHTML = LEADERBOARD_METRICS.map((metric) => `
-    <option value="${metric.id}">${escapeHtml(metric.label)}</option>
+  const metricCategories = [...new Set(LEADERBOARD_METRICS.map((metric) => metric.category ?? "General"))];
+  elements.leaderboardMetricList.innerHTML = metricCategories.map((category) => `
+    <section class="leaderboard-metric-group" aria-label="${escapeHtml(category)}">
+      <span class="leaderboard-metric-category">${escapeHtml(category)}</span>
+      <div class="leaderboard-metric-options">
+      ${LEADERBOARD_METRICS
+        .filter((metric) => (metric.category ?? "General") === category)
+        .map((metric) => `
+          <button class="leaderboard-metric-option" type="button" role="option" data-leaderboard-metric="${metric.id}" aria-pressed="${metric.id === activeLeaderboardMetric}" aria-selected="${metric.id === activeLeaderboardMetric}">
+            <strong>${escapeHtml(metric.label)}</strong>
+            <small>${escapeHtml(metric.description)}</small>
+          </button>
+        `)
+        .join("")}
+      </div>
+    </section>
   `).join("");
-  elements.leaderboardMetric.value = activeLeaderboardMetric;
+
+  elements.leaderboardMetricList.querySelectorAll("[data-leaderboard-metric]").forEach((button) => {
+    button.addEventListener("click", () => {
+      activeLeaderboardMetric = button.dataset.leaderboardMetric;
+      setMetricListOpen(false);
+      updateSocial(handlers.state);
+    });
+  });
+
+  elements.leaderboardMetricToggle.addEventListener("click", () => {
+    setMetricListOpen(elements.leaderboardMetricList.hidden);
+  });
+
+  document.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!elements.leaderboardMetricList.hidden && (!(target instanceof Element) || !target.closest(".leaderboard-metric-picker"))) {
+      setMetricListOpen(false);
+    }
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      setMetricListOpen(false);
+    }
+  });
 
   for (const button of [elements.leaderboardGlobal, elements.leaderboardFriends]) {
     button.addEventListener("click", () => {
@@ -188,10 +225,11 @@ function bindSocialControls() {
     });
   }
 
-  elements.leaderboardMetric.addEventListener("change", () => {
-    activeLeaderboardMetric = elements.leaderboardMetric.value;
-    updateSocial(handlers.state);
-  });
+}
+
+function setMetricListOpen(open) {
+  elements.leaderboardMetricList.hidden = !open;
+  elements.leaderboardMetricToggle.setAttribute("aria-expanded", String(open));
 }
 
 function switchShopTab(tab) {
@@ -202,6 +240,7 @@ function switchShopTab(tab) {
   elements.tabUpgrades.setAttribute("aria-selected", String(!towersActive));
   elements.shopTowers.hidden = !towersActive;
   elements.shopUpgrades.hidden = towersActive;
+  elements.nextUnlock.hidden = !towersActive;
   elements.shopTowers.classList.toggle("active", towersActive);
   elements.shopUpgrades.classList.toggle("active", !towersActive);
 }
@@ -351,7 +390,7 @@ function renderBadIdeaProgram(program) {
           <span class="bad-idea-button-state" data-role="bad-idea-state">Ready</span>
         </button>
         <div class="bad-idea-result" data-role="bad-idea-result">
-          <strong>Last outcome</strong>
+          <small>Last outcome</small>
           <span>No bad idea committed yet.</span>
         </div>
       </div>
@@ -468,13 +507,19 @@ function updateSocial(state) {
   elements.leaderboardFriends.classList.toggle("active", activeLeaderboardScope === "friends");
   elements.leaderboardGlobal.setAttribute("aria-selected", String(activeLeaderboardScope === "global"));
   elements.leaderboardFriends.setAttribute("aria-selected", String(activeLeaderboardScope === "friends"));
+  elements.leaderboardMetricToggle.querySelector('[data-role="selected-metric"]').textContent = metric.label;
+  elements.leaderboardMetricToggle.querySelector('[data-role="selected-metric-description"]').textContent = metric.description;
+  elements.leaderboardMetricList.querySelectorAll("[data-leaderboard-metric]").forEach((button) => {
+    const active = button.dataset.leaderboardMetric === metric.id;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+    button.setAttribute("aria-selected", String(active));
+  });
 
   elements.leaderboardStatus.innerHTML = `
     <span>${escapeHtml(metric.description)}</span>
     <strong>Your ${escapeHtml(metric.label)}: ${escapeHtml(formatLeaderboardValue(metric.id, playerValue))}</strong>
-    <small>${activeLeaderboardScope === "friends"
-      ? "Steam friends board is using preview rows until the desktop Steam build is connected."
-      : "Global board is using preview rows until Steamworks leaderboards are connected."}</small>
+    <small>${activeLeaderboardScope === "friends" ? "Friends ranking" : "Global ranking"}</small>
   `;
 
   elements.leaderboardList.innerHTML = rows.map((row) => `
@@ -482,7 +527,7 @@ function updateSocial(state) {
       <span class="leaderboard-rank">#${row.rank}</span>
       <span class="leaderboard-player">
         <strong>${escapeHtml(row.name)}</strong>
-        ${row.isPlayer ? "<small>Local save</small>" : `<small>${activeLeaderboardScope === "friends" ? "Steam friend preview" : "Global preview"}</small>`}
+        ${row.isPlayer ? "<small>You</small>" : `<small>${activeLeaderboardScope === "friends" ? "Friend" : "Player"}</small>`}
       </span>
       <span class="leaderboard-score">${escapeHtml(formatLeaderboardValue(metric.id, row.score))}</span>
     </div>
@@ -549,13 +594,14 @@ function updateBadIdeaProgram(state, program) {
 
   if (!lastOutcome) {
     resultPanel.innerHTML = `
-      <strong>Last outcome</strong>
+      <small>Last outcome</small>
       <span>No bad idea committed yet.</span>
     `;
     return;
   }
 
   resultPanel.innerHTML = `
+    <small>Last outcome</small>
     <strong>${escapeHtml(lastOutcome.name)}</strong>
     <span>${escapeHtml(lastOutcome.message)}</span>
   `;
@@ -742,29 +788,52 @@ function renderOverlay(type) {
   }
 
   if (type === "options") {
+    const volumePercent = Math.round((state.settings.volume ?? 1) * 100);
     elements.overlayContent.innerHTML = `
       <h2 id="overlay-title">Options</h2>
-      <div class="options-grid">
-        <button type="button" id="toggle-mute">${state.settings.muted ? "Unmute Audio" : "Mute Audio"}</button>
-        <button type="button" id="export-save">Export Save</button>
-        <button type="button" id="import-save">Import Save</button>
-        <button type="button" id="reset-game" class="danger">Reset Save</button>
+      <div class="options-panel">
+        <section class="options-section" aria-labelledby="audio-options-title">
+          <h3 id="audio-options-title">Audio</h3>
+          <label class="volume-control" for="volume-slider">
+            <span>
+              <strong>Master Volume</strong>
+              <small id="volume-value">${volumePercent}%${state.settings.muted ? " (muted)" : ""}</small>
+            </span>
+            <input id="volume-slider" type="range" min="0" max="100" step="1" value="${volumePercent}" />
+          </label>
+          <button type="button" id="toggle-mute">${state.settings.muted ? "Unmute Audio" : "Mute Audio"}</button>
+        </section>
+        <section class="options-section" aria-labelledby="save-options-title">
+          <h3 id="save-options-title">Progress</h3>
+          <p>Your progress saves automatically.</p>
+          <button type="button" id="reset-game" class="danger">Reset Save</button>
+        </section>
       </div>
     `;
+    const volumeSlider = document.getElementById("volume-slider");
+    const volumeValue = document.getElementById("volume-value");
+
+    volumeSlider.addEventListener("input", (event) => {
+      const nextVolume = Number(event.currentTarget.value) / 100;
+      handlers.onSetVolume(nextVolume);
+      const nextPercent = Math.round((state.settings.volume ?? nextVolume) * 100);
+      volumeValue.textContent = `${nextPercent}%${state.settings.muted ? " (muted)" : ""}`;
+    });
+
     document.getElementById("toggle-mute").addEventListener("click", (event) => {
       handlers.onToggleMute();
       event.currentTarget.textContent = state.settings.muted ? "Unmute Audio" : "Mute Audio";
+      volumeValue.textContent = `${Math.round((state.settings.volume ?? 1) * 100)}%${state.settings.muted ? " (muted)" : ""}`;
     });
-    document.getElementById("export-save").addEventListener("click", handlers.onExportRequest);
-    document.getElementById("import-save").addEventListener("click", handlers.onImportRequest);
     document.getElementById("reset-game").addEventListener("click", handlers.onResetRequest);
     return;
   }
 
   elements.overlayContent.innerHTML = `
     <h2 id="overlay-title">About Meme Farm</h2>
-    <p>Meme Farm is a Cookie Clicker-inspired idle game about farming likes, collecting subscribers, and constructing a baffling meme empire one questionable purchase at a time.</p>
-    <p>This pass keeps the game vanilla while preparing the code for more towers, upgrades, social leaderboards, achievements, and future Electron packaging.</p>
+    <p>Meme Farm is a chaotic idle clicker about posting memes, farming likes, and turning internet nonsense into an increasingly ridiculous empire. Click for early likes, buy towers to automate the grind, and stack upgrades until the numbers become deeply unserious.</p>
+    <p>Subscribers are your special side currency. Collect them when they appear, then spend them in the Meme Lab on temporary boosts, risky experiments, and stranger systems as the game grows.</p>
+    <p>Future updates will expand the Meme Lab with new programs, more subscriber sinks, and fresh ways to bend your meme economy in irresponsible directions.</p>
   `;
 }
 
@@ -953,44 +1022,6 @@ function showOfflineModal({ likesEarned, secondsAway, capacity = 0 }) {
       <button type="button" data-modal-close>Nice</button>
     </div>
   `);
-}
-
-function showExportModal(saveString) {
-  showModal(`
-    <div class="modal-card modal-wide">
-      <h2>Export Save</h2>
-      <p>Here is your current save JSON.</p>
-      <textarea readonly spellcheck="false">${escapeHtml(saveString)}</textarea>
-      <button type="button" data-modal-close>Done</button>
-    </div>
-  `);
-}
-
-function showImportModal(onImport) {
-  showModal(`
-    <div class="modal-card modal-wide">
-      <h2>Import Save</h2>
-      <p>Paste a Meme Farm save JSON string. Invalid or corrupt saves are rejected before replacing your current run.</p>
-      <textarea id="import-save-text" spellcheck="false"></textarea>
-      <div class="modal-actions">
-        <button type="button" data-modal-close>Cancel</button>
-        <button type="button" id="confirm-import">Import</button>
-      </div>
-    </div>
-  `);
-
-  document.getElementById("confirm-import").addEventListener("click", () => {
-    const text = document.getElementById("import-save-text").value;
-    const result = onImport(text);
-
-    if (result.ok) {
-      closeModal();
-      showToast("Save imported.");
-      return;
-    }
-
-    showToast(result.error);
-  });
 }
 
 export function showResetConfirmation(onConfirm) {

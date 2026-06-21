@@ -20,8 +20,6 @@ import {
 } from "./state.js";
 import {
   clearSave,
-  exportSaveString,
-  importSaveString,
   loadGame,
   saveGame
 } from "./save.js";
@@ -152,7 +150,9 @@ function bootGame() {
     },
     onResetRequest: () => {
       showResetConfirmation(() => {
+        const preservedSettings = { ...gameState.settings };
         resetGameState();
+        gameState.settings = preservedSettings;
         clearSave();
         audio.purchase();
         dirty = true;
@@ -160,29 +160,20 @@ function bootGame() {
         ui.showToast("Fresh meme farm, clean slate.");
       });
     },
-    onExportRequest: () => {
-      ui.showExportModal(exportSaveString(gameState));
-    },
-    onImportRequest: () => {
-      ui.showImportModal((saveText) => {
-        const result = importSaveString(saveText);
-
-        if (result.ok) {
-          dirty = false;
-          audio.purchase();
-          markChanged({ immediate: true });
-        }
-
-        return result;
-      });
-    },
     onToggleMute: () => {
       gameState.settings.muted = audio.toggleMuted();
+      markChanged({ meaningful: true });
+    },
+    onSetVolume: (volume) => {
+      gameState.settings.volume = audio.setVolume(volume);
       markChanged({ meaningful: true });
     }
   });
 
-  audio.init({ muted: gameState.settings.muted });
+  audio.init({
+    muted: gameState.settings.muted,
+    volume: gameState.settings.volume
+  });
 
   const recordsChanged = updateLeaderboardRecords(gameState);
   const achievementsChanged = checkAchievements({ silent: true });
@@ -257,6 +248,12 @@ function bootGame() {
       addLikes(gameState, amount);
       markChanged({ meaningful: true });
     },
+    addSubscribers(amount = 1) {
+      const value = Math.max(1, Math.floor(Number(amount) || 1));
+      gameState.subscribers += value;
+      gameState.totalSubscribersEver += value;
+      markChanged({ meaningful: true });
+    },
     addTower(towerId, amount = 1) {
       awardTower(gameState, towerId, amount);
       markChanged({ meaningful: true });
@@ -279,6 +276,9 @@ function bootGame() {
       markChanged({ immediate: true });
     }
   };
+
+  window.addLikes = window.MemeFarmDebug.addLikes;
+  window.addSubscribers = window.MemeFarmDebug.addSubscribers;
 }
 
 function checkAchievements({ silent = false } = {}) {

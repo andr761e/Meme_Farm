@@ -2,7 +2,7 @@ import { TOWERS } from "./data/towers.js";
 import { UPGRADES } from "./data/upgrades.js";
 import { ACHIEVEMENTS } from "./data/achievements.js";
 import { BAD_IDEA_OUTCOME_BY_ID, MEME_LAB_BOOST_BY_ID } from "./data/memeLab.js";
-import { SAVE_VERSION, createDefaultState, replaceGameState } from "./state.js";
+import { SAVE_VERSION, createDefaultState } from "./state.js";
 
 export const SAVE_KEY = "memeFarmSave";
 
@@ -14,8 +14,14 @@ export function saveGame(state, storage = getStorage()) {
   const payload = serializeState(state);
   payload.stats.lastSaveTime = Date.now();
   state.stats.lastSaveTime = payload.stats.lastSaveTime;
-  storage.setItem(SAVE_KEY, JSON.stringify(payload));
-  return true;
+
+  try {
+    storage.setItem(SAVE_KEY, JSON.stringify(payload));
+    return true;
+  } catch (error) {
+    console.warn("Meme Farm save could not be written.", error);
+    return false;
+  }
 }
 
 export function loadGame(storage = getStorage()) {
@@ -43,27 +49,12 @@ export function loadGame(storage = getStorage()) {
   }
 }
 
-export function importSaveString(saveText, storage = getStorage()) {
-  try {
-    const parsed = JSON.parse(saveText);
-    const state = mergeSaveData(parsed);
-    replaceGameState(state);
-    saveGame(state, storage);
-    return { ok: true, state };
-  } catch (error) {
-    return {
-      ok: false,
-      error: "That save does not look like valid Meme Farm JSON."
-    };
-  }
-}
-
-export function exportSaveString(state) {
-  return JSON.stringify(serializeState(state), null, 2);
-}
-
 export function clearSave(storage = getStorage()) {
-  storage?.removeItem(SAVE_KEY);
+  try {
+    storage?.removeItem(SAVE_KEY);
+  } catch (error) {
+    console.warn("Meme Farm save could not be cleared.", error);
+  }
 }
 
 export function serializeState(state) {
@@ -105,7 +96,8 @@ export function serializeState(state) {
       bestClickPower: safeNumber(state.stats?.bestClickPower, 1)
     },
     settings: {
-      muted: Boolean(state.settings?.muted)
+      muted: Boolean(state.settings?.muted),
+      volume: clamp01(state.settings?.volume, 1)
     }
   };
 }
@@ -133,7 +125,8 @@ export function mergeSaveData(data) {
     bestClickPower: safeNumber(source.stats?.bestClickPower, 1)
   };
   next.settings = {
-    muted: Boolean(source.settings?.muted)
+    muted: Boolean(source.settings?.muted),
+    volume: clamp01(source.settings?.volume, 1)
   };
 
   mergeTowerState(next, source.towers ?? source.playerTowers ?? {});
@@ -233,7 +226,31 @@ function safeNumber(value, fallback = 0) {
   return Number.isFinite(number) ? Math.max(0, number) : fallback;
 }
 
+function clamp01(value, fallback = 0) {
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.min(1, Math.max(0, number)) : fallback;
+}
+
 function getStorage() {
+  const platformSave = globalThis.memeFarmPlatform?.save;
+  if (platformSave) {
+    return {
+      getItem(key) {
+        return key === SAVE_KEY ? platformSave.load() : null;
+      },
+      setItem(key, value) {
+        if (key === SAVE_KEY && !platformSave.write(value)) {
+          throw new Error("Platform save write failed.");
+        }
+      },
+      removeItem(key) {
+        if (key === SAVE_KEY) {
+          platformSave.clear();
+        }
+      }
+    };
+  }
+
   try {
     return globalThis.localStorage ?? null;
   } catch {

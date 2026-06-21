@@ -14,44 +14,58 @@ export const LEADERBOARD_SCOPES = [
 export const LEADERBOARD_METRICS = [
   {
     id: "total_likes_ever",
-    label: "Total Likes Ever",
-    description: "Lifetime likes earned across the whole run.",
+    steamName: "MF_LIFETIME_LIKES",
+    category: "Progress",
+    label: "Lifetime Likes",
+    description: "Total likes earned in this run.",
     getValue: (state) => state.totalLikesEver
   },
   {
     id: "highest_lps",
-    label: "Highest Likes Per Second",
-    description: "Best LPS reached, tracked as a high score.",
+    steamName: "MF_PEAK_LPS",
+    category: "Production",
+    label: "Peak Likes Per Second",
+    description: "Highest likes-per-second reached.",
     getValue: (state) => Math.max(state.stats?.bestLikesPerSecond ?? 0, getLikesPerSecond(state))
   },
   {
     id: "total_towers_owned",
-    label: "Total Towers Owned",
-    description: "Total number of production towers currently owned.",
+    steamName: "MF_TOWERS_OWNED",
+    category: "Progress",
+    label: "Towers Owned",
+    description: "Total production towers currently owned.",
     getValue: getTotalTowersOwned
   },
   {
     id: "milestones_unlocked",
+    steamName: "MF_MILESTONES_UNLOCKED",
+    category: "Progress",
     label: "Milestones Unlocked",
-    description: "Steam achievement-style milestones unlocked.",
+    description: "Total milestones unlocked.",
     getValue: (state) => ACHIEVEMENTS.filter((achievement) => state.achievements[achievement.id]).length
   },
   {
     id: "total_clicks",
-    label: "Total Clicks",
-    description: "Manual meme button clicks.",
+    steamName: "MF_MEME_BUTTON_CLICKS",
+    category: "Activity",
+    label: "Meme Button Clicks",
+    description: "Total manual meme button clicks.",
     getValue: (state) => state.totalClicks
   },
   {
     id: "highest_click_power",
-    label: "Highest Click Power",
-    description: "Best Likes-per-click value reached.",
+    steamName: "MF_PEAK_CLICK_POWER",
+    category: "Production",
+    label: "Peak Click Power",
+    description: "Highest likes-per-click reached.",
     getValue: (state) => Math.max(state.stats?.bestClickPower ?? 1, getClickPower(state))
   },
   {
     id: "subscribers_collected",
-    label: "Most Subscribers Collected",
-    description: "Lifetime subscriber pickups.",
+    steamName: "MF_SUBSCRIBERS_COLLECTED",
+    category: "Activity",
+    label: "Subscribers Collected",
+    description: "Total subscribers collected.",
     getValue: (state) => state.totalSubscribersEver
   }
 ];

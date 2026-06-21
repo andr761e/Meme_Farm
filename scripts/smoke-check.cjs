@@ -49,6 +49,10 @@ async function main() {
     throw new Error("Fastest 1M Likes should not be included as a leaderboard metric.");
   }
 
+  if (leaderboardsModule.LEADERBOARD_METRICS.some((metric) => !/^MF_[A-Z0-9_]+$/.test(metric.steamName ?? ""))) {
+    throw new Error("Every leaderboard metric should define a Steam-ready leaderboard name.");
+  }
+
   if (achievementsModule.ACHIEVEMENTS.length < towersModule.TOWERS.length + 30) {
     throw new Error("Expected a long milestone list with tower achievements and broader goals.");
   }
@@ -137,8 +141,12 @@ async function main() {
     throw new Error("The first five towers should be visible at the start.");
   }
 
-  if (towersModule.TOWERS[0].baseCost < 50 || towersModule.TOWERS[0].costScale < 1.2) {
-    throw new Error("Expected tower starting costs and cost scaling to be much steeper than the original economy.");
+  if (
+    towersModule.TOWERS[0].baseCost !== 10 ||
+    towersModule.TOWERS[1].baseCost !== 100 ||
+    towersModule.TOWERS.some((tower) => tower.costScale !== towersModule.TOWER_COST_SCALE)
+  ) {
+    throw new Error("Expected tower starting costs to match data and all towers to use the shared cost scale.");
   }
 
   if (upgradesModule.UPGRADES[0].id !== "power_click" || upgradesModule.UPGRADES[1].id !== "offline_capacity") {
@@ -172,12 +180,14 @@ async function main() {
 
     if (upgrade.category === "legacyOverclock") {
       legacyOverclockCounts.set(upgrade.effect.towerId, (legacyOverclockCounts.get(upgrade.effect.towerId) ?? 0) + 1);
+      const tower = towersModule.TOWERS.find((item) => item.id === upgrade.effect.towerId);
       if (
         upgrade.type !== "towerMultiplier" ||
         upgrade.maxLevel !== 1 ||
         upgrade.effect.multiplier !== 1000 ||
         upgrade.unlockAt?.upgradeId !== `${upgrade.effect.towerId}_double_5` ||
-        (upgrade.unlockAt?.amount ?? 0) < 25
+        (upgrade.unlockAt?.amount ?? 0) < 25 ||
+        (tower && upgrade.baseCost < tower.baseCost * 7000000)
       ) {
         throw new Error(`Legacy Overclock should be a one-time x1000 late-game tower revival: ${upgrade.id}`);
       }
@@ -185,7 +195,13 @@ async function main() {
 
     if (upgrade.type === "towerAmountSynergy") {
       towerSynergyCounts.set(upgrade.effect.towerId, (towerSynergyCounts.get(upgrade.effect.towerId) ?? 0) + 1);
-      if (upgrade.maxLevel !== 1 || !upgrade.effect.sourceTowerId || !upgrade.effect.multiplierPerSource) {
+      const tower = towersModule.TOWERS.find((item) => item.id === upgrade.effect.towerId);
+      if (
+        upgrade.maxLevel !== 1 ||
+        !upgrade.effect.sourceTowerId ||
+        !upgrade.effect.multiplierPerSource ||
+        (tower && upgrade.baseCost < tower.baseCost * 350)
+      ) {
         throw new Error("Tower synergy upgrades should be one-time cross-tower multipliers.");
       }
     }
@@ -196,9 +212,32 @@ async function main() {
       throw new Error(`Expected five one-time double LPS upgrades for tower: ${tower.id}`);
     }
 
+    const towerDoubleUpgrades = upgradesModule.UPGRADES
+      .filter((upgrade) => upgrade.category === "standardTowerDouble" && upgrade.effect.towerId === tower.id)
+      .sort((first, second) => Number(first.id.match(/_double_(\d+)$/)?.[1] ?? 0) - Number(second.id.match(/_double_(\d+)$/)?.[1] ?? 0));
+    if (towerDoubleUpgrades[0].baseCost < tower.baseCost * 10) {
+      throw new Error(`Expected first double upgrade to cost much more than its tower: ${tower.id}`);
+    }
+    for (let index = 1; index < towerDoubleUpgrades.length; index += 1) {
+      if (towerDoubleUpgrades[index].baseCost <= towerDoubleUpgrades[index - 1].baseCost) {
+        throw new Error(`Expected tower double upgrade costs to increase by tier: ${tower.id}`);
+      }
+    }
+
     if (towerSynergyCounts.get(tower.id) !== 1) {
       throw new Error(`Expected one crossfeed synergy upgrade for tower: ${tower.id}`);
     }
+  }
+
+  const firstTowerTierFive = upgradesModule.UPGRADES.find((upgrade) => upgrade.id === `${towersModule.TOWERS[0].id}_double_5`);
+  const lastTower = towersModule.TOWERS[towersModule.TOWERS.length - 1];
+  const lastTowerTierFive = upgradesModule.UPGRADES.find((upgrade) => upgrade.id === `${lastTower.id}_double_5`);
+  if (
+    !firstTowerTierFive ||
+    !lastTowerTierFive ||
+    lastTowerTierFive.baseCost / lastTower.baseCost >= firstTowerTierFive.baseCost / towersModule.TOWERS[0].baseCost
+  ) {
+    throw new Error("Expected late tower double upgrades to use lower relative multipliers than starter tower upgrades.");
   }
 
   for (const tower of towersModule.TOWERS.slice(0, 10)) {
@@ -345,6 +384,49 @@ async function main() {
   const serializedBadIdea = saveModule.serializeState(badIdeaState);
   if (serializedBadIdea.lab?.lastBadIdeaOutcome?.id !== "random_tower_shipment") {
     throw new Error("Expected Bad Idea Button last outcome to be saved.");
+  }
+
+  const originalPlatform = globalThis.memeFarmPlatform;
+  let platformSaveRaw = null;
+  try {
+    globalThis.memeFarmPlatform = {
+      save: {
+        load() {
+          return platformSaveRaw;
+        },
+        write(value) {
+          platformSaveRaw = String(value);
+          return true;
+        },
+        clear() {
+          platformSaveRaw = null;
+          return true;
+        }
+      }
+    };
+
+    const platformSaveState = stateModule.createDefaultState();
+    platformSaveState.likes = 777;
+    platformSaveState.totalLikesEver = 777;
+    if (!saveModule.saveGame(platformSaveState)) {
+      throw new Error("Expected platform save bridge to accept save writes.");
+    }
+
+    const platformLoad = saveModule.loadGame();
+    if (!platformLoad.loaded || platformLoad.state.likes !== 777) {
+      throw new Error("Expected platform save bridge to load saved progress.");
+    }
+
+    saveModule.clearSave();
+    if (platformSaveRaw !== null) {
+      throw new Error("Expected platform save bridge to clear saved progress.");
+    }
+  } finally {
+    if (originalPlatform === undefined) {
+      delete globalThis.memeFarmPlatform;
+    } else {
+      globalThis.memeFarmPlatform = originalPlatform;
+    }
   }
 
   const leaderboardRows = leaderboardsModule.getLeaderboardRows(state, {

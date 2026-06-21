@@ -1,4 +1,4 @@
-import { TOWERS, TOWER_BY_ID } from "./data/towers.js";
+import { TOWERS, TOWER_BY_ID, TOWER_COST_SCALE } from "./data/towers.js";
 import { UPGRADES, UPGRADE_BY_ID } from "./data/upgrades.js";
 import { BAD_IDEA_BUTTON, MEME_LAB_BOOST_BY_ID } from "./data/memeLab.js";
 
@@ -33,7 +33,8 @@ export function createDefaultState() {
       bestClickPower: 1
     },
     settings: {
-      muted: false
+      muted: false,
+      volume: 1
     }
   };
 }
@@ -82,7 +83,7 @@ export function getTowerCost(state, towerId) {
     return Infinity;
   }
 
-  return Math.floor(tower.baseCost * Math.pow(tower.costScale ?? 1.15, amount));
+  return Math.floor(tower.baseCost * Math.pow(tower.costScale ?? TOWER_COST_SCALE, amount));
 }
 
 export function getUpgradeCost(state, upgradeId) {
@@ -257,6 +258,14 @@ export function getOfflineProductionCapacity(state) {
 export function isTowerUnlocked(state, tower) {
   if (getTowerAmount(state, tower.id) > 0) {
     return true;
+  }
+
+  const towerIndex = TOWERS.findIndex((item) => item.id === tower.id);
+  if (towerIndex > 0) {
+    const previousTower = TOWERS[towerIndex - 1];
+    if (getTowerAmount(state, previousTower.id) < 1) {
+      return false;
+    }
   }
 
   return isUnlockSatisfied(state, tower.unlockAt);
