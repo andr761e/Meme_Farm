@@ -1,8 +1,15 @@
 import { TOWERS } from "./data/towers.js";
 import { UPGRADES } from "./data/upgrades.js";
 import { ACHIEVEMENTS } from "./data/achievements.js";
-import { BAD_IDEA_OUTCOME_BY_ID, MEME_LAB_BOOST_BY_ID } from "./data/memeLab.js";
-import { SAVE_VERSION, createDefaultState } from "./state.js";
+import { BAD_IDEA_CONSEQUENCE_BY_ID, BAD_IDEA_OUTCOME_BY_ID, MEME_LAB_BOOST_BY_ID } from "./data/memeLab.js";
+import {
+  DESKTOP_COMPANION_DEFAULTS,
+  DESKTOP_WINDOW_DEFAULTS,
+  DESKTOP_WINDOW_PRESETS,
+  SAVE_VERSION,
+  VISUAL_TAKEOVER_DEFAULTS,
+  createDefaultState
+} from "./state.js";
 
 export const SAVE_KEY = "memeFarmSave";
 
@@ -97,7 +104,10 @@ export function serializeState(state) {
     },
     settings: {
       muted: Boolean(state.settings?.muted),
-      volume: clamp01(state.settings?.volume, 1)
+      volume: clamp01(state.settings?.volume, 1),
+      visualTakeovers: sanitizeVisualTakeovers(state.settings?.visualTakeovers),
+      desktopCompanion: sanitizeDesktopCompanionSettings(state.settings?.desktopCompanion),
+      desktopWindow: sanitizeDesktopWindowSettings(state.settings?.desktopWindow)
     }
   };
 }
@@ -126,7 +136,10 @@ export function mergeSaveData(data) {
   };
   next.settings = {
     muted: Boolean(source.settings?.muted),
-    volume: clamp01(source.settings?.volume, 1)
+    volume: clamp01(source.settings?.volume, 1),
+    visualTakeovers: sanitizeVisualTakeovers(source.settings?.visualTakeovers),
+    desktopCompanion: sanitizeDesktopCompanionSettings(source.settings?.desktopCompanion),
+    desktopWindow: sanitizeDesktopWindowSettings(source.settings?.desktopWindow)
   };
 
   mergeTowerState(next, source.towers ?? source.playerTowers ?? {});
@@ -135,9 +148,50 @@ export function mergeSaveData(data) {
   return next;
 }
 
+function sanitizeVisualTakeovers(value) {
+  const keys = Object.keys(VISUAL_TAKEOVER_DEFAULTS);
+
+  if (value === false) {
+    return Object.fromEntries(keys.map((key) => [key, false]));
+  }
+
+  if (!value || typeof value !== "object") {
+    return { ...VISUAL_TAKEOVER_DEFAULTS };
+  }
+
+  return Object.fromEntries(keys.map((key) => [key, value[key] !== false]));
+}
+
+function sanitizeDesktopCompanionSettings(value) {
+  const defaults = DESKTOP_COMPANION_DEFAULTS;
+  const keys = Object.keys(defaults);
+
+  if (value === false) {
+    return Object.fromEntries(keys.map((key) => [key, false]));
+  }
+
+  if (!value || typeof value !== "object") {
+    return { ...defaults };
+  }
+
+  return Object.fromEntries(keys.map((key) => [key, Boolean(value[key] ?? defaults[key])]));
+}
+
+function sanitizeDesktopWindowSettings(value) {
+  const presetIds = new Set(DESKTOP_WINDOW_PRESETS.map((preset) => preset.id));
+  const sizePreset = typeof value?.sizePreset === "string" && presetIds.has(value.sizePreset)
+    ? value.sizePreset
+    : DESKTOP_WINDOW_DEFAULTS.sizePreset;
+
+  return { sizePreset };
+}
+
 function sanitizeLabState(lab) {
   const activeBoosts = lab?.activeBoosts && typeof lab.activeBoosts === "object"
     ? lab.activeBoosts
+    : {};
+  const activeConsequences = lab?.activeConsequences && typeof lab.activeConsequences === "object"
+    ? lab.activeConsequences
     : {};
 
   return {
@@ -146,8 +200,31 @@ function sanitizeLabState(lab) {
         .map(([id, active]) => [id, { expiresAt: safeNumber(active?.expiresAt) }])
         .filter(([id, active]) => MEME_LAB_BOOST_BY_ID[id] && active.expiresAt > 0)
     ),
-    lastBadIdeaOutcome: sanitizeBadIdeaOutcome(lab?.lastBadIdeaOutcome)
+    activeConsequences: Object.fromEntries(
+      Object.entries(activeConsequences)
+        .map(([id, active]) => [id, { expiresAt: safeNumber(active?.expiresAt) }])
+        .filter(([id, active]) => BAD_IDEA_CONSEQUENCE_BY_ID[id] && active.expiresAt > 0)
+    ),
+    lastBadIdeaOutcome: sanitizeBadIdeaOutcome(lab?.lastBadIdeaOutcome),
+    totalBoostsPurchased: safeNumber(lab?.totalBoostsPurchased),
+    boostPurchaseCounts: sanitizeIdCounts(lab?.boostPurchaseCounts, MEME_LAB_BOOST_BY_ID),
+    badIdeaPresses: safeNumber(lab?.badIdeaPresses),
+    badIdeaOutcomeCounts: sanitizeIdCounts(lab?.badIdeaOutcomeCounts, BAD_IDEA_OUTCOME_BY_ID),
+    subscribersSpent: safeNumber(lab?.subscribersSpent)
   };
+}
+
+function sanitizeIdCounts(counts, validIdsByKey) {
+  if (!counts || typeof counts !== "object") {
+    return {};
+  }
+
+  return Object.fromEntries(
+    Object.entries(counts)
+      .filter(([id]) => validIdsByKey[id])
+      .map(([id, value]) => [id, safeNumber(value)])
+      .filter(([, value]) => value > 0)
+  );
 }
 
 function sanitizeBadIdeaOutcome(outcome) {
@@ -159,6 +236,9 @@ function sanitizeBadIdeaOutcome(outcome) {
     id: outcome.id,
     name: String(outcome.name ?? BAD_IDEA_OUTCOME_BY_ID[outcome.id].name),
     message: String(outcome.message ?? ""),
+    consequenceId: outcome.consequenceId && BAD_IDEA_CONSEQUENCE_BY_ID[outcome.consequenceId]
+      ? outcome.consequenceId
+      : null,
     createdAt: safeNumber(outcome.createdAt)
   };
 }

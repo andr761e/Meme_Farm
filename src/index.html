@@ -16,6 +16,9 @@
         <span id="save-status" class="save-status">Fresh boot</span>
       </div>
     </div>
+    <div id="top-ticker" class="top-ticker" aria-live="polite">
+      <span data-role="ticker-track">Meme Farm bulletin loading...</span>
+    </div>
     <nav class="nav-tabs" aria-label="Game overlays">
       <button type="button" data-overlay="stats">Stats</button>
       <button type="button" data-overlay="milestones">Milestones</button>
@@ -28,6 +31,7 @@
   <main class="main-container">
     <section class="left-panel" aria-label="Main meme button and resources">
       <div class="resource-panel">
+        <span id="apocalypse-stage" class="apocalypse-stage">Basement Posting</span>
         <span id="total-likes" class="resource-number">0 Likes</span>
         <span id="likes-per-sec" class="resource-rate">0 LPS</span>
         <span id="click-power" class="resource-detail">+1 per click</span>
@@ -99,6 +103,9 @@
     </section>
   </main>
 
+  <div id="takeover-layer" class="takeover-layer" aria-hidden="true"></div>
+  <div id="consequence-layer" class="consequence-layer" aria-hidden="true"></div>
+  <div id="achievement-reaction-layer" class="achievement-reaction-layer" aria-live="polite"></div>
   <div id="tooltip" class="tooltip" role="tooltip" hidden></div>
   <div id="toast-container" class="toast-container" aria-live="polite"></div>
 

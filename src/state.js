@@ -1,8 +1,37 @@
 import { TOWERS, TOWER_BY_ID, TOWER_COST_SCALE } from "./data/towers.js";
 import { UPGRADES, UPGRADE_BY_ID } from "./data/upgrades.js";
-import { BAD_IDEA_BUTTON, MEME_LAB_BOOST_BY_ID } from "./data/memeLab.js";
+import { BAD_IDEA_BUTTON, BAD_IDEA_CONSEQUENCE_BY_ID, MEME_LAB_BOOST_BY_ID } from "./data/memeLab.js";
 
 export const SAVE_VERSION = 1;
+export const VISUAL_TAKEOVER_DEFAULTS = {
+  botnet: true,
+  discordMod: true,
+  memeLord: true,
+  rickrollLoop: true,
+  realityGlitcher: true,
+  cursedTikTok: true,
+  algorithm: true
+};
+export const DESKTOP_COMPANION_DEFAULTS = {
+  enabled: true,
+  trayStatus: true,
+  taskbarFlash: true,
+  offlineReports: true,
+  titleMischief: true
+};
+export const DEFAULT_DESKTOP_WINDOW_PRESET_ID = "1280x720";
+export const DESKTOP_WINDOW_PRESETS = [
+  { id: "fullscreen", label: "Fullscreen", fullscreen: true },
+  { id: "1152x648", label: "1152 x 648", width: 1152, height: 648 },
+  { id: "1280x720", label: "1280 x 720", width: 1280, height: 720 },
+  { id: "1366x768", label: "1366 x 768", width: 1366, height: 768 },
+  { id: "1440x810", label: "1440 x 810", width: 1440, height: 810 },
+  { id: "1600x900", label: "1600 x 900", width: 1600, height: 900 },
+  { id: "1920x1080", label: "1920 x 1080", width: 1920, height: 1080 }
+];
+export const DESKTOP_WINDOW_DEFAULTS = {
+  sizePreset: DEFAULT_DESKTOP_WINDOW_PRESET_ID
+};
 
 export const gameState = createDefaultState();
 
@@ -20,7 +49,13 @@ export function createDefaultState() {
     achievements: {},
     lab: {
       activeBoosts: {},
-      lastBadIdeaOutcome: null
+      activeConsequences: {},
+      lastBadIdeaOutcome: null,
+      totalBoostsPurchased: 0,
+      boostPurchaseCounts: {},
+      badIdeaPresses: 0,
+      badIdeaOutcomeCounts: {},
+      subscribersSpent: 0
     },
     towers: Object.fromEntries(TOWERS.map((tower) => [tower.id, createDefaultTowerState()])),
     upgrades: Object.fromEntries(UPGRADES.map((upgrade) => [upgrade.id, createDefaultUpgradeState()])),
@@ -34,7 +69,10 @@ export function createDefaultState() {
     },
     settings: {
       muted: false,
-      volume: 1
+      volume: 1,
+      visualTakeovers: { ...VISUAL_TAKEOVER_DEFAULTS },
+      desktopCompanion: { ...DESKTOP_COMPANION_DEFAULTS },
+      desktopWindow: { ...DESKTOP_WINDOW_DEFAULTS }
     }
   };
 }
@@ -92,6 +130,10 @@ export function getUpgradeCost(state, upgradeId) {
 
   if (!upgrade || isUpgradeMaxed(state, upgrade)) {
     return Infinity;
+  }
+
+  if (Array.isArray(upgrade.tierCosts) && Number.isFinite(upgrade.tierCosts[level])) {
+    return Math.floor(upgrade.tierCosts[level]);
   }
 
   return Math.floor(upgrade.baseCost * Math.pow(upgrade.costScale ?? 2, level));
@@ -208,6 +250,10 @@ export function getActiveLabBoosts(state, now = Date.now()) {
     .filter(Boolean);
 }
 
+export function hasActiveLabProgramBoost(state, programId, now = Date.now()) {
+  return getActiveLabBoosts(state, now).some((boost) => boost.programId === programId);
+}
+
 export function getLabBoostMultipliers(state, now = Date.now()) {
   return getActiveLabBoosts(state, now).reduce(
     (multipliers, boost) => ({
@@ -255,6 +301,16 @@ export function getOfflineProductionCapacity(state) {
   }, 0);
 }
 
+export function getOfflineProductionMaxSeconds() {
+  return UPGRADES.reduce((maxSeconds, upgrade) => {
+    if (upgrade.type !== "offlineProductionCapacity") {
+      return maxSeconds;
+    }
+
+    return Math.max(maxSeconds, upgrade.effect.maxOfflineSeconds ?? 0);
+  }, 0);
+}
+
 export function isTowerUnlocked(state, tower) {
   if (getTowerAmount(state, tower.id) > 0) {
     return true;
@@ -294,6 +350,14 @@ export function isUnlockSatisfied(state, unlockAt = {}) {
 
   if (unlockAt.towerId && getTowerAmount(state, unlockAt.towerId) < (unlockAt.amount ?? 1)) {
     return false;
+  }
+
+  if (Array.isArray(unlockAt.towerRequirements)) {
+    for (const requirement of unlockAt.towerRequirements) {
+      if (requirement?.towerId && getTowerAmount(state, requirement.towerId) < (requirement.amount ?? 1)) {
+        return false;
+      }
+    }
   }
 
   if (unlockAt.upgradeId && getUpgradeLevel(state, unlockAt.upgradeId) < (unlockAt.level ?? 1)) {
@@ -378,7 +442,7 @@ export function purchaseUpgrade(state, upgradeId) {
   state.totalLikesSpent += cost;
   state.upgrades[upgradeId] ??= createDefaultUpgradeState();
   state.upgrades[upgradeId].level += 1;
-  return { ok: true, cost };
+  return { ok: true, cost, upgrade };
 }
 
 export function purchaseLabBoost(state, boostId, now = Date.now()) {
@@ -390,7 +454,7 @@ export function purchaseLabBoost(state, boostId, now = Date.now()) {
 
   pruneExpiredLabBoosts(state, now);
 
-  if (state.lab?.activeBoosts?.[boostId]) {
+  if (hasActiveLabProgramBoost(state, boost.programId, now)) {
     return { ok: false, reason: "active" };
   }
 
@@ -401,6 +465,10 @@ export function purchaseLabBoost(state, boostId, now = Date.now()) {
   state.subscribers -= boost.subscriberCost;
   state.lab ??= {};
   state.lab.activeBoosts ??= {};
+  state.lab.boostPurchaseCounts ??= {};
+  state.lab.totalBoostsPurchased = (state.lab.totalBoostsPurchased ?? 0) + 1;
+  state.lab.boostPurchaseCounts[boostId] = (state.lab.boostPurchaseCounts[boostId] ?? 0) + 1;
+  state.lab.subscribersSpent = (state.lab.subscribersSpent ?? 0) + boost.subscriberCost;
   state.lab.activeBoosts[boostId] = {
     expiresAt: now + boost.durationSeconds * 1000
   };
@@ -418,26 +486,61 @@ export function pressBadIdeaButton(state, now = Date.now(), rng = Math.random) {
   state.subscribers -= cost;
   state.lab ??= {};
   state.lab.activeBoosts ??= {};
+  state.lab.badIdeaOutcomeCounts ??= {};
+  state.lab.badIdeaPresses = (state.lab.badIdeaPresses ?? 0) + 1;
+  state.lab.subscribersSpent = (state.lab.subscribersSpent ?? 0) + cost;
 
   const random = normalizeRandomSource(rng);
   const outcome = chooseWeightedOutcome(BAD_IDEA_BUTTON.outcomes, random);
   const result = applyBadIdeaOutcome(state, outcome, random);
+  const consequence = startBadIdeaConsequence(state, outcome.consequence, now);
+  const message = consequence
+    ? `${result.message} Aftermath: ${consequence.title} for ${consequence.durationSeconds}s.`
+    : result.message;
   const lastOutcome = {
     id: outcome.id,
     name: outcome.name,
-    message: result.message,
+    message,
+    consequenceId: consequence?.id ?? null,
     createdAt: now
   };
 
   state.lab.lastBadIdeaOutcome = lastOutcome;
+  state.lab.badIdeaOutcomeCounts[outcome.id] = (state.lab.badIdeaOutcomeCounts[outcome.id] ?? 0) + 1;
 
   return {
     ok: true,
     cost,
     outcome,
     result,
-    message: result.message
+    consequence,
+    message
   };
+}
+
+export function getActiveBadIdeaConsequences(state, now = Date.now()) {
+  const activeConsequences = state.lab?.activeConsequences ?? {};
+  return Object.entries(activeConsequences)
+    .map(([id, active]) => {
+      const consequence = BAD_IDEA_CONSEQUENCE_BY_ID[id];
+      const expiresAt = Number(active?.expiresAt);
+      const remainingSeconds = Math.max(0, Math.ceil((expiresAt - now) / 1000));
+
+      if (!consequence || remainingSeconds <= 0) {
+        return null;
+      }
+
+      return {
+        ...consequence,
+        expiresAt,
+        remainingSeconds
+      };
+    })
+    .filter(Boolean);
+}
+
+export function hasActiveBadIdeaConsequence(state, consequenceId, now = Date.now()) {
+  return getActiveBadIdeaConsequences(state, now).some((consequence) => consequence.id === consequenceId);
 }
 
 export function pruneExpiredLabBoosts(state, now = Date.now()) {
@@ -462,9 +565,11 @@ export function pruneExpiredLabBoosts(state, now = Date.now()) {
   return changed;
 }
 
-export function collectSubscriber(state) {
-  state.subscribers += 1;
-  state.totalSubscribersEver += 1;
+export function collectSubscriber(state, amount = 1) {
+  const value = Math.max(1, Math.floor(clampNumber(amount, 1)));
+  state.subscribers += value;
+  state.totalSubscribersEver += value;
+  return value;
 }
 
 export function tickProduction(state, deltaSeconds) {
@@ -496,11 +601,12 @@ export function applyOfflineProgress(state, lastSaveTime, now = Date.now()) {
   const savedAt = Number(lastSaveTime);
 
   if (!Number.isFinite(savedAt) || savedAt <= 0 || now <= savedAt) {
-    return { secondsAway: 0, likesEarned: 0 };
+    return { secondsAway: 0, productionSeconds: 0, likesEarned: 0 };
   }
 
   const secondsAway = Math.floor((now - savedAt) / 1000);
-  const cappedSeconds = Math.min(secondsAway, 60 * 60 * 24 * 7);
+  const maxOfflineSeconds = getOfflineProductionMaxSeconds();
+  const cappedSeconds = Math.min(secondsAway, maxOfflineSeconds);
   const capacity = getOfflineProductionCapacity(state);
   const effectiveSeconds = cappedSeconds * capacity;
   const likesEarned = applyProduction(state, effectiveSeconds);
@@ -509,7 +615,35 @@ export function applyOfflineProgress(state, lastSaveTime, now = Date.now()) {
     state.stats.offlineLikesEarned = likesEarned;
   }
 
-  return { secondsAway: cappedSeconds, likesEarned, capacity };
+  return {
+    secondsAway,
+    productionSeconds: cappedSeconds,
+    likesEarned,
+    capacity,
+    maxOfflineSeconds
+  };
+}
+
+export function pruneExpiredBadIdeaConsequences(state, now = Date.now()) {
+  const activeConsequences = state.lab?.activeConsequences;
+
+  if (!activeConsequences) {
+    return false;
+  }
+
+  let changed = false;
+
+  for (const [id, active] of Object.entries(activeConsequences)) {
+    const consequence = BAD_IDEA_CONSEQUENCE_BY_ID[id];
+    const expiresAt = Number(active?.expiresAt);
+
+    if (!consequence || !Number.isFinite(expiresAt) || expiresAt <= now) {
+      delete activeConsequences[id];
+      changed = true;
+    }
+  }
+
+  return changed;
 }
 
 export function unlockAchievement(state, achievementId) {
@@ -535,6 +669,84 @@ export function getProgressionTitle(state) {
   if (total >= 1000) return "Freshly Fried";
   if (total >= 100) return "Group Chat Menace";
   return "Dank Basement";
+}
+
+export const APOCALYPSE_ERAS = [
+  {
+    id: "basement_posting",
+    className: "era-basement-posting",
+    title: "Basement Posting",
+    label: "Basement Posting",
+    description: "One button, one questionable post, and the fragile belief that this can stay normal.",
+    clickVerb: "posted",
+    popupSuffix: "fresh post",
+    unlockHint: "Default stage"
+  },
+  {
+    id: "bot_economy",
+    className: "era-bot-economy",
+    title: "Bot Economy",
+    label: "Bot Economy",
+    description: "The accounts look real enough. Engagement starts arriving with identical profile pictures.",
+    clickVerb: "boosted",
+    popupSuffix: "bot applause",
+    unlockHint: "Botnet era"
+  },
+  {
+    id: "algorithm_takeover",
+    className: "era-algorithm-takeover",
+    title: "Algorithm Takeover",
+    label: "Algorithm Takeover",
+    description: "The feed is no longer recommending your memes. It is negotiating with them.",
+    clickVerb: "fed",
+    popupSuffix: "feed breach",
+    unlockHint: "Viral Singularity era"
+  },
+  {
+    id: "reality_corruption",
+    className: "era-reality-corruption",
+    title: "Reality Corruption",
+    label: "Reality Corruption",
+    description: "The posts have escaped the screen. Reality is now rendering with comment-section physics.",
+    clickVerb: "glitched",
+    popupSuffix: "reality leak",
+    unlockHint: "Reality Glitcher era"
+  },
+  {
+    id: "multiverse_collapse",
+    className: "era-multiverse-collapse",
+    title: "Multiverse Collapse",
+    label: "Multiverse Collapse",
+    description: "Every timeline is farming the same meme and the UI is pretending this is manageable.",
+    clickVerb: "crossposted",
+    popupSuffix: "timeline fracture",
+    unlockHint: "Meme Multiverse era"
+  }
+];
+
+export function getApocalypseEra(state) {
+  if (isMajorTowerOnline(state, "meme_multiverse_server") || isMajorTowerOnline(state, "the_algorithm")) {
+    return APOCALYPSE_ERAS[4];
+  }
+
+  if (isMajorTowerOnline(state, "reality_glitcher") || isMajorTowerOnline(state, "based_reality_distorter")) {
+    return APOCALYPSE_ERAS[3];
+  }
+
+  if (isMajorTowerOnline(state, "viral_singularity") || isMajorTowerOnline(state, "ai_meme_generator")) {
+    return APOCALYPSE_ERAS[2];
+  }
+
+  if (isMajorTowerOnline(state, "botnet") || isMajorTowerOnline(state, "doomscroller")) {
+    return APOCALYPSE_ERAS[1];
+  }
+
+  return APOCALYPSE_ERAS[0];
+}
+
+function isMajorTowerOnline(state, towerId) {
+  const tower = TOWER_BY_ID[towerId];
+  return Boolean(tower && (getTowerAmount(state, towerId) > 0 || isTowerUnlocked(state, tower)));
 }
 
 function clampNumber(value, fallback = 0) {
@@ -563,7 +775,8 @@ function applyBadIdeaOutcome(state, outcome, random) {
   }
 
   if (outcome.type === "addLikesFromClicks") {
-    const likes = getClickPower(state) * (outcome.clicks ?? 0);
+    const clicks = Math.max(0, Math.floor(clampNumber(outcome.clicks)));
+    const likes = getClickPower(state) * clicks;
     const gained = addLikes(state, likes);
     return {
       label: `+${formatInlineNumber(gained)} Likes`,
@@ -582,8 +795,10 @@ function applyBadIdeaOutcome(state, outcome, random) {
   }
 
   if (outcome.type === "loseLikesFromLps") {
-    const amount = Math.min(state.likes, getLikesPerSecond(state) * (outcome.seconds ?? 0));
-    state.likes -= amount;
+    const availableLikes = Math.max(0, clampNumber(state.likes));
+    const rawAmount = getLikesPerSecond(state) * Math.max(0, clampNumber(outcome.seconds));
+    const amount = Math.min(availableLikes, rawAmount);
+    state.likes = Math.max(0, availableLikes - amount);
     return {
       label: `-${formatInlineNumber(amount)} Likes`,
       message: amount > 0
@@ -593,8 +808,9 @@ function applyBadIdeaOutcome(state, outcome, random) {
   }
 
   if (outcome.type === "loseSubscribers") {
-    const amount = Math.min(state.subscribers, Math.max(0, Math.floor(clampNumber(outcome.amount))));
-    state.subscribers -= amount;
+    const availableSubscribers = Math.max(0, Math.floor(clampNumber(state.subscribers)));
+    const amount = Math.min(availableSubscribers, Math.max(0, Math.floor(clampNumber(outcome.amount))));
+    state.subscribers = Math.max(0, availableSubscribers - amount);
     return {
       label: `-${formatInlineNumber(amount)} Subscribers`,
       message: amount > 0
@@ -606,6 +822,23 @@ function applyBadIdeaOutcome(state, outcome, random) {
   return {
     label: "No reward",
     message: `${outcome.name}: no reward. The button remains deeply pleased with itself.`
+  };
+}
+
+function startBadIdeaConsequence(state, consequence, now) {
+  if (!consequence || !BAD_IDEA_CONSEQUENCE_BY_ID[consequence.id]) {
+    return null;
+  }
+
+  state.lab ??= {};
+  state.lab.activeConsequences ??= {};
+  state.lab.activeConsequences[consequence.id] = {
+    expiresAt: now + consequence.durationSeconds * 1000
+  };
+
+  return {
+    ...consequence,
+    expiresAt: state.lab.activeConsequences[consequence.id].expiresAt
   };
 }
 

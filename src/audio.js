@@ -79,6 +79,19 @@ export function createAudioController() {
     },
     purchase() {
       if (!muted) powerPool.play();
+    },
+    confidentNoise() {
+      if (muted) {
+        return;
+      }
+
+      powerPool.play(POWERUP_BASE_VOLUME * 1.35);
+      globalThis.setTimeout(() => {
+        if (!muted) popPool.play(POP_BASE_VOLUME * 1.2);
+      }, 90);
+      globalThis.setTimeout(() => {
+        if (!muted) powerPool.play(POWERUP_BASE_VOLUME * 1.1);
+      }, 180);
     }
   };
 }

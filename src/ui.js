@@ -12,6 +12,10 @@ import {
 import {
   getClickPower,
   getActiveLabBoosts,
+  getActiveBadIdeaConsequences,
+  getApocalypseEra,
+  hasActiveBadIdeaConsequence,
+  hasActiveLabProgramBoost,
   getLabBoostMultipliers,
   getLikesPerSecond,
   getNextLockedTower,
@@ -27,20 +31,252 @@ import {
   isUpgradeMaxed,
   isTowerUnlocked,
   isUpgradeUnlocked,
-  shouldShowUpgradeInShop
+  shouldShowUpgradeInShop,
+  DESKTOP_COMPANION_DEFAULTS,
+  DESKTOP_WINDOW_DEFAULTS,
+  DESKTOP_WINDOW_PRESETS,
+  VISUAL_TAKEOVER_DEFAULTS
 } from "./state.js";
-import { formatDuration, formatNumber } from "./utils/format.js";
+import { formatDuration, formatFullNumber, formatLongScaleNumber, formatNumber } from "./utils/format.js";
 
-const ORBITER_VISUAL_CAP = 120;
+const ORBITER_VISUAL_CAP = 180;
+const ORBITERS_PER_RING = 60;
+const MODERATION_STAMPS = [
+  "POST APPROVED",
+  "RULE 3 VIOLATION",
+  "MUTED FOR 10M",
+  "MOD QUEUE",
+  "THREAD LOCKED",
+  "RATIO REVIEW"
+];
+const ALGORITHM_LABELS = [
+  "TREND DETECTED",
+  "FEED REWRITTEN",
+  "USER INTENT: YES",
+  "RECOMMENDATION LOOP",
+  "ENGAGEMENT ORDER",
+  "MEME CLASSIFIED",
+  "SCROLL DEPTH MAXED"
+];
+const COMMENT_RIOT_LINES = [
+  "first",
+  "ratio",
+  "source?",
+  "mods asleep",
+  "this aged instantly",
+  "touch grass",
+  "unsubscribed emotionally",
+  "based but wrong",
+  "who let this cook",
+  "algorithm moment"
+];
+const SUBSCRIBER_MISSED_LINES = [
+  "unfollowed before it was cool",
+  "left to start a podcast",
+  "could not verify the vibe",
+  "missed the follow button somehow",
+  "went back to lurking",
+  "reported the farm to the group chat"
+];
+const SUBSCRIBER_BOT_LINES = [
+  "bot failed captcha",
+  "totally real user dissolved",
+  "engagement farm rejected",
+  "profile picture was a spreadsheet"
+];
+const DESKTOP_TITLE_MISCHIEF_LINES = [
+  "Posting Without Supervision",
+  "Algorithm Denies Everything",
+  "Desktop Parasite Protocol",
+  "Reality Is Buffering",
+  "The Feed Is Warm",
+  "Engagement Leak Detected"
+];
+const TOP_BAR_TICKER_TIERS = [
+  {
+    likes: 0,
+    lines: [
+      "Local basement poster claims this can stay normal.",
+      "One meme button detected. Authorities are monitoring the vibe.",
+      "Early farm bulletin: engagement remains legally containable."
+    ]
+  },
+  {
+    likes: 1000,
+    lines: [
+      "Three users noticed the farm. One appears to be a spreadsheet.",
+      "Minor feed ripple detected. Someone's group chat is at risk.",
+      "Engagement forecast: scattered likes, isolated bad takes."
+    ]
+  },
+  {
+    likes: 100000,
+    lines: [
+      "Your memes are now being recommended to people with jobs.",
+      "Platform safety report: the farm has escaped the basement.",
+      "A small audience has formed and immediately begun arguing."
+    ]
+  },
+  {
+    likes: 10000000,
+    lines: [
+      "Discourse pressure rising. Comment sections should shelter in place.",
+      "The feed has started putting your posts between actual life events.",
+      "Brand safety says everything is fine, which is how you know it is not."
+    ]
+  },
+  {
+    likes: 10000000000,
+    lines: [
+      "The meme economy is emitting heat visible from orbit.",
+      "Engagement analysts found a new number and are calling it strategy.",
+      "Your posting schedule is now considered regional infrastructure."
+    ]
+  },
+  {
+    likes: 100000000000000,
+    lines: [
+      "Bot auditors confirm the numbers are organic if you stop asking.",
+      "The group chat has become a sovereign engagement zone.",
+      "Several dashboards are sweating through their fonts."
+    ]
+  },
+  {
+    likes: 1000000000000000000,
+    lines: [
+      "Entire comment sections now file quarterly reports to your farm.",
+      "The algorithm sent a fruit basket and denied sending a fruit basket.",
+      "Trend velocity has exceeded the posted speed limit."
+    ]
+  },
+  {
+    likes: 1e24,
+    lines: [
+      "The algorithm replaced its morning meeting with your latest post.",
+      "Influencer weather service reports severe cloutfront conditions.",
+      "Moderators are now measuring the farm in geological units."
+    ]
+  },
+  {
+    likes: 1e30,
+    lines: [
+      "Reality officials request you stop converting attention into infrastructure.",
+      "Your meme empire has been spotted in background radiation.",
+      "Every timeline is pretending it discovered you early."
+    ]
+  },
+  {
+    likes: 1e38,
+    lines: [
+      "Several timelines subscribed and immediately regretted it.",
+      "The feed no longer scrolls. It kneels.",
+      "Attention markets halted trading after your farm sneezed."
+    ]
+  },
+  {
+    likes: 1e45,
+    lines: [
+      "The internet is no longer hosting your memes; your memes are hosting the internet.",
+      "A multiverse inquiry has found the farm funny in 61% of known realities.",
+      "The Algorithm Itself has requested a performance review."
+    ]
+  }
+];
+const LEGACY_OVERCLOCK_LINES = [
+  "OLD FORMAT RE-ENTERED THE DISCOURSE",
+  "STARTER TOWER STOCK SURGING",
+  "ARCHIVE DUST: MONETIZED",
+  "NOSTALGIA ENGINE ONLINE",
+  "THE EARLY GAME HAS HANDS NOW",
+  "RETRO TEMPLATE CLASS ACTION",
+  "LOAD-BEARING CRINGE RESTORED",
+  "HISTORY IS POSTING AGAIN"
+];
+const LEGENDARY_ACHIEVEMENT_PATTERNS = [
+  /all/i,
+  /every/i,
+  /1000000000000/,
+  /click_boost_150/,
+  /legacy_overclock_all/,
+  /crossfeed_all/,
+  /tower_level_5_all/,
+  /bad_idea_every_outcome/,
+  /meme_lab_all_bribes/,
+  /subscriber_spawn_all_5/
+];
+const RARE_ACHIEVEMENT_PATTERNS = [
+  /1000000000/,
+  /100000000/,
+  /click_boost_(50|75|100)/,
+  /bad_idea_/,
+  /meme_lab_/,
+  /legacy_overclock_/,
+  /crossfeed_/,
+  /tower_swirling_like_button_(500|1000)/,
+  /subscribers_(69|420|1000)/
+];
+const TAKEOVER_OPTIONS = [
+  {
+    id: "botnet",
+    towerId: "botnet",
+    label: "Botnet fake cursors",
+    description: "Moving fake-user cursors from Botnet."
+  },
+  {
+    id: "discordMod",
+    towerId: "discord_mod",
+    label: "Discord Mod stamps",
+    description: "Moderation stamps from Discord Mod."
+  },
+  {
+    id: "memeLord",
+    towerId: "meme_lord",
+    label: "Meme Lord rainbow shop",
+    description: "A rainbow discourse wave through tower names from Meme Lord."
+  },
+  {
+    id: "rickrollLoop",
+    towerId: "eternal_rickroll_loop",
+    label: "Rickroll banners",
+    description: "Looping warning banners from Eternal Rickroll Loop."
+  },
+  {
+    id: "realityGlitcher",
+    towerId: "reality_glitcher",
+    label: "Reality glitches",
+    description: "Panel slips and glitch slices from Reality Glitcher."
+  },
+  {
+    id: "cursedTikTok",
+    towerId: "cursed_tiktok_cultist",
+    label: "Cursed TikTok text ritual",
+    description: "Tower names physically wave from Cursed TikTok Cultist."
+  },
+  {
+    id: "algorithm",
+    towerId: "the_algorithm",
+    label: "Algorithm labels",
+    description: "System labels from The Algorithm Itself."
+  }
+];
 
 let elements;
 let handlers;
 let activeOverlay = null;
 let activeTooltip = null;
 let lastOrbiterCount = -1;
+let lastTakeoverSignature = "";
+let lastCommentRiotBurstAt = 0;
 let activeLeaderboardScope = "global";
 let activeLeaderboardMetric = LEADERBOARD_METRICS[0].id;
 let activeLabProgramId = MEME_LAB_PROGRAMS[0]?.id ?? null;
+let activeShopTab = "towers";
+const shopScrollPositions = {
+  towers: 0,
+  upgrades: 0
+};
+let lastApocalypseEraClass = "";
+let lastTopTickerText = "";
 
 export function initUI(options) {
   handlers = options;
@@ -58,8 +294,11 @@ export function initUI(options) {
   return {
     update: () => updateUI(options.state),
     updateVisuals: (elapsedSeconds) => updateVisuals(options.state, elapsedSeconds),
-    spawnSubscriber: () => spawnSubscriber(options.onCollectSubscriber),
+    spawnSubscriber: () => spawnSubscriberRaid(options.onCollectSubscriber, options.state),
     showToast,
+    showAchievementReaction,
+    showLegacyOverclockEvent,
+    showBadIdeaConsequenceModal,
     showOfflineModal,
     setSaveStatus,
     closeOverlay
@@ -67,12 +306,15 @@ export function initUI(options) {
 }
 
 export function updateUI(state) {
+  updateApocalypseEra(state);
+  updateBadIdeaConsequenceClasses(state);
   updateResources(state);
   updateTowerCards(state);
   updateUpgradeCards(state);
   updateSocial(state);
   updateMemeLab(state);
   updateNextUnlock(state);
+  updateTopTicker(state);
   updateDocumentTitle(state);
 
   if (activeOverlay === "stats" || activeOverlay === "milestones" || activeOverlay === "upgrades") {
@@ -86,6 +328,9 @@ export function updateUI(state) {
 
 function collectElements() {
   return {
+    body: document.body,
+    topTicker: document.getElementById("top-ticker"),
+    apocalypseStage: document.getElementById("apocalypse-stage"),
     totalLikes: document.getElementById("total-likes"),
     lps: document.getElementById("likes-per-sec"),
     clickPower: document.getElementById("click-power"),
@@ -95,6 +340,10 @@ function collectElements() {
     memeWrapper: document.querySelector(".meme-button-wrapper"),
     orbitContainer: document.getElementById("orbit-container"),
     subscriberContainer: document.getElementById("subscriber-container"),
+    takeoverLayer: document.getElementById("takeover-layer"),
+    consequenceLayer: document.getElementById("consequence-layer"),
+    achievementReactionLayer: document.getElementById("achievement-reaction-layer"),
+    rightPanel: document.querySelector(".right-panel"),
     shopTowers: document.getElementById("shop-towers"),
     shopUpgrades: document.getElementById("shop-upgrades"),
     tabTowers: document.getElementById("tab-towers"),
@@ -124,7 +373,8 @@ function bindMemeButton() {
     elements.memeButton.classList.add("meme-click-pop");
 
     const gain = handlers.onMemeClick(event);
-    createLikePopup(`+${formatNumber(gain)}`, event.clientX, event.clientY);
+    const era = getApocalypseEra(handlers.state);
+    createLikePopup(`+${formatNumber(gain)}`, event.clientX, event.clientY, getLikePopupCaption(handlers.state, era));
   });
 
   elements.memeButton.addEventListener("animationend", (event) => {
@@ -233,7 +483,12 @@ function setMetricListOpen(open) {
 }
 
 function switchShopTab(tab) {
+  if (elements.rightPanel) {
+    shopScrollPositions[activeShopTab] = elements.rightPanel.scrollTop;
+  }
+
   const towersActive = tab === "towers";
+  activeShopTab = tab;
   elements.tabTowers.classList.toggle("active", towersActive);
   elements.tabUpgrades.classList.toggle("active", !towersActive);
   elements.tabTowers.setAttribute("aria-selected", String(towersActive));
@@ -243,16 +498,22 @@ function switchShopTab(tab) {
   elements.nextUnlock.hidden = !towersActive;
   elements.shopTowers.classList.toggle("active", towersActive);
   elements.shopUpgrades.classList.toggle("active", !towersActive);
+
+  window.requestAnimationFrame(() => {
+    if (elements.rightPanel) {
+      elements.rightPanel.scrollTop = shopScrollPositions[tab] ?? 0;
+    }
+  });
 }
 
 function renderTowerShop() {
-  elements.shopTowers.innerHTML = TOWERS.map((tower) => `
-    <button class="shop-card tower-card" type="button" data-tower-id="${tower.id}" aria-label="Buy ${escapeHtml(tower.displayName)}">
+  elements.shopTowers.innerHTML = TOWERS.map((tower, index) => `
+    <button class="shop-card tower-card" type="button" data-tower-id="${tower.id}" aria-label="Buy ${escapeHtml(tower.displayName)}" style="--tower-index:${index}; --rainbow-delay:${(index * -0.075).toFixed(3)}s; --rainbow-hue:${(190 + index * 31) % 360}deg;">
       <img class="shop-icon" src="${tower.image}" alt="${escapeHtml(tower.displayName)}" loading="lazy" />
       <span class="shop-count" data-role="count">x0</span>
       <span class="shop-state" data-role="state">Locked</span>
       <span class="shop-copy">
-        <span class="shop-name">${escapeHtml(tower.displayName)}</span>
+        <span class="shop-name" aria-label="${escapeHtml(tower.displayName)}">${renderShopNameText(tower.displayName)}</span>
         <span class="shop-desc">${escapeHtml(tower.description)}</span>
         <span class="shop-meta">
           <span data-role="cost">0 Likes</span>
@@ -412,17 +673,87 @@ function renderBadIdeaProgram(program) {
 
 function updateResources(state) {
   const labMultipliers = getLabBoostMultipliers(state);
-  elements.totalLikes.textContent = `${formatNumber(state.likes)} Likes`;
-  elements.lps.textContent = `${formatNumber(getLikesPerSecond(state))} LPS${labMultipliers.lps > 1 ? ` x${formatNumber(labMultipliers.lps)}` : ""}`;
-  elements.clickPower.textContent = `+${formatNumber(getClickPower(state))} per click${labMultipliers.click > 1 ? ` x${formatNumber(labMultipliers.click)}` : ""}`;
+  const era = getApocalypseEra(state);
+  const clickVerb = getActiveClickVerb(state, era);
+  elements.apocalypseStage.textContent = era.title;
+  elements.apocalypseStage.title = era.description;
+  elements.totalLikes.textContent = `${formatLongScaleNumber(state.likes)} Likes`;
+  elements.lps.textContent = `${formatLongScaleNumber(getLikesPerSecond(state))} LPS${labMultipliers.lps > 1 ? ` x${formatNumber(labMultipliers.lps)}` : ""}`;
+  elements.clickPower.textContent = `+${formatLongScaleNumber(getClickPower(state))} per ${clickVerb} click${labMultipliers.click > 1 ? ` x${formatNumber(labMultipliers.click)}` : ""}`;
   elements.subscribers.textContent = `${formatNumber(state.subscribers)} Subscribers`;
   updateActiveBoostTimers(state);
 }
 
+function updateTopTicker(state) {
+  if (!elements.topTicker) {
+    return;
+  }
+
+  const text = getTopTickerText(state);
+
+  if (text === lastTopTickerText) {
+    return;
+  }
+
+  lastTopTickerText = text;
+  elements.topTicker.innerHTML = `
+    <span data-role="ticker-track">
+      <span>${escapeHtml(text)}</span>
+      <span>${escapeHtml(text)}</span>
+    </span>
+  `;
+}
+
+function getTopTickerText(state) {
+  const tier = [...TOP_BAR_TICKER_TIERS]
+    .reverse()
+    .find((item) => state.totalLikesEver >= item.likes) ?? TOP_BAR_TICKER_TIERS[0];
+  const index = Math.floor((state.playTimeSeconds ?? 0) / 12) % tier.lines.length;
+  const era = getApocalypseEra(state);
+  const bulletin = tier.lines[index];
+  return `${era.label} bulletin // ${bulletin} // ${formatNumber(state.totalLikesEver)} lifetime likes // ${formatNumber(getTotalTowersOwned(state))} towers implicated`;
+}
+
+function getActiveClickVerb(state, era) {
+  if (hasActiveBadIdeaConsequence(state, "apology_arc")) {
+    return "apology";
+  }
+
+  if (hasActiveBadIdeaConsequence(state, "brand_safety_mode")) {
+    return "brand-safe";
+  }
+
+  return era.clickVerb;
+}
+
+function updateApocalypseEra(state) {
+  const era = getApocalypseEra(state);
+
+  if (lastApocalypseEraClass && lastApocalypseEraClass !== era.className) {
+    elements.body.classList.remove(lastApocalypseEraClass);
+  }
+
+  if (lastApocalypseEraClass !== era.className) {
+    elements.body.classList.add(era.className);
+    elements.body.dataset.apocalypseEra = era.id;
+    elements.body.dataset.apocalypseLabel = era.label;
+    elements.body.dataset.apocalypseHint = era.unlockHint;
+    lastApocalypseEraClass = era.className;
+  }
+}
+
+function updateBadIdeaConsequenceClasses(state) {
+  elements.body.classList.toggle("consequence-brand-safety", hasActiveBadIdeaConsequence(state, "brand_safety_mode"));
+  elements.body.classList.toggle("consequence-comment-riot", hasActiveBadIdeaConsequence(state, "comment_section_riot"));
+  elements.body.classList.toggle("consequence-apology-arc", hasActiveBadIdeaConsequence(state, "apology_arc"));
+  elements.body.classList.toggle("consequence-algorithm-denial", hasActiveBadIdeaConsequence(state, "algorithm_denial_letter"));
+}
+
 function updateActiveBoostTimers(state) {
   const activeBoosts = getActiveLabBoosts(state).filter((boost) => boost.programId === "algorithm_bribe");
+  const activeConsequences = getActiveBadIdeaConsequences(state);
 
-  if (activeBoosts.length === 0) {
+  if (activeBoosts.length === 0 && activeConsequences.length === 0) {
     elements.activeBoostTimers.hidden = true;
     elements.activeBoostTimers.innerHTML = "";
     return;
@@ -430,28 +761,47 @@ function updateActiveBoostTimers(state) {
 
   elements.activeBoostTimers.hidden = false;
   elements.activeBoostTimers.innerHTML = `
-    <span class="active-boost-heading">Algorithm Bribe</span>
-    ${activeBoosts.map((boost) => `
-      <span class="active-boost-timer">
-        <strong>${escapeHtml(boost.name)}</strong>
-        <span>${formatDuration(boost.remainingSeconds)}</span>
-      </span>
-    `).join("")}
+    ${activeBoosts.length > 0
+      ? `<span class="active-boost-heading">Algorithm Bribe</span>
+        ${activeBoosts.map((boost) => `
+          <span class="active-boost-timer">
+            <strong>${escapeHtml(boost.name)}</strong>
+            <span>${formatDuration(boost.remainingSeconds)}</span>
+          </span>
+        `).join("")}`
+      : ""}
+    ${activeConsequences.length > 0
+      ? `<span class="active-boost-heading active-consequence-heading">Bad Idea Aftermath</span>
+        ${activeConsequences.map((consequence) => `
+          <span class="active-boost-timer active-consequence-timer">
+            <strong>${escapeHtml(consequence.title)}</strong>
+            <span>${formatDuration(consequence.remainingSeconds)}</span>
+          </span>
+        `).join("")}`
+      : ""}
   `;
 }
 
 function updateTowerCards(state) {
-  for (const tower of TOWERS) {
+  for (const [index, tower] of TOWERS.entries()) {
     const card = elements.shopTowers.querySelector(`[data-tower-id="${tower.id}"]`);
     const unlocked = isTowerUnlocked(state, tower);
     const amount = getTowerAmount(state, tower.id);
     const cost = getTowerCost(state, tower.id);
     const canAfford = state.likes >= cost;
+    const copy = getTowerDisplayCopy(state, tower, index);
 
     card.hidden = !unlocked;
     card.classList.toggle("is-affordable", unlocked && canAfford);
     card.classList.toggle("is-unaffordable", unlocked && !canAfford);
     card.setAttribute("aria-disabled", String(!unlocked || !canAfford));
+    const nameElement = card.querySelector(".shop-name");
+    if (nameElement.dataset.displayName !== copy.displayName) {
+      nameElement.dataset.displayName = copy.displayName;
+      nameElement.setAttribute("aria-label", copy.displayName);
+      nameElement.innerHTML = renderShopNameText(copy.displayName);
+    }
+    card.querySelector(".shop-desc").textContent = copy.description;
     card.querySelector('[data-role="count"]').textContent = `x${formatNumber(amount)}`;
     card.querySelector('[data-role="cost"]').textContent = `${formatNumber(cost)} Likes`;
     card.querySelector('[data-role="production"]').textContent = `${formatNumber(tower.lps * getTowerMultiplierForDisplay(state, tower.id))} LPS each`;
@@ -480,15 +830,42 @@ function updateUpgradeCards(state) {
   }
 }
 
+function renderShopNameText(displayName) {
+  const letters = Array.from(displayName).map((char, index) => {
+    const content = char === " " ? "&nbsp;" : escapeHtml(char);
+    const delay = (index * 0.055).toFixed(3);
+    const hue = (190 + index * 18) % 360;
+    return `<span class="shop-name-letter" style="--letter-delay:${delay}s; --letter-hue:${hue}deg;">${content}</span>`;
+  }).join("");
+
+  return `<span class="shop-name-plain">${escapeHtml(displayName)}</span><span class="shop-name-wave" aria-hidden="true">${letters}</span>`;
+}
+
+function getTowerDisplayCopy(state, tower, index = TOWERS.findIndex((item) => item.id === tower.id)) {
+  if (!hasActiveBadIdeaConsequence(state, "brand_safety_mode")) {
+    return {
+      displayName: tower.displayName,
+      description: tower.description
+    };
+  }
+
+  return {
+    displayName: `Brand Safe Asset #${String(index + 1).padStart(2, "0")}`,
+    description: "This creator-facing engagement unit has been reviewed for advertiser comfort."
+  };
+}
+
 function updateNextUnlock(state) {
   const nextTower = getNextLockedTower(state);
 
   if (!nextTower) {
-    elements.nextUnlock.textContent = "All towers revealed. The internet has no remaining dignity.";
+    elements.nextUnlock.hidden = true;
+    elements.nextUnlock.textContent = "";
     return;
   }
 
   const needed = Math.max(0, (nextTower.unlockAt?.totalLikesEver ?? 0) - state.totalLikesEver);
+  elements.nextUnlock.hidden = false;
   elements.nextUnlock.textContent = needed > 0
     ? `Next tower reveal: ${nextTower.displayName} in ${formatNumber(needed)} total likes`
     : `Next tower reveal: ${nextTower.displayName}`;
@@ -555,23 +932,30 @@ function updateMemeLab(state) {
 
   const activeBoosts = getActiveLabBoosts(state);
   const activeById = new Map(activeBoosts.map((boost) => [boost.id, boost]));
+  const hasActiveProgramBoost = hasActiveLabProgramBoost(state, activeProgram.id);
 
   for (const boost of activeProgram.boosts) {
     const card = elements.labPrograms.querySelector(`[data-lab-boost-id="${boost.id}"]`);
     const active = activeById.get(boost.id);
     const canAfford = state.subscribers >= boost.subscriberCost;
+    const blockedByProgramBoost = hasActiveProgramBoost && !active;
 
     card.classList.toggle("is-active", Boolean(active));
-    card.classList.toggle("is-affordable", !active && canAfford);
-    card.classList.toggle("is-unaffordable", !active && !canAfford);
-    card.disabled = Boolean(active) || !canAfford;
+    card.classList.toggle("is-affordable", !active && !blockedByProgramBoost && canAfford);
+    card.classList.toggle("is-unaffordable", !active && !blockedByProgramBoost && !canAfford);
+    card.classList.toggle("is-program-blocked", blockedByProgramBoost);
+    card.disabled = Boolean(active) || blockedByProgramBoost || !canAfford;
     card.querySelector('[data-role="status"]').textContent = active
       ? "Active"
-      : canAfford
+      : blockedByProgramBoost
+        ? "Wait for current bribe"
+        : canAfford
         ? "Ready"
         : `Need ${formatNumber(boost.subscriberCost - state.subscribers)}`;
     card.querySelector('[data-role="cost"]').textContent = active
       ? "Timer in resource box"
+      : blockedByProgramBoost
+        ? "Bribe already active"
       : `${formatNumber(boost.subscriberCost)} Subscribers`;
   }
 }
@@ -608,11 +992,254 @@ function updateBadIdeaProgram(state, program) {
 }
 
 function updateDocumentTitle(state) {
-  document.title = `${formatNumber(state.likes)} Likes - Meme Farm`;
+  const era = getApocalypseEra(state);
+  const desktopSettings = getDesktopCompanionSettings(state);
+
+  if (!desktopSettings.enabled || !desktopSettings.titleMischief) {
+    document.title = `${formatNumber(state.likes)} Likes - ${era.label} - Meme Farm`;
+    return;
+  }
+
+  const index = Math.floor((state.playTimeSeconds ?? 0) / 45) % DESKTOP_TITLE_MISCHIEF_LINES.length;
+  document.title = `${formatNumber(state.likes)} Likes - ${DESKTOP_TITLE_MISCHIEF_LINES[index]} - Meme Farm`;
 }
 
 function updateVisuals(state, elapsedSeconds) {
   updateOrbiters(getTowerAmount(state, "swirling_like_button"), elapsedSeconds);
+  updateTowerTakeovers(state, elapsedSeconds);
+  updateBadIdeaConsequenceVisuals(state, elapsedSeconds);
+}
+
+function updateBadIdeaConsequenceVisuals(state, elapsedSeconds) {
+  if (!hasActiveBadIdeaConsequence(state, "comment_section_riot")) {
+    lastCommentRiotBurstAt = 0;
+    return;
+  }
+
+  if (elapsedSeconds - lastCommentRiotBurstAt < 0.72) {
+    return;
+  }
+
+  lastCommentRiotBurstAt = elapsedSeconds;
+  const burstCount = 2 + Math.floor(Math.random() * 2);
+
+  for (let index = 0; index < burstCount; index += 1) {
+    createCommentRiotBubble();
+  }
+}
+
+function createCommentRiotBubble() {
+  const bubble = document.createElement("span");
+  const line = COMMENT_RIOT_LINES[Math.floor(Math.random() * COMMENT_RIOT_LINES.length)];
+  bubble.className = "comment-riot-bubble";
+  bubble.textContent = line;
+  bubble.style.left = `${6 + Math.random() * 82}%`;
+  bubble.style.top = `${12 + Math.random() * 72}%`;
+  bubble.style.setProperty("--r", `${-10 + Math.random() * 20}deg`);
+  elements.consequenceLayer.appendChild(bubble);
+  setTimeout(() => bubble.remove(), 2600);
+}
+
+function updateTowerTakeovers(state, elapsedSeconds) {
+  const config = getTowerTakeoverConfig(state);
+  const signature = [
+    config.cursorCount,
+    config.stampCount,
+    config.hasMemeLord ? 1 : 0,
+    config.bannerCount,
+    config.hasRealityGlitcher ? 1 : 0,
+    config.hasCursedTikTok ? 1 : 0,
+    config.algorithmLabelCount
+  ].join("|");
+
+  elements.body.classList.toggle("takeover-botnet", config.cursorCount > 0);
+  elements.body.classList.toggle("takeover-discord-mod", config.stampCount > 0);
+  elements.body.classList.toggle("takeover-meme-lord", config.hasMemeLord);
+  elements.body.classList.toggle("takeover-rickroll-loop", config.bannerCount > 0);
+  elements.body.classList.toggle("takeover-reality-glitcher", config.hasRealityGlitcher);
+  elements.body.classList.toggle("takeover-cursed-tiktok", config.hasCursedTikTok);
+  elements.body.classList.toggle("takeover-algorithm", config.algorithmLabelCount > 0);
+
+  if (!hasActiveTowerTakeover(config)) {
+    clearTowerTakeovers();
+    return;
+  }
+
+  if (signature !== lastTakeoverSignature) {
+    renderTowerTakeovers(config);
+    lastTakeoverSignature = signature;
+  }
+
+  animateTakeoverCursors(elapsedSeconds);
+}
+
+function getTowerTakeoverConfig(state) {
+  const settings = getVisualTakeoverSettings(state);
+  const botnets = settings.botnet ? getTowerAmount(state, "botnet") : 0;
+  const discordMods = settings.discordMod ? getTowerAmount(state, "discord_mod") : 0;
+  const memeLords = settings.memeLord ? getTowerAmount(state, "meme_lord") : 0;
+  const rickrollLoops = settings.rickrollLoop ? getTowerAmount(state, "eternal_rickroll_loop") : 0;
+  const realityGlitchers = settings.realityGlitcher ? getTowerAmount(state, "reality_glitcher") : 0;
+  const cursedTikTokCultists = settings.cursedTikTok ? getTowerAmount(state, "cursed_tiktok_cultist") : 0;
+  const algorithms = settings.algorithm ? getTowerAmount(state, "the_algorithm") : 0;
+
+  return {
+    cursorCount: botnets > 0 ? Math.min(14, 3 + Math.floor(Math.sqrt(botnets) * 1.25)) : 0,
+    stampCount: discordMods > 0 ? Math.min(10, 3 + Math.floor(Math.sqrt(discordMods))) : 0,
+    hasMemeLord: memeLords > 0,
+    bannerCount: rickrollLoops > 0 ? Math.min(4, 1 + Math.floor(Math.sqrt(rickrollLoops) / 3)) : 0,
+    hasRealityGlitcher: realityGlitchers > 0,
+    hasCursedTikTok: cursedTikTokCultists > 0,
+    algorithmLabelCount: algorithms > 0 ? Math.min(10, 5 + Math.floor(Math.sqrt(algorithms))) : 0
+  };
+}
+
+function hasActiveTowerTakeover(config) {
+  return config.cursorCount > 0 ||
+    config.stampCount > 0 ||
+    config.hasMemeLord ||
+    config.bannerCount > 0 ||
+    config.hasRealityGlitcher ||
+    config.hasCursedTikTok ||
+    config.algorithmLabelCount > 0;
+}
+
+function getVisualTakeoverSettings(state) {
+  const value = state.settings?.visualTakeovers;
+  const keys = Object.keys(VISUAL_TAKEOVER_DEFAULTS);
+
+  if (value === false) {
+    return Object.fromEntries(keys.map((key) => [key, false]));
+  }
+
+  if (!value || typeof value !== "object") {
+    return { ...VISUAL_TAKEOVER_DEFAULTS };
+  }
+
+  return Object.fromEntries(keys.map((key) => [key, value[key] !== false]));
+}
+
+function getDesktopCompanionSettings(state) {
+  const value = state.settings?.desktopCompanion;
+  const defaults = DESKTOP_COMPANION_DEFAULTS;
+
+  if (value === false) {
+    return Object.fromEntries(Object.keys(defaults).map((key) => [key, false]));
+  }
+
+  if (!value || typeof value !== "object") {
+    return { ...defaults };
+  }
+
+  return Object.fromEntries(
+    Object.entries(defaults).map(([key, defaultValue]) => [
+      key,
+      Boolean(value[key] ?? defaultValue)
+    ])
+  );
+}
+
+function getDesktopWindowSettings(state) {
+  const value = state.settings?.desktopWindow;
+  const presetIds = new Set(DESKTOP_WINDOW_PRESETS.map((preset) => preset.id));
+  const sizePreset = typeof value?.sizePreset === "string" && presetIds.has(value.sizePreset)
+    ? value.sizePreset
+    : DESKTOP_WINDOW_DEFAULTS.sizePreset;
+
+  return { sizePreset };
+}
+
+function hasDesktopWindowControls() {
+  return Boolean(globalThis.window?.memeFarmPlatform?.desktop?.configureWindow);
+}
+
+function getAvailableTakeoverOptions(state) {
+  return TAKEOVER_OPTIONS.filter((option) => getTowerAmount(state, option.towerId) > 0);
+}
+
+function clearTowerTakeovers() {
+  elements.body.classList.remove(
+    "takeover-botnet",
+    "takeover-discord-mod",
+    "takeover-meme-lord",
+    "takeover-rickroll-loop",
+    "takeover-reality-glitcher",
+    "takeover-cursed-tiktok",
+    "takeover-algorithm"
+  );
+
+  if (lastTakeoverSignature !== "off") {
+    elements.takeoverLayer.innerHTML = "";
+    lastTakeoverSignature = "off";
+  }
+}
+
+function renderTowerTakeovers(config) {
+  const pieces = [];
+
+  for (let index = 0; index < config.cursorCount; index += 1) {
+    pieces.push(`
+      <span class="takeover-cursor" data-takeover-cursor="${index}">
+        <span>REAL_USER_${String(index + 1).padStart(2, "0")}</span>
+      </span>
+    `);
+  }
+
+  for (let index = 0; index < config.stampCount; index += 1) {
+    const label = MODERATION_STAMPS[index % MODERATION_STAMPS.length];
+    const x = 10 + ((index * 17) % 76);
+    const y = 14 + ((index * 23) % 70);
+    const rotation = -18 + ((index * 13) % 36);
+    pieces.push(`
+      <span class="takeover-mod-stamp" style="--x:${x}%; --y:${y}%; --r:${rotation}deg; --d:${index * 0.35}s;">
+        ${escapeHtml(label)}
+      </span>
+    `);
+  }
+
+  for (let index = 0; index < config.bannerCount; index += 1) {
+    pieces.push(`
+      <div class="takeover-rickroll-banner" style="--lane:${index}; --speed:${22 + index * 4}s;">
+        <span>ETERNAL RICKROLL LOOP ONLINE</span>
+        <span>LINK TRUST DESTROYED</span>
+        <span>RETRO BAIT DETECTED</span>
+      </div>
+    `);
+  }
+
+  if (config.hasRealityGlitcher) {
+    for (let index = 0; index < 5; index += 1) {
+      pieces.push(`<span class="takeover-glitch-slice" style="--y:${18 + index * 15}%; --d:${index * 0.22}s;"></span>`);
+    }
+  }
+
+  for (let index = 0; index < config.algorithmLabelCount; index += 1) {
+    const label = ALGORITHM_LABELS[index % ALGORITHM_LABELS.length];
+    const x = 8 + ((index * 19) % 80);
+    const y = 16 + ((index * 29) % 66);
+    pieces.push(`
+      <span class="takeover-algorithm-label" style="--x:${x}%; --y:${y}%; --d:${index * 0.4}s;">
+        ${escapeHtml(label)}
+      </span>
+    `);
+  }
+
+  elements.takeoverLayer.innerHTML = pieces.join("");
+}
+
+function animateTakeoverCursors(elapsedSeconds) {
+  const cursors = elements.takeoverLayer.querySelectorAll("[data-takeover-cursor]");
+
+  cursors.forEach((cursor, index) => {
+    const speed = 0.42 + (index % 5) * 0.045;
+    const phase = index * 1.71;
+    const x = 10 + (Math.sin(elapsedSeconds * speed + phase) * 0.5 + 0.5) * 80;
+    const y = 12 + (Math.cos(elapsedSeconds * (speed * 1.37) + phase * 0.8) * 0.5 + 0.5) * 74;
+    const rotation = -18 + Math.sin(elapsedSeconds * 1.1 + phase) * 20;
+    cursor.style.left = `${x}%`;
+    cursor.style.top = `${y}%`;
+    cursor.style.transform = `rotate(${rotation}deg)`;
+  });
 }
 
 function updateOrbiters(amount, elapsedSeconds) {
@@ -636,9 +1263,9 @@ function updateOrbiters(amount, elapsedSeconds) {
   const time = elapsedSeconds * 0.9;
 
   for (let index = 0; index < orbiters.length; index += 1) {
-    const ring = Math.floor(index / 36);
-    const slot = index % 36;
-    const ringCount = Math.min(36, visibleCount - ring * 36);
+    const ring = Math.floor(index / ORBITERS_PER_RING);
+    const slot = index % ORBITERS_PER_RING;
+    const ringCount = Math.min(ORBITERS_PER_RING, visibleCount - ring * ORBITERS_PER_RING);
     const angle = (slot / Math.max(1, ringCount)) * Math.PI * 2 + time * (1 + ring * 0.12);
     const radius = baseRadius + ring * ringStep + Math.sin(time * 2 + index) * 3;
     const x = 150 + Math.cos(angle) * radius;
@@ -651,31 +1278,165 @@ function updateOrbiters(amount, elapsedSeconds) {
   elements.orbitContainer.classList.toggle("is-capped", amount > ORBITER_VISUAL_CAP);
 }
 
-function createLikePopup(text, clientX, clientY) {
+function getLikePopupCaption(state, era) {
+  if (hasActiveBadIdeaConsequence(state, "apology_arc")) {
+    return "public statement";
+  }
+
+  if (hasActiveBadIdeaConsequence(state, "brand_safety_mode")) {
+    return "approved content";
+  }
+
+  if (hasActiveBadIdeaConsequence(state, "comment_section_riot")) {
+    return "reply bait";
+  }
+
+  return era.popupSuffix;
+}
+
+function createLikePopup(text, clientX, clientY, caption) {
   const rect = elements.memeWrapper.getBoundingClientRect();
   const popup = document.createElement("span");
   popup.className = "like-popup";
   popup.textContent = text;
+  popup.dataset.caption = caption;
   popup.style.left = `${clientX - rect.left}px`;
   popup.style.top = `${clientY - rect.top}px`;
   elements.memeWrapper.appendChild(popup);
   setTimeout(() => popup.remove(), 900);
 }
 
-function spawnSubscriber(onCollect) {
+function spawnSubscriberRaid(onCollect, state) {
+  const bribeActive = hasActiveLabProgramBoost(state, "algorithm_bribe");
+  const count = bribeActive ? randomInt(4, 6) : randomInt(2, 4);
+  const baseLeft = 14 + Math.random() * 72;
+  const members = createSubscriberRaidMembers(count, bribeActive);
+
+  showSubscriberRaidCallout(bribeActive ? "Golden attention raid" : "Attention raid");
+
+  members.forEach((member, index) => {
+    const offset = (index - (count - 1) / 2) * (count > 4 ? 10 : 14);
+    const rowOffset = index % 2 === 0 ? 0 : 24;
+    const left = clamp(baseLeft + offset, 5, 90);
+    const drift = (index - (count - 1) / 2) * 18;
+    createSubscriberRaidMember({
+      ...member,
+      left,
+      rowOffset,
+      drift,
+      delayMs: index * 130,
+      onCollect
+    });
+  });
+}
+
+function createSubscriberRaidMembers(count, bribeActive) {
+  const members = Array.from({ length: count }, (_, index) => {
+    const golden = bribeActive && Math.random() < 0.22;
+    const fake = !golden && index > 0 && Math.random() < (bribeActive ? 0.18 : 0.28);
+
+    if (golden) {
+      return { kind: "golden", amount: 3 };
+    }
+
+    return fake
+      ? { kind: "bot", amount: 0 }
+      : { kind: "real", amount: 1 };
+  });
+
+  if (members.every((member) => member.kind === "bot")) {
+    members[0] = { kind: "real", amount: 1 };
+  }
+
+  if (bribeActive && !members.some((member) => member.kind === "golden") && Math.random() < 0.45) {
+    members[Math.floor(Math.random() * members.length)] = { kind: "golden", amount: 3 };
+  }
+
+  return members;
+}
+
+function createSubscriberRaidMember({ kind, amount, left, rowOffset, drift, delayMs, onCollect }) {
   const subscriber = document.createElement("button");
+  const fake = kind === "bot";
+  const golden = kind === "golden";
   subscriber.type = "button";
-  subscriber.className = "subscriber";
-  subscriber.setAttribute("aria-label", "Collect subscriber");
-  subscriber.style.left = `${5 + Math.random() * 85}%`;
+  subscriber.className = `subscriber subscriber-${kind}`;
+  subscriber.setAttribute("aria-label", fake
+    ? "Reject fake subscriber bot"
+    : golden
+      ? `Collect golden subscriber raid worth ${amount} subscribers`
+      : "Collect subscriber");
+  subscriber.style.left = `${left}%`;
+  subscriber.style.setProperty("--raid-delay", `${delayMs}ms`);
+  subscriber.style.setProperty("--raid-row-offset", `${rowOffset}px`);
+  subscriber.style.setProperty("--raid-drift", `${drift}px`);
+
+  const timeout = window.setTimeout(() => {
+    if (!subscriber.isConnected) {
+      return;
+    }
+
+    if (!fake) {
+      showSubscriberSnark(randomItem(SUBSCRIBER_MISSED_LINES), subscriber);
+    }
+
+    subscriber.remove();
+  }, 6800 + delayMs);
 
   subscriber.addEventListener("click", () => {
+    window.clearTimeout(timeout);
+
+    if (fake) {
+      showSubscriberSnark(randomItem(SUBSCRIBER_BOT_LINES), subscriber);
+      subscriber.remove();
+      onCollect({ fake: true, amount: 0 });
+      return;
+    }
+
     subscriber.remove();
-    onCollect();
+    onCollect({ amount, golden });
   });
 
   elements.subscriberContainer.appendChild(subscriber);
-  setTimeout(() => subscriber.remove(), 6500);
+}
+
+function showSubscriberRaidCallout(text) {
+  const callout = document.createElement("span");
+  callout.className = "subscriber-raid-callout";
+  callout.textContent = text;
+  callout.style.left = `${18 + Math.random() * 48}%`;
+  elements.subscriberContainer.appendChild(callout);
+  window.setTimeout(() => callout.remove(), 2100);
+}
+
+function showSubscriberSnark(text, anchor) {
+  const containerRect = elements.subscriberContainer.getBoundingClientRect();
+  const rect = anchor.getBoundingClientRect();
+  const x = containerRect.width > 0
+    ? ((rect.left + rect.width / 2 - containerRect.left) / containerRect.width) * 100
+    : 50;
+  const y = containerRect.height > 0
+    ? ((rect.top + rect.height / 2 - containerRect.top) / containerRect.height) * 100
+    : 50;
+  const snark = document.createElement("span");
+  snark.className = "subscriber-snark";
+  snark.textContent = text;
+  snark.style.left = `${clamp(x, 8, 86)}%`;
+  snark.style.top = `${clamp(y, 10, 84)}%`;
+  elements.subscriberContainer.appendChild(snark);
+  window.setTimeout(() => snark.remove(), 2600);
+}
+
+function randomInt(min, max) {
+  return Math.floor(min + Math.random() * (max - min + 1));
+}
+
+function randomItem(items) {
+  return items[Math.floor(Math.random() * items.length)];
+}
+
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
 }
 
 function openOverlay(type) {
@@ -698,17 +1459,17 @@ function renderOverlay(type) {
     elements.overlayContent.innerHTML = `
       <h2 id="overlay-title">Game Statistics</h2>
       <div class="stats-list">
-        ${statLine("Total Likes", `${formatNumber(state.likes)} Likes`)}
-        ${statLine("Total Likes Ever", `${formatNumber(state.totalLikesEver)} Likes`)}
+        ${statLine("Total Likes", `${formatNumber(state.likes)} Likes`, `${formatFullNumber(state.likes)} Likes`)}
+        ${statLine("Total Likes Ever", `${formatNumber(state.totalLikesEver)} Likes`, `${formatFullNumber(state.totalLikesEver)} Likes`)}
         ${statLine("Brainrot Tier", getProgressionTitle(state))}
-        ${statLine("Likes Per Second", formatNumber(getLikesPerSecond(state)))}
-        ${statLine("Click Power", `+${formatNumber(getClickPower(state))}`)}
-        ${statLine("Offline Capacity", formatPercent(getOfflineProductionCapacity(state)))}
-        ${statLine("Subscribers", formatNumber(state.subscribers))}
-        ${statLine("Subscribers Ever", formatNumber(state.totalSubscribersEver))}
-        ${statLine("Towers Owned", formatNumber(getTotalTowersOwned(state)))}
-        ${statLine("Likes Spent", formatNumber(state.totalLikesSpent))}
-        ${statLine("Likes From Clicks", formatNumber(state.totalLikesFromClicks))}
+        ${statLine("Likes Per Second", formatNumber(getLikesPerSecond(state)), formatFullNumber(getLikesPerSecond(state)))}
+        ${statLine("Click Power", `+${formatNumber(getClickPower(state))}`, `+${formatFullNumber(getClickPower(state))}`)}
+        ${statLine("48h Offline Capacity", formatPercent(getOfflineProductionCapacity(state)))}
+        ${statLine("Subscribers", formatNumber(state.subscribers), formatFullNumber(state.subscribers))}
+        ${statLine("Subscribers Ever", formatNumber(state.totalSubscribersEver), formatFullNumber(state.totalSubscribersEver))}
+        ${statLine("Towers Owned", formatNumber(getTotalTowersOwned(state)), formatFullNumber(getTotalTowersOwned(state)))}
+        ${statLine("Likes Spent", formatNumber(state.totalLikesSpent), formatFullNumber(state.totalLikesSpent))}
+        ${statLine("Likes From Clicks", formatNumber(state.totalLikesFromClicks), formatFullNumber(state.totalLikesFromClicks))}
         ${statLine("Play Time", formatDuration(state.playTimeSeconds))}
       </div>
     `;
@@ -719,7 +1480,7 @@ function renderOverlay(type) {
     const unlockedCount = ACHIEVEMENTS.filter((achievement) => state.achievements[achievement.id]).length;
     elements.overlayContent.innerHTML = `
       <h2 id="overlay-title">Milestones</h2>
-      <p class="overlay-subtitle">These are the future Steam achievements for Meme Farm: tower purchases, viral thresholds, bad decisions, and a few deeply specific internet crimes.</p>
+      <p class="overlay-subtitle">Steam achievement goals for Meme Farm: tower purchases, viral thresholds, bad decisions, and a few deeply specific internet crimes.</p>
       <div class="milestone-summary">
         <strong>${formatNumber(unlockedCount)} / ${formatNumber(ACHIEVEMENTS.length)} unlocked</strong>
         <span>${formatNumber(ACHIEVEMENTS.length - unlockedCount)} still hiding in the content mines</span>
@@ -739,12 +1500,12 @@ function renderOverlay(type) {
     const ownedLegacyOverclocks = getOwnedLegacyOverclockUpgrades(state);
     elements.overlayContent.innerHTML = `
       <h2 id="overlay-title">Upgrade Dashboard</h2>
-      <p class="overlay-subtitle">A cleaner view of the upgrades you own: repeatable core upgrades, tower upgrade chains, Crossfeed synergies, and late-game Legacy Overclocks.</p>
+      <p class="overlay-subtitle">Track your owned upgrades, tower chains, Crossfeed synergies, and late-game Legacy Overclocks in one place.</p>
       <div class="upgrade-summary-grid">
-        ${upgradeSummaryCard("Core Levels", formatNumber(getCoreUpgradeLevelCount(state)), "Click Boost and offline capacity levels")}
+        ${upgradeSummaryCard("Core Levels", formatNumber(getCoreUpgradeLevelCount(state)), "Click Boost and 48h offline capacity levels")}
         ${upgradeSummaryCard("One-Time Owned", `${formatNumber(ownedOneTimeCount)} / ${formatNumber(totalOneTimeCount)}`, "Tower doubles, Crossfeeds, and overclocks")}
         ${upgradeSummaryCard("Active Towers", `${formatNumber(activeTowerChains.length)} / ${formatNumber(TOWERS.length)}`, "Towers with at least one owned upgrade")}
-        ${upgradeSummaryCard("Legacy Overclocks", `${formatNumber(ownedLegacyOverclocks.length)} / ${formatNumber(getLegacyOverclockUpgradeCount())}`, "x1000 late-game revivals")}
+        ${upgradeSummaryCard("Legacy Overclocks", `${formatNumber(ownedLegacyOverclocks.length)} / ${formatNumber(getLegacyOverclockUpgradeCount())}`, "Declining late-game revival boosts")}
       </div>
       <section class="upgrade-dashboard-section">
         <h3>Core Upgrades</h3>
@@ -761,12 +1522,7 @@ function renderOverlay(type) {
       <section class="upgrade-dashboard-section">
         <h3>Owned Crossfeeds</h3>
         ${ownedCrossfeeds.length > 0
-          ? `<div class="owned-crossfeed-list">${ownedCrossfeeds.map((upgrade) => `
-            <div class="owned-crossfeed-item">
-              <strong>${escapeHtml(upgrade.displayName)}</strong>
-              <span>${escapeHtml(describeUpgradeEffect(upgrade))}</span>
-            </div>
-          `).join("")}</div>`
+          ? renderCrossfeedConspiracyWeb(ownedCrossfeeds, state)
           : `<p class="empty-upgrade-state">No Crossfeeds owned yet. The suspicious dependency graph has not begun.</p>`}
       </section>
       <section class="upgrade-dashboard-section">
@@ -789,6 +1545,18 @@ function renderOverlay(type) {
 
   if (type === "options") {
     const volumePercent = Math.round((state.settings.volume ?? 1) * 100);
+    const visualTakeoverSettings = getVisualTakeoverSettings(state);
+    const availableTakeoverOptions = getAvailableTakeoverOptions(state);
+    const desktopCompanionSettings = getDesktopCompanionSettings(state);
+    const desktopWindowSettings = getDesktopWindowSettings(state);
+    const desktopWindowControlsAvailable = hasDesktopWindowControls();
+    const desktopCompanionOptions = [
+      ["enabled", "Enable desktop companion", "Master switch for every desktop-adjacent behavior."],
+      ["trayStatus", "Tray status", "Keep a tiny tray/status menu with current progress."],
+      ["taskbarFlash", "Taskbar attention flash", "Let big moments request attention from the taskbar."],
+      ["offlineReports", "Absurd offline reports", "Add tower-specific nonsense to the away report."],
+      ["titleMischief", "Unhinged window title", "Let the title bar rotate through cursed status lines."]
+    ];
     elements.overlayContent.innerHTML = `
       <h2 id="overlay-title">Options</h2>
       <div class="options-panel">
@@ -803,6 +1571,57 @@ function renderOverlay(type) {
           </label>
           <button type="button" id="toggle-mute">${state.settings.muted ? "Unmute Audio" : "Mute Audio"}</button>
         </section>
+        <section class="options-section" aria-labelledby="desktop-window-options-title">
+          <h3 id="desktop-window-options-title">Screen Size</h3>
+          <p>${desktopWindowControlsAvailable
+            ? "Choose how much space Meme Farm should take up on your desktop. Windowed sizes keep the same layout and scale the game down."
+            : "Screen size controls are available in the desktop app."}</p>
+          <label class="screen-size-control" for="desktop-window-size">
+            <span>
+              <strong>Display mode</strong>
+              <small>${desktopWindowControlsAvailable ? "Pick a fixed window size or switch to fullscreen." : "Open the desktop app to change this."}</small>
+            </span>
+            <select id="desktop-window-size" ${desktopWindowControlsAvailable ? "" : "disabled"}>
+              ${DESKTOP_WINDOW_PRESETS.map((preset) => `
+                <option value="${preset.id}" ${preset.id === desktopWindowSettings.sizePreset ? "selected" : ""}>
+                  ${escapeHtml(preset.label)}
+                </option>
+              `).join("")}
+            </select>
+          </label>
+        </section>
+        <section class="options-section" aria-labelledby="desktop-companion-options-title">
+          <h3 id="desktop-companion-options-title">Desktop Companion</h3>
+          <p>Control how much Meme Farm is allowed to behave like a cursed desktop side-game.</p>
+          <div class="takeover-option-list">
+            ${desktopCompanionOptions.map(([id, label, description]) => `
+              <label class="takeover-option" for="desktop-companion-${id}">
+                <input id="desktop-companion-${id}" type="checkbox" data-desktop-companion="${id}" ${desktopCompanionSettings[id] ? "checked" : ""} />
+                <span>
+                  <strong>${escapeHtml(label)}</strong>
+                  <small>${escapeHtml(description)}</small>
+                </span>
+              </label>
+            `).join("")}
+          </div>
+        </section>
+        ${availableTakeoverOptions.length > 0
+          ? `<section class="options-section" aria-labelledby="visual-options-title">
+          <h3 id="visual-options-title">Visuals</h3>
+          <p>Choose which owned tower screen-invasion effects are allowed to appear.</p>
+          <div class="takeover-option-list">
+            ${availableTakeoverOptions.map((option) => `
+              <label class="takeover-option" for="visual-takeover-${option.id}">
+                <input id="visual-takeover-${option.id}" type="checkbox" data-visual-takeover="${option.id}" ${visualTakeoverSettings[option.id] ? "checked" : ""} />
+                <span>
+                  <strong>${escapeHtml(option.label)}</strong>
+                  <small>${escapeHtml(option.description)}</small>
+                </span>
+              </label>
+            `).join("")}
+          </div>
+        </section>`
+          : ""}
         <section class="options-section" aria-labelledby="save-options-title">
           <h3 id="save-options-title">Progress</h3>
           <p>Your progress saves automatically.</p>
@@ -824,6 +1643,19 @@ function renderOverlay(type) {
       handlers.onToggleMute();
       event.currentTarget.textContent = state.settings.muted ? "Unmute Audio" : "Mute Audio";
       volumeValue.textContent = `${Math.round((state.settings.volume ?? 1) * 100)}%${state.settings.muted ? " (muted)" : ""}`;
+    });
+    document.getElementById("desktop-window-size").addEventListener("change", (event) => {
+      handlers.onSetDesktopWindowSize?.(event.currentTarget.value);
+    });
+    document.querySelectorAll("[data-visual-takeover]").forEach((input) => {
+      input.addEventListener("change", (event) => {
+        handlers.onSetVisualTakeover(event.currentTarget.dataset.visualTakeover, event.currentTarget.checked);
+      });
+    });
+    document.querySelectorAll("[data-desktop-companion]").forEach((input) => {
+      input.addEventListener("change", (event) => {
+        handlers.onSetDesktopCompanion(event.currentTarget.dataset.desktopCompanion, event.currentTarget.checked);
+      });
     });
     document.getElementById("reset-game").addEventListener("click", handlers.onResetRequest);
     return;
@@ -879,10 +1711,93 @@ function renderTowerUpgradeSummary(summary) {
         <span>Crossfeed</span>
         <strong>${summary.crossfeedOwned ? "Owned" : "Not owned"}</strong>
       </div>
-      <div class="tower-crossfeed-status tower-legacy-status ${summary.legacyOwned ? "is-owned" : ""}">
-        <span>Legacy Overclock</span>
-        <strong>${summary.legacyOwned ? "Owned" : "Not owned"}</strong>
+      ${summary.legacyAvailable
+        ? `<div class="tower-crossfeed-status tower-legacy-status ${summary.legacyOwned ? "is-owned" : ""}">
+          <span>Legacy Overclock</span>
+          <strong>${summary.legacyOwned ? "Owned" : "Not owned"}</strong>
+        </div>`
+        : ""}
+    </div>
+  `;
+}
+
+function renderCrossfeedConspiracyWeb(ownedCrossfeeds, state) {
+  const implicatedTowerIds = new Set();
+
+  for (const upgrade of ownedCrossfeeds) {
+    implicatedTowerIds.add(upgrade.effect.towerId);
+    implicatedTowerIds.add(upgrade.effect.sourceTowerId);
+  }
+
+  return `
+    <div class="crossfeed-conspiracy-web" aria-label="Owned Crossfeed dependency map">
+      <div class="crossfeed-web-header">
+        <span>
+          <small>Definitely normal engineering</small>
+          <strong>Crossfeed Conspiracy Web</strong>
+        </span>
+        <b>${formatNumber(ownedCrossfeeds.length)} suspicious links</b>
+        <em>${formatNumber(implicatedTowerIds.size)} towers implicated</em>
       </div>
+      <div class="crossfeed-web-map">
+        ${ownedCrossfeeds.map((upgrade, index) => renderCrossfeedConspiracyLink(upgrade, state, index)).join("")}
+      </div>
+    </div>
+  `;
+}
+
+function renderCrossfeedConspiracyLink(upgrade, state, index) {
+  const sourceTower = TOWERS.find((tower) => tower.id === upgrade.effect.sourceTowerId);
+  const targetTower = TOWERS.find((tower) => tower.id === upgrade.effect.towerId);
+  const sourceCopy = sourceTower
+    ? getTowerDisplayCopy(state, sourceTower)
+    : { displayName: "Unknown Source", description: "" };
+  const targetCopy = targetTower
+    ? getTowerDisplayCopy(state, targetTower)
+    : { displayName: "Unknown Target", description: "" };
+  const sourceAmount = sourceTower ? getTowerAmount(state, sourceTower.id) : 0;
+  const targetAmount = targetTower ? getTowerAmount(state, targetTower.id) : 0;
+  const perSource = upgrade.effect.multiplierPerSource ?? 0;
+  const maxMultiplier = upgrade.effect.maxMultiplier ?? 1;
+  const rawMultiplier = 1 + sourceAmount * perSource;
+  const currentMultiplier = Math.min(maxMultiplier, rawMultiplier);
+  const isCapped = currentMultiplier >= maxMultiplier && sourceAmount > 0;
+  const heat = maxMultiplier > 1
+    ? Math.min(1, Math.max(0, (currentMultiplier - 1) / (maxMultiplier - 1)))
+    : 0;
+
+  return `
+    <article class="crossfeed-web-link ${isCapped ? "is-capped" : ""}" style="--crossfeed-heat:${heat.toFixed(3)};">
+      ${renderCrossfeedTowerNode(sourceTower, sourceCopy.displayName, sourceAmount, "Source pressure")}
+      <div class="crossfeed-connector" aria-label="${escapeHtml(sourceCopy.displayName)} feeds ${escapeHtml(targetCopy.displayName)}">
+        <span class="crossfeed-wire-label">engagement pipe ${index + 1}</span>
+        <strong>x${formatNumber(currentMultiplier)} LPS</strong>
+        <div class="crossfeed-badges">
+          <span>+${formatNumber(perSource * 100)}% each</span>
+          <span>cap x${formatNumber(maxMultiplier)}</span>
+          ${isCapped ? "<span>cap reached</span>" : ""}
+        </div>
+      </div>
+      ${renderCrossfeedTowerNode(targetTower, targetCopy.displayName, targetAmount, "Target beneficiary")}
+      <p class="crossfeed-warning">
+        Dependency note: ${escapeHtml(sourceCopy.displayName)} is laundering engagement into ${escapeHtml(targetCopy.displayName)}.
+        ${isCapped ? "The graph has hit the legal maximum nonsense multiplier." : "Auditors have marked this as fine."}
+      </p>
+    </article>
+  `;
+}
+
+function renderCrossfeedTowerNode(tower, displayName, amount, role) {
+  return `
+    <div class="crossfeed-node">
+      ${tower
+        ? `<img src="${tower.image}" alt="${escapeHtml(displayName)}" loading="lazy" />`
+        : `<span class="crossfeed-node-fallback">?</span>`}
+      <span>
+        <small>${escapeHtml(role)}</small>
+        <strong>${escapeHtml(displayName)}</strong>
+        <b>x${formatNumber(amount)} owned</b>
+      </span>
     </div>
   `;
 }
@@ -930,6 +1845,7 @@ function getTowerUpgradeSummaries(state) {
       standardUpgrades,
       standardOwnedCount,
       crossfeedOwned,
+      legacyAvailable: Boolean(legacyUpgrade),
       legacyOwned,
       ownedTotal: standardOwnedCount + (crossfeedOwned ? 1 : 0) + (legacyOwned ? 1 : 0)
     };
@@ -959,10 +1875,11 @@ function updateTooltip(kind, id, anchor) {
 
   if (kind === "tower") {
     const tower = TOWERS.find((item) => item.id === id);
+    const copy = getTowerDisplayCopy(state, tower);
     const amount = getTowerAmount(state, id);
     elements.tooltip.innerHTML = `
-      <div class="tooltip-title">${escapeHtml(tower.displayName)}</div>
-      <div class="tooltip-description">${escapeHtml(tower.description)}</div>
+      <div class="tooltip-title">${escapeHtml(copy.displayName)}</div>
+      <div class="tooltip-description">${escapeHtml(copy.description)}</div>
       <div class="tooltip-line">Each produces <b>${formatNumber(tower.lps * getTowerMultiplierForDisplay(state, id))}</b> Likes/sec</div>
       <div class="tooltip-line">${formatNumber(amount)} owned produce <b>${formatNumber(getTowerEffectiveLps(state, id))}</b> LPS</div>
       <div class="tooltip-line"><b>${formatNumber(state.towers[id]?.totalProduced ?? 0)}</b> Likes produced total</div>
@@ -1009,15 +1926,130 @@ function showToast(message) {
   setTimeout(() => toast.remove(), 3600);
 }
 
-function showOfflineModal({ likesEarned, secondsAway, capacity = 0 }) {
-  if (likesEarned <= 0 || secondsAway < 60) {
+function showAchievementReaction(achievement) {
+  const reaction = getAchievementReaction(achievement);
+  const card = document.createElement("article");
+  card.className = `achievement-reaction achievement-reaction-${reaction.tier}`;
+  card.innerHTML = `
+    <span class="achievement-reaction-kicker">${escapeHtml(reaction.kicker)}</span>
+    <span class="achievement-reaction-icon">${escapeHtml(achievement.icon)}</span>
+    <strong>${escapeHtml(achievement.title)}</strong>
+    <span>${escapeHtml(achievement.description)}</span>
+    ${reaction.patchNote
+      ? `<small>Patch note: ${escapeHtml(reaction.patchNote)}</small>`
+      : ""}
+  `;
+
+  elements.achievementReactionLayer.appendChild(card);
+
+  if (reaction.tier !== "standard") {
+    elements.body.classList.remove("achievement-screen-pulse", "achievement-screen-legendary");
+    void elements.body.offsetWidth;
+    elements.body.classList.add(reaction.tier === "legendary" ? "achievement-screen-legendary" : "achievement-screen-pulse");
+    window.setTimeout(() => {
+      elements.body.classList.remove("achievement-screen-pulse", "achievement-screen-legendary");
+    }, reaction.tier === "legendary" ? 900 : 620);
+  }
+
+  window.setTimeout(() => card.remove(), reaction.tier === "legendary" ? 6200 : 4600);
+}
+
+function showLegacyOverclockEvent(upgrade) {
+  const tower = TOWERS.find((item) => item.id === upgrade.effect?.towerId);
+  const towerName = tower?.displayName ?? "Forgotten Tower";
+  const multiplier = upgrade.effect?.multiplier ?? 1;
+  const event = document.createElement("section");
+  event.className = "legacy-overclock-reaction";
+  event.setAttribute("aria-label", `${upgrade.displayName} activated`);
+  event.innerHTML = `
+    <div class="legacy-overclock-static" aria-hidden="true"></div>
+    <div class="legacy-overclock-comeback-rain" aria-hidden="true">
+      ${LEGACY_OVERCLOCK_LINES.map((line, index) => `
+        <span style="--x:${8 + ((index * 13) % 78)}%; --y:${12 + ((index * 17) % 70)}%; --r:${-14 + ((index * 11) % 28)}deg; --d:${index * 0.08}s;">
+          ${escapeHtml(line)}
+        </span>
+      `).join("")}
+    </div>
+    <article class="legacy-overclock-card">
+      <span class="legacy-overclock-kicker">Legacy Overclock</span>
+      <div class="legacy-overclock-hero">
+        ${tower ? `<img src="${tower.image}" alt="${escapeHtml(towerName)}" />` : ""}
+        <span class="legacy-overclock-multiplier">x${formatNumber(multiplier)}</span>
+      </div>
+      <strong>${escapeHtml(towerName)} storms back</strong>
+      <span>${escapeHtml(upgrade.displayName)} has dragged an early-game relic back into late-game relevance.</span>
+      <small>${escapeHtml(towerName)} has re-entered the discourse. Everyone is pretending they always believed.</small>
+    </article>
+  `;
+
+  elements.achievementReactionLayer.appendChild(event);
+  elements.body.classList.remove("legacy-overclock-screen-hit");
+  void elements.body.offsetWidth;
+  elements.body.classList.add("legacy-overclock-screen-hit");
+
+  window.setTimeout(() => {
+    elements.body.classList.remove("legacy-overclock-screen-hit");
+  }, 1000);
+  window.setTimeout(() => event.remove(), 5600);
+}
+
+function getAchievementReaction(achievement) {
+  const id = achievement.id ?? "";
+
+  if (LEGENDARY_ACHIEVEMENT_PATTERNS.some((pattern) => pattern.test(id))) {
+    return {
+      tier: "legendary",
+      kicker: "Reality patch deployed",
+      patchNote: `Unlocked "${achievement.title}" and made the farm noticeably less normal.`
+    };
+  }
+
+  if (RARE_ACHIEVEMENT_PATTERNS.some((pattern) => pattern.test(id))) {
+    return {
+      tier: "rare",
+      kicker: "Milestone breach",
+      patchNote: `The system has filed "${achievement.title}" under excellent bad decisions.`
+    };
+  }
+
+  return {
+    tier: "standard",
+    kicker: "Milestone unlocked",
+    patchNote: ""
+  };
+}
+
+function showBadIdeaConsequenceModal(consequence) {
+  showModal(`
+    <div class="modal-card algorithm-denial-modal">
+      <span class="eyebrow">Automated platform notice</span>
+      <h2>${escapeHtml(consequence.title)}</h2>
+      <p>The algorithm has reviewed your appeal and found no evidence that anything weird happened.</p>
+      <p>Reference code: <strong>DENIED-${Math.floor(Math.random() * 9000 + 1000)}</strong></p>
+      <button type="button" data-modal-close>Accept Obviously False Statement</button>
+    </div>
+  `);
+}
+
+function showOfflineModal({ likesEarned, secondsAway, productionSeconds = secondsAway, capacity = 0, maxOfflineSeconds = productionSeconds, companionLines = [] }) {
+  if (likesEarned <= 0 || productionSeconds < 60) {
     return;
   }
+
+  const wasCapped = secondsAway > productionSeconds;
 
   showModal(`
     <div class="modal-card">
       <h2>While You Were Away</h2>
-      <p>Your towers kept posting at ${formatPercent(capacity)} offline capacity for ${formatDuration(secondsAway)}.</p>
+      <p>Your towers kept posting at ${formatPercent(capacity)} offline capacity for ${formatDuration(productionSeconds)}.</p>
+      ${wasCapped
+        ? `<p>You were away for ${formatDuration(secondsAway)}, but offline production stops after ${formatDuration(maxOfflineSeconds)}.</p>`
+        : ""}
+      ${companionLines.length > 0
+        ? `<div class="offline-report-lines" aria-label="Desktop companion offline report">
+          ${companionLines.map((line) => `<span>${escapeHtml(line)}</span>`).join("")}
+        </div>`
+        : ""}
       <strong>+${formatNumber(likesEarned)} Likes</strong>
       <button type="button" data-modal-close>Nice</button>
     </div>
@@ -1067,8 +2099,8 @@ function setSaveStatus(text) {
   elements.saveStatus.textContent = text;
 }
 
-function statLine(label, value) {
-  return `<div class="stat-line"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`;
+function statLine(label, value, title = value) {
+  return `<div class="stat-line"><span>${escapeHtml(label)}</span><strong title="${escapeHtml(title)}">${escapeHtml(value)}</strong></div>`;
 }
 
 function formatUpgradeLevel(upgrade, level) {
@@ -1106,11 +2138,13 @@ function describeUpgradeEffect(upgrade) {
   }
 
   if (upgrade.type === "subscriberBonus") {
-    return `Subscriber spawns x${upgrade.effect.spawnMultiplier} per level`;
+    return upgrade.maxLevel === 1
+      ? `Subscriber spawns x${upgrade.effect.spawnMultiplier}`
+      : `Subscriber spawns x${upgrade.effect.spawnMultiplier} per level`;
   }
 
   if (upgrade.type === "offlineProductionCapacity") {
-    return `Offline production +${formatPercent(upgrade.effect.capacityPerLevel)} per level, max ${formatPercent(upgrade.effect.maxCapacity)}`;
+    return `48h offline production +${formatPercent(upgrade.effect.capacityPerLevel)} per level, max ${formatPercent(upgrade.effect.maxCapacity)}`;
   }
 
   return "Mystery boost";

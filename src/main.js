@@ -1,13 +1,22 @@
 import { ACHIEVEMENTS } from "./data/achievements.js";
+import { TOWERS } from "./data/towers.js";
 import {
   addLikes,
   applyOfflineProgress,
   awardTower,
   clickMemeButton,
   collectSubscriber,
+  DESKTOP_COMPANION_DEFAULTS,
+  DESKTOP_WINDOW_DEFAULTS,
+  DESKTOP_WINDOW_PRESETS,
   gameState,
+  getApocalypseEra,
+  getLikesPerSecond,
   getSubscriberSpawnMultiplier,
+  getTotalTowersOwned,
+  getTowerAmount,
   pressBadIdeaButton,
+  pruneExpiredBadIdeaConsequences,
   pruneExpiredLabBoosts,
   purchaseLabBoost,
   purchaseTower,
@@ -26,7 +35,7 @@ import {
 import { createAudioController } from "./audio.js";
 import { startGameLoop } from "./gameLoop.js";
 import { initUI, showResetConfirmation } from "./ui.js";
-import { formatNumber } from "./utils/format.js";
+import { formatDuration, formatNumber } from "./utils/format.js";
 
 const AUTOSAVE_MS = 15000;
 const MEANINGFUL_SAVE_DELAY_MS = 900;
@@ -46,7 +55,7 @@ function bootGame() {
   function markChanged({ meaningful = false, immediate = false } = {}) {
     dirty = true;
     updateLeaderboardRecords(gameState);
-    checkAchievements();
+    checkAchievements({ ui });
     ui.update();
 
     if (immediate) {
@@ -94,6 +103,9 @@ function bootGame() {
 
       audio.purchase();
       ui.showToast("Tower bought.");
+      if (getTowerAmount(gameState, towerId) === 1) {
+        notifyTowerCameOnline(towerId);
+      }
       markChanged({ meaningful: true });
     },
     onBuyUpgrade: (upgradeId) => {
@@ -109,7 +121,16 @@ function bootGame() {
       }
 
       audio.purchase();
-      ui.showToast("Upgrade bought.");
+      if (result.upgrade?.category === "legacyOverclock") {
+        ui.showLegacyOverclockEvent(result.upgrade);
+        ui.showToast("Legacy Overclock activated.");
+        notifyDesktopCompanion({
+          title: "Legacy Overclock activated",
+          body: `${result.upgrade.displayName} dragged an old format back into the discourse.`
+        }, { flash: true });
+      } else {
+        ui.showToast("Upgrade bought.");
+      }
       markChanged({ meaningful: true });
     },
     onBuyLabBoost: (boostId) => {
@@ -117,7 +138,7 @@ function bootGame() {
 
       if (!result.ok) {
         ui.showToast(result.reason === "active"
-          ? "That boost is already running."
+          ? "An Algorithm Bribe is already running."
           : result.reason === "need-more"
             ? `Need ${formatNumber(result.missing)} more subscribers.`
             : "Lab boost unavailable.");
@@ -138,14 +159,29 @@ function bootGame() {
         return;
       }
 
-      audio.purchase();
+      if (result.outcome?.id === "nothing_happens_loudly") {
+        audio.confidentNoise();
+      } else {
+        audio.purchase();
+      }
       ui.showToast(result.message);
+      if (result.consequence?.modal) {
+        ui.showBadIdeaConsequenceModal(result.consequence);
+      }
       markChanged({ meaningful: true });
     },
-    onCollectSubscriber: () => {
-      collectSubscriber(gameState);
+    onCollectSubscriber: ({ amount = 1, fake = false, golden = false } = {}) => {
+      if (fake) {
+        audio.pop();
+        ui.showToast("Fake subscriber. Bot energy detected.");
+        return;
+      }
+
+      const gained = collectSubscriber(gameState, amount);
       audio.purchase();
-      ui.showToast("+1 Subscriber");
+      ui.showToast(golden
+        ? `+${formatNumber(gained)} Golden Subscribers`
+        : `+${formatNumber(gained)} Subscriber${gained === 1 ? "" : "s"}`);
       markChanged({ meaningful: true });
     },
     onResetRequest: () => {
@@ -167,6 +203,27 @@ function bootGame() {
     onSetVolume: (volume) => {
       gameState.settings.volume = audio.setVolume(volume);
       markChanged({ meaningful: true });
+    },
+    onSetVisualTakeover: (takeoverId, enabled) => {
+      gameState.settings.visualTakeovers ??= {};
+      gameState.settings.visualTakeovers[takeoverId] = Boolean(enabled);
+      markChanged({ meaningful: true });
+    },
+    onSetDesktopCompanion: (settingId, enabled) => {
+      gameState.settings.desktopCompanion = {
+        ...getDesktopCompanionSettings(gameState),
+        [settingId]: Boolean(enabled)
+      };
+      syncDesktopCompanion({ configure: true });
+      markChanged({ meaningful: true });
+    },
+    onSetDesktopWindowSize: (sizePreset) => {
+      gameState.settings.desktopWindow = {
+        ...getDesktopWindowSettings(gameState),
+        sizePreset: normalizeDesktopWindowPreset(sizePreset)
+      };
+      syncDesktopWindow();
+      markChanged({ meaningful: true });
     }
   });
 
@@ -181,12 +238,19 @@ function bootGame() {
     dirty = true;
   }
   ui.update();
+  syncDesktopWindow();
+  syncDesktopCompanion({ configure: true });
 
   if (loadResult.corrupt) {
     ui.showToast("Your old save was corrupt, so Meme Farm started clean.");
   }
 
-  ui.showOfflineModal(offlineProgress);
+  const offlineReportLines = createOfflineCompanionReport(gameState, offlineProgress);
+  ui.showOfflineModal({
+    ...offlineProgress,
+    companionLines: getDesktopCompanionSettings(gameState).offlineReports ? offlineReportLines : []
+  });
+  notifyOfflineReport(offlineProgress, offlineReportLines);
 
   startGameLoop({
     tickMs: 500,
@@ -201,6 +265,10 @@ function bootGame() {
         dirty = true;
       }
 
+      if (pruneExpiredBadIdeaConsequences(gameState)) {
+        dirty = true;
+      }
+
       if (updateLeaderboardRecords(gameState)) {
         dirty = true;
       }
@@ -212,6 +280,7 @@ function bootGame() {
       if (maybeSpawnSubscriber(subscriberSeconds, getSubscriberSpawnMultiplier(gameState), ui)) {
         subscriberSeconds = 0;
       }
+      syncDesktopCompanion();
       flushIfAutosaveDue();
     },
     onFrame: (_delta, elapsedSeconds) => {
@@ -281,7 +350,170 @@ function bootGame() {
   window.addSubscribers = window.MemeFarmDebug.addSubscribers;
 }
 
-function checkAchievements({ silent = false } = {}) {
+function getDesktopPlatform() {
+  return globalThis.window?.memeFarmPlatform?.desktop ?? null;
+}
+
+function getDesktopCompanionSettings(state) {
+  const value = state.settings?.desktopCompanion;
+  const defaults = DESKTOP_COMPANION_DEFAULTS;
+
+  if (value === false) {
+    return Object.fromEntries(Object.keys(defaults).map((key) => [key, false]));
+  }
+
+  if (!value || typeof value !== "object") {
+    return { ...defaults };
+  }
+
+  return Object.fromEntries(
+    Object.entries(defaults).map(([key, defaultValue]) => [
+      key,
+      Boolean(value[key] ?? defaultValue)
+    ])
+  );
+}
+
+function getDesktopWindowSettings(state) {
+  return {
+    sizePreset: normalizeDesktopWindowPreset(state.settings?.desktopWindow?.sizePreset)
+  };
+}
+
+function normalizeDesktopWindowPreset(sizePreset) {
+  return DESKTOP_WINDOW_PRESETS.some((preset) => preset.id === sizePreset)
+    ? sizePreset
+    : DESKTOP_WINDOW_DEFAULTS.sizePreset;
+}
+
+function syncDesktopWindow() {
+  const platform = getDesktopPlatform();
+
+  if (!platform?.available || typeof platform.configureWindow !== "function") {
+    return;
+  }
+
+  platform.configureWindow(getDesktopWindowSettings(gameState));
+}
+
+function syncDesktopCompanion({ configure = false } = {}) {
+  const platform = getDesktopPlatform();
+
+  if (!platform?.available) {
+    return;
+  }
+
+  const settings = getDesktopCompanionSettings(gameState);
+
+  if (configure) {
+    platform.configure(settings);
+  }
+
+  if (!settings.enabled) {
+    return;
+  }
+
+  const era = getApocalypseEra(gameState);
+  platform.updateStatus({
+    likes: formatNumber(gameState.likes),
+    lps: formatNumber(getLikesPerSecond(gameState)),
+    subscribers: formatNumber(gameState.subscribers),
+    towers: formatNumber(getTotalTowersOwned(gameState)),
+    era: era.label
+  });
+}
+
+function notifyDesktopCompanion({ title, body }, { flash = false } = {}) {
+  const platform = getDesktopPlatform();
+  const settings = getDesktopCompanionSettings(gameState);
+
+  if (!platform?.available || !settings.enabled) {
+    return;
+  }
+
+  if (flash && settings.taskbarFlash) {
+    platform.flash();
+  }
+}
+
+function notifyTowerCameOnline(towerId) {
+  const tower = TOWERS.find((item) => item.id === towerId);
+
+  if (!tower) {
+    return;
+  }
+
+  notifyDesktopCompanion({
+    title: `${tower.displayName} came online`,
+    body: `${tower.description} The desktop has been informed against its will.`
+  }, { flash: true });
+}
+
+function notifyAchievementUnlocked(achievement) {
+  const major = isMajorAchievement(achievement);
+  notifyDesktopCompanion({
+    title: major ? "Milestone breach detected" : "Achievement unlocked",
+    body: `${achievement.title}: ${achievement.description}`
+  }, { flash: major });
+}
+
+function notifyOfflineReport(offlineProgress, reportLines) {
+  const settings = getDesktopCompanionSettings(gameState);
+
+  if (!settings.offlineReports || offlineProgress.likesEarned <= 0 || offlineProgress.productionSeconds < 60) {
+    return;
+  }
+
+  notifyDesktopCompanion({
+    title: "Meme Farm posted while unsupervised",
+    body: `${formatNumber(offlineProgress.likesEarned)} Likes earned in ${formatDuration(offlineProgress.productionSeconds)}. ${reportLines[0] ?? "The feed denies everything."}`
+  }, { flash: true });
+}
+
+function createOfflineCompanionReport(state, offlineProgress) {
+  if (offlineProgress.likesEarned <= 0 || offlineProgress.productionSeconds < 60) {
+    return [];
+  }
+
+  const ownedTowers = TOWERS
+    .filter((tower) => getTowerAmount(state, tower.id) > 0)
+    .sort((first, second) => getTowerAmount(state, second.id) - getTowerAmount(state, first.id));
+  const lines = [
+    `The farm earned ${formatNumber(offlineProgress.likesEarned)} Likes while you were pretending to have boundaries.`,
+    `Offline production ran for ${formatDuration(offlineProgress.productionSeconds)} at ${Math.round((offlineProgress.capacity ?? 0) * 100)}% attention leakage.`
+  ];
+
+  for (const tower of ownedTowers.slice(0, 4)) {
+    lines.push(createTowerOfflineLine(tower, getTowerAmount(state, tower.id)));
+  }
+
+  if (offlineProgress.secondsAway > offlineProgress.productionSeconds) {
+    lines.push(`The remaining ${formatDuration(offlineProgress.secondsAway - offlineProgress.productionSeconds)} was marked "emotionally offline" by the feed.`);
+  }
+
+  return lines.slice(0, 6);
+}
+
+function createTowerOfflineLine(tower, amount) {
+  const templates = {
+    botnet: `${formatNumber(amount)} Botnet nodes held a fake argument until engagement improved.`,
+    discord_mod: `${formatNumber(amount)} Discord Mods approved several posts and one suspicious power trip.`,
+    meme_lord: `${formatNumber(amount)} Meme Lords issued royal decrees in Impact font.`,
+    eternal_rickroll_loop: `${formatNumber(amount)} Rickroll Loops kept user trust at historically unsafe levels.`,
+    reality_glitcher: `${formatNumber(amount)} Reality Glitchers moved three pixels of the desktop somewhere legally unclear.`,
+    cursed_tiktok_cultist: `${formatNumber(amount)} Cursed TikTok Cultists posted rituals disguised as productivity tips.`,
+    the_algorithm: `${formatNumber(amount)} Algorithms denied involvement while signing every report.`
+  };
+
+  return templates[tower.id] ?? `${formatNumber(amount)} ${tower.displayName}${amount === 1 ? "" : "s"} kept posting in the background.`;
+}
+
+function isMajorAchievement(achievement) {
+  const id = achievement.id ?? "";
+  return /1000000|100000000|1000000000|bad_idea|meme_lab|legacy_overclock|crossfeed|subscriber_spawn_all|tower_level_5_all/.test(id);
+}
+
+function checkAchievements({ silent = false, ui = null } = {}) {
   let unlockedAny = false;
 
   for (const achievement of ACHIEVEMENTS) {
@@ -291,14 +523,8 @@ function checkAchievements({ silent = false } = {}) {
       if (silent) {
         continue;
       }
-      const toastContainer = document.getElementById("toast-container");
-      if (toastContainer) {
-        const toast = document.createElement("div");
-        toast.className = "toast";
-        toast.textContent = `Achievement: ${achievement.title}`;
-        toastContainer.appendChild(toast);
-        setTimeout(() => toast.remove(), 3600);
-      }
+      ui?.showAchievementReaction(achievement);
+      notifyAchievementUnlocked(achievement);
     }
   }
 

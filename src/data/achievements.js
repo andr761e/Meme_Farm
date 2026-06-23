@@ -1,5 +1,6 @@
 import { TOWERS } from "./towers.js";
 import { UPGRADES } from "./upgrades.js";
+import { BAD_IDEA_BUTTON, MEME_LAB_BOOSTS } from "./memeLab.js";
 import {
   getClickPower,
   getLikesPerSecond,
@@ -418,6 +419,13 @@ const CORE_MILESTONES = [
     isUnlocked: (state) => getClickPower(state) >= 1048576
   },
   {
+    id: "click_boost_5",
+    title: "Click Boost Warmup",
+    description: "Reach Click Boost level 5. The button has started lifting.",
+    icon: "CB5",
+    isUnlocked: (state) => getUpgradeLevel(state, "power_click") >= 5
+  },
+  {
     id: "click_boost_10",
     title: "Click Boost Enjoyer",
     description: "Reach Click Boost level 10. Doubling is a lifestyle.",
@@ -437,6 +445,27 @@ const CORE_MILESTONES = [
     description: "Reach Click Boost level 50. Somewhere, a calculator has resigned.",
     icon: "CB50",
     isUnlocked: (state) => getUpgradeLevel(state, "power_click") >= 50
+  },
+  {
+    id: "click_boost_75",
+    title: "Button With Tenure",
+    description: "Reach Click Boost level 75. The clicker economy has entered senior management.",
+    icon: "CB75",
+    isUnlocked: (state) => getUpgradeLevel(state, "power_click") >= 75
+  },
+  {
+    id: "click_boost_100",
+    title: "Century Of Clicking",
+    description: "Reach Click Boost level 100. Manual input has become a strategic weapon.",
+    icon: "CB100",
+    isUnlocked: (state) => getUpgradeLevel(state, "power_click") >= 100
+  },
+  {
+    id: "click_boost_150",
+    title: "The Button Is A Department",
+    description: "Reach Click Boost level 150. The button now needs its own budget meeting.",
+    icon: "CB150",
+    isUnlocked: (state) => getUpgradeLevel(state, "power_click") >= 150
   },
   {
     id: "upgrade_levels_25",
@@ -574,6 +603,7 @@ const TOWER_CROSSFEED_MILESTONES = TOWERS.map((tower, index) => {
 });
 
 const LEGACY_OVERCLOCK_UPGRADES = UPGRADES.filter((upgrade) => upgrade.category === "legacyOverclock");
+const SUBSCRIBER_SPAWN_UPGRADES = UPGRADES.filter((upgrade) => upgrade.category === "subscriberSpawn");
 
 const LEGACY_OVERCLOCK_MILESTONES = LEGACY_OVERCLOCK_UPGRADES.map((upgrade, index) => {
   const tower = TOWERS.find((item) => item.id === upgrade.effect.towerId);
@@ -581,11 +611,114 @@ const LEGACY_OVERCLOCK_MILESTONES = LEGACY_OVERCLOCK_UPGRADES.map((upgrade, inde
   return {
     id: `upgrade_${upgrade.id}`,
     title: upgrade.displayName,
-    description: `Buy ${upgrade.displayName}. ${tower?.displayName ?? "This tower"} gets its x1000 late-game relevance arc.`,
+    description: `Buy ${upgrade.displayName}. ${tower?.displayName ?? "This tower"} gets a x${upgrade.effect.multiplier} late-game relevance arc.`,
     icon: `LO-${index + 1}`,
     isUnlocked: (state) => getUpgradeLevel(state, upgrade.id) >= 1
   };
 });
+
+const MEME_LAB_BOOST_MILESTONES = MEME_LAB_BOOSTS.map((boost, index) => ({
+  id: `meme_lab_boost_${boost.id}`,
+  title: `${boost.name} Bribe`,
+  description: `Buy ${boost.name} from Algorithm Bribe at least once. The algorithm remains officially neutral.`,
+  icon: `AB-${index + 1}`,
+  isUnlocked: (state) => getLabBoostPurchaseCount(state, boost.id) >= 1
+}));
+
+const BAD_IDEA_OUTCOME_MILESTONES = BAD_IDEA_BUTTON.outcomes
+  .filter((outcome) => outcome.type !== "nothing")
+  .map((outcome, index) => ({
+    id: `bad_idea_outcome_${outcome.id}`,
+    title: outcome.name,
+    description: `Get "${outcome.name}" from the Bad Idea Button. Research has produced consequences.`,
+    icon: `BI-${index + 1}`,
+    isUnlocked: (state) => getBadIdeaOutcomeCount(state, outcome.id) >= 1
+  }));
+
+const MEME_LAB_COLLECTION_MILESTONES = [
+  {
+    id: "meme_lab_first_bribe",
+    title: "Subscriber Lobbying",
+    description: "Buy your first Algorithm Bribe. Democracy trembles before temporary multipliers.",
+    icon: "AB1",
+    isUnlocked: (state) => getTotalLabBoostPurchases(state) >= 1
+  },
+  {
+    id: "meme_lab_10_bribes",
+    title: "Bribe Punch Card",
+    description: "Buy 10 Algorithm Bribes total. The algorithm knows your coffee order now.",
+    icon: "AB10",
+    isUnlocked: (state) => getTotalLabBoostPurchases(state) >= 10
+  },
+  {
+    id: "meme_lab_50_bribes",
+    title: "Sponsored Existence",
+    description: "Buy 50 Algorithm Bribes total. Your feed is now mostly receipts.",
+    icon: "AB50",
+    isUnlocked: (state) => getTotalLabBoostPurchases(state) >= 50
+  },
+  {
+    id: "meme_lab_all_bribes",
+    title: "Full Bribe Sampler",
+    description: "Buy every Algorithm Bribe type at least once. The menu has been thoroughly compromised.",
+    icon: "ABALL",
+    isUnlocked: (state) => MEME_LAB_BOOSTS.every((boost) => getLabBoostPurchaseCount(state, boost.id) >= 1)
+  },
+  {
+    id: "bad_idea_first_press",
+    title: "Surely This Is Fine",
+    description: "Press the Bad Idea Button once. The lab notes begin with a warning label.",
+    icon: "BI1",
+    isUnlocked: (state) => getBadIdeaPressCount(state) >= 1
+  },
+  {
+    id: "bad_idea_10_presses",
+    title: "Repeatable Mistake",
+    description: "Press the Bad Idea Button 10 times. At some point this became methodology.",
+    icon: "BI10",
+    isUnlocked: (state) => getBadIdeaPressCount(state) >= 10
+  },
+  {
+    id: "bad_idea_50_presses",
+    title: "Peer Reviewed Regret",
+    description: "Press the Bad Idea Button 50 times. The lab has published findings nobody requested.",
+    icon: "BI50",
+    isUnlocked: (state) => getBadIdeaPressCount(state) >= 50
+  },
+  {
+    id: "bad_idea_every_outcome",
+    title: "Consequence Collector",
+    description: "Trigger every non-empty Bad Idea Button outcome at least once. The control group has left.",
+    icon: "BIALL",
+    isUnlocked: (state) => BAD_IDEA_BUTTON.outcomes
+      .filter((outcome) => outcome.type !== "nothing")
+      .every((outcome) => getBadIdeaOutcomeCount(state, outcome.id) >= 1)
+  },
+  {
+    id: "meme_lab_250_subscribers_spent",
+    title: "Subscriber Expense Account",
+    description: "Spend 250 subscribers in Meme Lab programs. The receipts are mostly vibes.",
+    icon: "ML250",
+    isUnlocked: (state) => getLabSubscribersSpent(state) >= 250
+  },
+  {
+    id: "meme_lab_1000_subscribers_spent",
+    title: "Lab Budget Incident",
+    description: "Spend 1,000 subscribers in Meme Lab programs. Finance has muted the channel.",
+    icon: "ML1K",
+    isUnlocked: (state) => getLabSubscribersSpent(state) >= 1000
+  }
+];
+
+const SUBSCRIBER_UPGRADE_MILESTONES = [
+  {
+    id: "subscriber_spawn_all_5",
+    title: "Notification Weather System",
+    description: "Buy all 5 Subscriber Spawn upgrades. The followers are now arriving with meteorological confidence.",
+    icon: "SUB5",
+    isUnlocked: (state) => SUBSCRIBER_SPAWN_UPGRADES.every((upgrade) => getUpgradeLevel(state, upgrade.id) >= 1)
+  }
+];
 
 const UPGRADE_COLLECTION_MILESTONES = [
   {
@@ -661,6 +794,10 @@ export const ACHIEVEMENTS = [
   ...TOWER_TIER_FIVE_MILESTONES,
   ...TOWER_CROSSFEED_MILESTONES,
   ...LEGACY_OVERCLOCK_MILESTONES,
+  ...MEME_LAB_BOOST_MILESTONES,
+  ...BAD_IDEA_OUTCOME_MILESTONES,
+  ...MEME_LAB_COLLECTION_MILESTONES,
+  ...SUBSCRIBER_UPGRADE_MILESTONES,
   ...UPGRADE_COLLECTION_MILESTONES
 ];
 
@@ -699,6 +836,26 @@ function getLegacyOverclockUpgradeCount(state) {
     (count, upgrade) => count + (getUpgradeLevel(state, upgrade.id) >= 1 ? 1 : 0),
     0
   );
+}
+
+function getTotalLabBoostPurchases(state) {
+  return state.lab?.totalBoostsPurchased ?? 0;
+}
+
+function getLabBoostPurchaseCount(state, boostId) {
+  return state.lab?.boostPurchaseCounts?.[boostId] ?? 0;
+}
+
+function getBadIdeaPressCount(state) {
+  return state.lab?.badIdeaPresses ?? 0;
+}
+
+function getBadIdeaOutcomeCount(state, outcomeId) {
+  return state.lab?.badIdeaOutcomeCounts?.[outcomeId] ?? 0;
+}
+
+function getLabSubscribersSpent(state) {
+  return state.lab?.subscribersSpent ?? 0;
 }
 
 function getCrossfeedSourceTower(index) {

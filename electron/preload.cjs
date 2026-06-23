@@ -12,6 +12,21 @@ contextBridge.exposeInMainWorld("memeFarmPlatform", {
       return ipcRenderer.sendSync("meme-farm-save:clear");
     }
   },
+  desktop: {
+    available: true,
+    configure(settings) {
+      ipcRenderer.send("meme-farm-desktop:configure", settings);
+    },
+    configureWindow(settings) {
+      ipcRenderer.send("meme-farm-window:configure", settings);
+    },
+    updateStatus(status) {
+      ipcRenderer.send("meme-farm-desktop:status", status);
+    },
+    flash() {
+      ipcRenderer.send("meme-farm-desktop:flash");
+    }
+  },
   steam: {
     available: false
   }

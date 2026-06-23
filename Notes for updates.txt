@@ -1,0 +1,3 @@
+- Clicking the meme button of buying upgrades or towers makes the funny messages banner stutter in electron app
+- Next tower text is still present in Upgrades tab in electron app
+- Sometimes the "need" number on towers can push the text and make the field bigger. 
