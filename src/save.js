@@ -2,6 +2,7 @@ import { TOWERS } from "./data/towers.js";
 import { UPGRADES } from "./data/upgrades.js";
 import { ACHIEVEMENTS } from "./data/achievements.js";
 import { BAD_IDEA_CONSEQUENCE_BY_ID, BAD_IDEA_OUTCOME_BY_ID, MEME_LAB_BOOST_BY_ID } from "./data/memeLab.js";
+import { TERMS_OF_SERVICE_EVENT_BY_ID } from "./data/termsOfService.js";
 import {
   DESKTOP_COMPANION_DEFAULTS,
   DESKTOP_WINDOW_DEFAULTS,
@@ -100,7 +101,9 @@ export function serializeState(state) {
       resetCount: safeNumber(state.stats?.resetCount),
       offlineLikesEarned: safeNumber(state.stats?.offlineLikesEarned),
       bestLikesPerSecond: safeNumber(state.stats?.bestLikesPerSecond),
-      bestClickPower: safeNumber(state.stats?.bestClickPower, 1)
+      bestClickPower: safeNumber(state.stats?.bestClickPower, 1),
+      superSubscribersCollected: safeNumber(state.stats?.superSubscribersCollected),
+      acceptedTerms: sanitizeAcceptedTerms(state.stats?.acceptedTerms)
     },
     settings: {
       muted: Boolean(state.settings?.muted),
@@ -132,7 +135,9 @@ export function mergeSaveData(data) {
     resetCount: safeNumber(source.stats?.resetCount ?? source.resetCount),
     offlineLikesEarned: safeNumber(source.stats?.offlineLikesEarned),
     bestLikesPerSecond: safeNumber(source.stats?.bestLikesPerSecond),
-    bestClickPower: safeNumber(source.stats?.bestClickPower, 1)
+    bestClickPower: safeNumber(source.stats?.bestClickPower, 1),
+    superSubscribersCollected: safeNumber(source.stats?.superSubscribersCollected),
+    acceptedTerms: sanitizeAcceptedTerms(source.stats?.acceptedTerms)
   };
   next.settings = {
     muted: Boolean(source.settings?.muted),
@@ -190,15 +195,29 @@ function sanitizeLabState(lab) {
   const activeBoosts = lab?.activeBoosts && typeof lab.activeBoosts === "object"
     ? lab.activeBoosts
     : {};
+  const activeObscureBoosts = lab?.activeObscureBoosts && typeof lab.activeObscureBoosts === "object"
+    ? lab.activeObscureBoosts
+    : {};
   const activeConsequences = lab?.activeConsequences && typeof lab.activeConsequences === "object"
     ? lab.activeConsequences
     : {};
+  const obscureBoostUpgradeIds = new Set(UPGRADES
+    .filter((upgrade) => upgrade.type === "randomLpsBoost")
+    .map((upgrade) => upgrade.id));
 
   return {
     activeBoosts: Object.fromEntries(
       Object.entries(activeBoosts)
         .map(([id, active]) => [id, { expiresAt: safeNumber(active?.expiresAt) }])
         .filter(([id, active]) => MEME_LAB_BOOST_BY_ID[id] && active.expiresAt > 0)
+    ),
+    activeObscureBoosts: Object.fromEntries(
+      Object.entries(activeObscureBoosts)
+        .map(([id, active]) => [id, {
+          multiplier: safeNumber(active?.multiplier),
+          expiresAt: safeNumber(active?.expiresAt)
+        }])
+        .filter(([id, active]) => obscureBoostUpgradeIds.has(id) && active.multiplier > 1 && active.expiresAt > 0)
     ),
     activeConsequences: Object.fromEntries(
       Object.entries(activeConsequences)
@@ -224,6 +243,18 @@ function sanitizeIdCounts(counts, validIdsByKey) {
       .filter(([id]) => validIdsByKey[id])
       .map(([id, value]) => [id, safeNumber(value)])
       .filter(([, value]) => value > 0)
+  );
+}
+
+function sanitizeAcceptedTerms(acceptedTerms) {
+  if (!acceptedTerms || typeof acceptedTerms !== "object") {
+    return {};
+  }
+
+  return Object.fromEntries(
+    Object.entries(acceptedTerms)
+      .filter(([id, value]) => TERMS_OF_SERVICE_EVENT_BY_ID[id] && value)
+      .map(([id, value]) => [id, safeNumber(value, Date.now())])
   );
 }
 

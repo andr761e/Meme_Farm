@@ -1,5 +1,6 @@
 import { ACHIEVEMENTS } from "./data/achievements.js";
 import { MEME_LAB_PROGRAMS } from "./data/memeLab.js";
+import { TERMS_OF_SERVICE_EVENTS } from "./data/termsOfService.js";
 import { TOWERS } from "./data/towers.js";
 import { UPGRADES } from "./data/upgrades.js";
 import {
@@ -11,6 +12,7 @@ import {
 } from "./leaderboards.js";
 import {
   getClickPower,
+  getActiveObscureLpsBoosts,
   getActiveLabBoosts,
   getActiveBadIdeaConsequences,
   getApocalypseEra,
@@ -18,6 +20,8 @@ import {
   hasActiveLabProgramBoost,
   getLabBoostMultipliers,
   getLikesPerSecond,
+  getFakeSubscriberConversion,
+  getSubscriberAutoCollector,
   getNextLockedTower,
   getOfflineProductionCapacity,
   getProgressionTitle,
@@ -83,6 +87,110 @@ const SUBSCRIBER_BOT_LINES = [
   "totally real user dissolved",
   "engagement farm rejected",
   "profile picture was a spreadsheet"
+];
+const POSSESSED_FEED_BASE_LINES = [
+  {
+    tone: "system",
+    actor: "Feed Monitor",
+    text: "The Social tab insists this is still a leaderboard feature.",
+    meta: "normal UI"
+  },
+  {
+    tone: "system",
+    actor: "Engagement Desk",
+    text: "Your ranking changed and three fictional analysts pretended to understand why.",
+    meta: "live analysis"
+  },
+  {
+    tone: "thread",
+    actor: "Pinned Thread",
+    text: "Nobody knows who started this meme farm. Everyone is still clicking.",
+    meta: "developing"
+  },
+  {
+    tone: "thread",
+    actor: "Comment Section",
+    text: "Several users are typing essays about whether this counts as content.",
+    meta: "volatile"
+  }
+];
+const POSSESSED_FEED_TOWER_LINES = [
+  {
+    towerId: "meme_subreddit",
+    tone: "thread",
+    actor: "Meme Subreddit",
+    text: "A megathread has formed around your latest statistical accident.",
+    meta: "8 rules ignored"
+  },
+  {
+    towerId: "discord_mod",
+    tone: "mod",
+    actor: "Discord Mod",
+    text: "Removed 47 replies for being off-topic, then pinned their own.",
+    meta: "thread locked"
+  },
+  {
+    towerId: "ai_meme_generator",
+    tone: "ai",
+    actor: "AI Meme Generator",
+    text: "Generated 4,096 captions and apologized for the six that made sense.",
+    meta: "machine humor"
+  },
+  {
+    towerId: "viral_singularity",
+    tone: "viral",
+    actor: "Viral Singularity",
+    text: "Every For You Page briefly became a mirror pointed at your meme.",
+    meta: "feed event"
+  },
+  {
+    towerId: "eternal_rickroll_loop",
+    tone: "loop",
+    actor: "Eternal Loop",
+    text: "A link preview opened, closed itself, and started humming confidently.",
+    meta: "repeat forever"
+  },
+  {
+    towerId: "reality_glitcher",
+    tone: "glitch",
+    actor: "Reality Glitcher",
+    text: "A reply arrived yesterday to a comment that has not been posted yet.",
+    meta: "timestamp broken"
+  },
+  {
+    towerId: "memeconomist",
+    tone: "market",
+    actor: "Memeconomist",
+    text: "The Meme Index is up after analysts priced in one excellent bad idea.",
+    meta: "market open"
+  },
+  {
+    towerId: "forbidden_archivist",
+    tone: "archive",
+    actor: "Archivist",
+    text: "Recovered a deleted post from a timeline where this was briefly tasteful.",
+    meta: "forbidden cache"
+  },
+  {
+    towerId: "cursed_tiktok_cultist",
+    tone: "ritual",
+    actor: "TikTok Ritual",
+    text: "The captions synced perfectly and the comments began chanting the metric.",
+    meta: "3 AM format"
+  },
+  {
+    towerId: "meme_pope",
+    tone: "decree",
+    actor: "The Meme Pope",
+    text: "Issued a decree declaring your leaderboard position canonically dank.",
+    meta: "papal update"
+  }
+];
+const POSSESSED_FEED_ALGORITHM_LINES = [
+  "Pinned because the algorithm has developed personal taste, which is illegal.",
+  "Recommended to users who closed the app three hours ago.",
+  "Boosted after the feed decided confusion is a valid retention strategy.",
+  "Promoted as a wholesome post despite all available evidence."
 ];
 const DESKTOP_TITLE_MISCHIEF_LINES = [
   "Posting Without Supervision",
@@ -277,6 +385,8 @@ const shopScrollPositions = {
 };
 let lastApocalypseEraClass = "";
 let lastTopTickerText = "";
+let lastTopTickerSignature = "";
+let lastPossessedFeedSignature = "";
 
 export function initUI(options) {
   handlers = options;
@@ -298,6 +408,7 @@ export function initUI(options) {
     showToast,
     showAchievementReaction,
     showLegacyOverclockEvent,
+    showTermsOfServiceModal,
     showBadIdeaConsequenceModal,
     showOfflineModal,
     setSaveStatus,
@@ -308,6 +419,7 @@ export function initUI(options) {
 export function updateUI(state) {
   updateApocalypseEra(state);
   updateBadIdeaConsequenceClasses(state);
+  updateTermsOfServiceClasses(state);
   updateResources(state);
   updateTowerCards(state);
   updateUpgradeCards(state);
@@ -353,6 +465,7 @@ function collectElements() {
     leaderboardFriends: document.getElementById("leaderboard-friends"),
     leaderboardMetricToggle: document.getElementById("leaderboard-metric-toggle"),
     leaderboardMetricList: document.getElementById("leaderboard-metric-list"),
+    possessedFeed: document.getElementById("possessed-feed"),
     leaderboardStatus: document.getElementById("leaderboard-status"),
     leaderboardList: document.getElementById("leaderboard-list"),
     labPrograms: document.getElementById("lab-programs"),
@@ -498,6 +611,7 @@ function switchShopTab(tab) {
   elements.nextUnlock.hidden = !towersActive;
   elements.shopTowers.classList.toggle("active", towersActive);
   elements.shopUpgrades.classList.toggle("active", !towersActive);
+  updateNextUnlock(handlers.state);
 
   window.requestAnimationFrame(() => {
     if (elements.rightPanel) {
@@ -673,12 +787,15 @@ function renderBadIdeaProgram(program) {
 
 function updateResources(state) {
   const labMultipliers = getLabBoostMultipliers(state);
+  const obscureLpsBoosts = getActiveObscureLpsBoosts(state);
+  const obscureLpsMultiplier = obscureLpsBoosts.reduce((multiplier, boost) => multiplier * boost.multiplier, 1);
   const era = getApocalypseEra(state);
   const clickVerb = getActiveClickVerb(state, era);
   elements.apocalypseStage.textContent = era.title;
   elements.apocalypseStage.title = era.description;
   elements.totalLikes.textContent = `${formatLongScaleNumber(state.likes)} Likes`;
-  elements.lps.textContent = `${formatLongScaleNumber(getLikesPerSecond(state))} LPS${labMultipliers.lps > 1 ? ` x${formatNumber(labMultipliers.lps)}` : ""}`;
+  elements.lps.textContent = `${formatLongScaleNumber(getLikesPerSecond(state))} LPS${labMultipliers.lps > 1 ? ` x${formatNumber(labMultipliers.lps)}` : ""}${obscureLpsMultiplier > 1 ? ` doom x${formatNumber(obscureLpsMultiplier)}` : ""}`;
+  elements.lps.classList.toggle("is-obscure-boosted", obscureLpsMultiplier > 1);
   elements.clickPower.textContent = `+${formatLongScaleNumber(getClickPower(state))} per ${clickVerb} click${labMultipliers.click > 1 ? ` x${formatNumber(labMultipliers.click)}` : ""}`;
   elements.subscribers.textContent = `${formatNumber(state.subscribers)} Subscribers`;
   updateActiveBoostTimers(state);
@@ -689,12 +806,13 @@ function updateTopTicker(state) {
     return;
   }
 
-  const text = getTopTickerText(state);
+  const { signature, text } = getTopTickerSnapshot(state);
 
-  if (text === lastTopTickerText) {
+  if (signature === lastTopTickerSignature) {
     return;
   }
 
+  lastTopTickerSignature = signature;
   lastTopTickerText = text;
   elements.topTicker.innerHTML = `
     <span data-role="ticker-track">
@@ -704,14 +822,38 @@ function updateTopTicker(state) {
   `;
 }
 
-function getTopTickerText(state) {
+function getTopTickerSnapshot(state) {
   const tier = [...TOP_BAR_TICKER_TIERS]
     .reverse()
     .find((item) => state.totalLikesEver >= item.likes) ?? TOP_BAR_TICKER_TIERS[0];
   const index = Math.floor((state.playTimeSeconds ?? 0) / 12) % tier.lines.length;
   const era = getApocalypseEra(state);
   const bulletin = tier.lines[index];
-  return `${era.label} bulletin // ${bulletin} // ${formatNumber(state.totalLikesEver)} lifetime likes // ${formatNumber(getTotalTowersOwned(state))} towers implicated`;
+  const termsTicker = getTermsOfServiceTickerLine(state);
+  return {
+    signature: `${era.id}|${tier.likes}|${index}|${termsTicker}`,
+    text: `${era.label} bulletin // ${bulletin} // ${formatNumber(state.totalLikesEver)} lifetime likes // ${formatNumber(getTotalTowersOwned(state))} towers implicated${termsTicker ? ` // legal status: ${termsTicker}` : ""}`
+  };
+}
+
+function getAcceptedTermsEvents(state) {
+  return TERMS_OF_SERVICE_EVENTS.filter((event) => hasAcceptedTermsEvent(state, event.id));
+}
+
+function hasAcceptedTermsEvent(state, eventId) {
+  return Boolean(state.stats?.acceptedTerms?.[eventId]);
+}
+
+function getTermsOfServiceTickerLine(state) {
+  const acceptedEvents = getAcceptedTermsEvents(state);
+
+  if (acceptedEvents.length === 0) {
+    return "";
+  }
+
+  const slot = Math.floor((state.playTimeSeconds ?? 0) / 18);
+  const event = acceptedEvents[slot % acceptedEvents.length];
+  return event.tickerLines[slot % event.tickerLines.length];
 }
 
 function getActiveClickVerb(state, era) {
@@ -749,11 +891,18 @@ function updateBadIdeaConsequenceClasses(state) {
   elements.body.classList.toggle("consequence-algorithm-denial", hasActiveBadIdeaConsequence(state, "algorithm_denial_letter"));
 }
 
+function updateTermsOfServiceClasses(state) {
+  for (const event of TERMS_OF_SERVICE_EVENTS) {
+    elements.body.classList.toggle(event.bodyClass, hasAcceptedTermsEvent(state, event.id));
+  }
+}
+
 function updateActiveBoostTimers(state) {
   const activeBoosts = getActiveLabBoosts(state).filter((boost) => boost.programId === "algorithm_bribe");
+  const activeObscureBoosts = getActiveObscureLpsBoosts(state);
   const activeConsequences = getActiveBadIdeaConsequences(state);
 
-  if (activeBoosts.length === 0 && activeConsequences.length === 0) {
+  if (activeBoosts.length === 0 && activeObscureBoosts.length === 0 && activeConsequences.length === 0) {
     elements.activeBoostTimers.hidden = true;
     elements.activeBoostTimers.innerHTML = "";
     return;
@@ -766,6 +915,15 @@ function updateActiveBoostTimers(state) {
         ${activeBoosts.map((boost) => `
           <span class="active-boost-timer">
             <strong>${escapeHtml(boost.name)}</strong>
+            <span>${formatDuration(boost.remainingSeconds)}</span>
+          </span>
+        `).join("")}`
+      : ""}
+    ${activeObscureBoosts.length > 0
+      ? `<span class="active-boost-heading active-obscure-boost-heading">Doomscroll Surge</span>
+        ${activeObscureBoosts.map((boost) => `
+          <span class="active-boost-timer active-obscure-boost-timer">
+            <strong>${escapeHtml(boost.name)} x${formatNumber(boost.multiplier)}</strong>
             <span>${formatDuration(boost.remainingSeconds)}</span>
           </span>
         `).join("")}`
@@ -805,7 +963,10 @@ function updateTowerCards(state) {
     card.querySelector('[data-role="count"]').textContent = `x${formatNumber(amount)}`;
     card.querySelector('[data-role="cost"]').textContent = `${formatNumber(cost)} Likes`;
     card.querySelector('[data-role="production"]').textContent = `${formatNumber(tower.lps * getTowerMultiplierForDisplay(state, tower.id))} LPS each`;
-    card.querySelector('[data-role="state"]').textContent = canAfford ? "Can afford" : `Need ${formatNumber(cost - state.likes)}`;
+    const stateElement = card.querySelector('[data-role="state"]');
+    const stateText = canAfford ? "Can afford" : `Need ${formatNumber(cost - state.likes)}`;
+    stateElement.textContent = stateText;
+    stateElement.title = stateText;
   }
 }
 
@@ -856,6 +1017,12 @@ function getTowerDisplayCopy(state, tower, index = TOWERS.findIndex((item) => it
 }
 
 function updateNextUnlock(state) {
+  if (activeShopTab !== "towers") {
+    elements.nextUnlock.hidden = true;
+    elements.nextUnlock.textContent = "";
+    return;
+  }
+
   const nextTower = getNextLockedTower(state);
 
   if (!nextTower) {
@@ -893,6 +1060,8 @@ function updateSocial(state) {
     button.setAttribute("aria-selected", String(active));
   });
 
+  updatePossessedFeed(state, rows, metric, playerRow);
+
   elements.leaderboardStatus.innerHTML = `
     <span>${escapeHtml(metric.description)}</span>
     <strong>Your ${escapeHtml(metric.label)}: ${escapeHtml(formatLeaderboardValue(metric.id, playerValue))}</strong>
@@ -913,6 +1082,150 @@ function updateSocial(state) {
   if (playerRow) {
     elements.leaderboardStatus.dataset.rank = `#${playerRow.rank}`;
   }
+}
+
+function updatePossessedFeed(state, rows, metric, playerRow) {
+  if (!elements.possessedFeed) {
+    return;
+  }
+
+  const items = getPossessedFeedItems(state, rows, metric, playerRow);
+  const status = getPossessedFeedStatus(state);
+  const signature = `${status}|${items.map((item) => `${item.actor}:${item.text}:${item.meta}:${item.pinned ? 1 : 0}`).join("|")}`;
+
+  if (signature === lastPossessedFeedSignature) {
+    return;
+  }
+
+  lastPossessedFeedSignature = signature;
+  elements.possessedFeed.innerHTML = `
+    <div class="possessed-feed-header">
+      <span>Live Feed</span>
+      <strong>${escapeHtml(status)}</strong>
+    </div>
+    <div class="possessed-feed-list">
+      ${items.map((item) => `
+        <article class="possessed-feed-item is-${item.tone}${item.pinned ? " is-pinned" : ""}">
+          <span class="possessed-feed-actor">${escapeHtml(item.actor)}</span>
+          <span class="possessed-feed-text">${escapeHtml(item.text)}</span>
+          <span class="possessed-feed-meta">${escapeHtml(item.meta)}</span>
+        </article>
+      `).join("")}
+    </div>
+  `;
+}
+
+function getPossessedFeedItems(state, rows, metric, playerRow) {
+  const slot = Math.floor((state.playTimeSeconds ?? 0) / 9);
+  const topRow = rows.find((row) => !row.isPlayer) ?? rows[0];
+  const playerRank = playerRow ? `#${playerRow.rank}` : "unranked";
+  const topPlayerName = topRow?.name ?? "Someone with a concerning amount of free time";
+  const scopeName = activeLeaderboardScope === "friends" ? "Steam friends" : "global";
+  const contextItems = [
+    {
+      tone: "system",
+      actor: "Leaderboard Wire",
+      text: `${topPlayerName} is currently haunting ${metric.label}. You are ${playerRank}.`,
+      meta: scopeName
+    },
+    {
+      tone: "system",
+      actor: "Metric Desk",
+      text: `${metric.label} updated. The feed described it as "deeply normal" and refused comment.`,
+      meta: "metric watch"
+    },
+    ...POSSESSED_FEED_BASE_LINES
+  ];
+  const towerItems = getPossessedTowerFeedItems(state, metric, slot);
+  const termsItems = getTermsOfServiceFeedItems(state);
+  const pinnedItems = towerItems.filter((item) => item.pinned);
+  const rotatingItems = [...towerItems.filter((item) => !item.pinned), ...termsItems, ...contextItems];
+  const start = rotatingItems.length > 0 ? slot % rotatingItems.length : 0;
+  const orderedItems = [
+    ...pinnedItems,
+    ...rotatingItems.slice(start),
+    ...rotatingItems.slice(0, start)
+  ];
+
+  return orderedItems.slice(0, 5);
+}
+
+function getPossessedTowerFeedItems(state, metric, slot) {
+  const items = [];
+  const botnets = getTowerAmount(state, "botnet");
+
+  if (botnets > 0) {
+    const firstBot = String((slot * 7) % 97).padStart(2, "0");
+    const secondBot = String(((slot * 7) + 1) % 97).padStart(2, "0");
+    const text = "This meme is fire. Very organic. Please engage.";
+    items.push(
+      {
+        tone: "bot",
+        actor: `REAL_USER_${firstBot}`,
+        text,
+        meta: `${formatNumber(botnets)} nodes`
+      },
+      {
+        tone: "bot",
+        actor: `REAL_USER_${secondBot}`,
+        text,
+        meta: "same opinion"
+      }
+    );
+  }
+
+  for (const line of POSSESSED_FEED_TOWER_LINES) {
+    const amount = getTowerAmount(state, line.towerId);
+
+    if (amount > 0) {
+      items.push({
+        tone: line.tone,
+        actor: line.actor,
+        text: line.text,
+        meta: amount > 1 ? `${formatNumber(amount)} active` : line.meta
+      });
+    }
+  }
+
+  if (getTowerAmount(state, "the_algorithm") > 0) {
+    items.push({
+      tone: "algorithm",
+      actor: "The Algorithm",
+      text: POSSESSED_FEED_ALGORITHM_LINES[slot % POSSESSED_FEED_ALGORITHM_LINES.length],
+      meta: metric.label,
+      pinned: true
+    });
+  }
+
+  return items;
+}
+
+function getTermsOfServiceFeedItems(state) {
+  return getAcceptedTermsEvents(state).map((event) => event.feedItem);
+}
+
+function getPossessedFeedStatus(state) {
+  if (getTowerAmount(state, "the_algorithm") > 0) {
+    return "Algorithm-curated nonsense";
+  }
+
+  if (getTowerAmount(state, "meme_pope") > 0) {
+    return "Papal commentary live";
+  }
+
+  if (getTowerAmount(state, "cursed_tiktok_cultist") > 0) {
+    return "Ritual comments detected";
+  }
+
+  if (getTowerAmount(state, "discord_mod") > 0) {
+    return "Moderation queue unstable";
+  }
+
+  if (getTowerAmount(state, "botnet") > 0) {
+    return "Mostly real users";
+  }
+
+  return "The internet is warming up";
 }
 
 function updateMemeLab(state) {
@@ -1311,6 +1624,9 @@ function spawnSubscriberRaid(onCollect, state) {
   const count = bribeActive ? randomInt(4, 6) : randomInt(2, 4);
   const baseLeft = 14 + Math.random() * 72;
   const members = createSubscriberRaidMembers(count, bribeActive);
+  const fakeConversion = getFakeSubscriberConversion(state);
+  const autoCollector = getSubscriberAutoCollector(state);
+  let autoCollectCount = 0;
 
   showSubscriberRaidCallout(bribeActive ? "Golden attention raid" : "Attention raid");
 
@@ -1319,15 +1635,30 @@ function spawnSubscriberRaid(onCollect, state) {
     const rowOffset = index % 2 === 0 ? 0 : 24;
     const left = clamp(baseLeft + offset, 5, 90);
     const drift = (index - (count - 1) / 2) * 18;
+    const autoCollect = canAutoCollectSubscriber(member, autoCollector, autoCollectCount);
+    if (autoCollect) {
+      autoCollectCount += 1;
+    }
+
     createSubscriberRaidMember({
       ...member,
       left,
       rowOffset,
       drift,
       delayMs: index * 130,
+      fakeConversion,
+      autoCollect,
+      autoCollector,
       onCollect
     });
   });
+}
+
+function canAutoCollectSubscriber(member, autoCollector, autoCollectCount) {
+  return autoCollector.chance > 0 &&
+    autoCollectCount < autoCollector.maxPerRaid &&
+    member.kind !== "bot" &&
+    Math.random() < autoCollector.chance;
 }
 
 function createSubscriberRaidMembers(count, bribeActive) {
@@ -1340,7 +1671,7 @@ function createSubscriberRaidMembers(count, bribeActive) {
     }
 
     return fake
-      ? { kind: "bot", amount: 0 }
+      ? createFakeSubscriberMember()
       : { kind: "real", amount: 1 };
   });
 
@@ -1355,17 +1686,26 @@ function createSubscriberRaidMembers(count, bribeActive) {
   return members;
 }
 
-function createSubscriberRaidMember({ kind, amount, left, rowOffset, drift, delayMs, onCollect }) {
+function createFakeSubscriberMember() {
+  return Math.random() < 0.001
+    ? { kind: "super", amount: 1000 }
+    : { kind: "bot", amount: 0 };
+}
+
+function createSubscriberRaidMember({ kind, amount, left, rowOffset, drift, delayMs, fakeConversion = { chance: 0, amount: 1 }, autoCollect = false, autoCollector = { delayMinMs: 900, delayMaxMs: 2500 }, onCollect }) {
   const subscriber = document.createElement("button");
   const fake = kind === "bot";
   const golden = kind === "golden";
+  const superSubscriber = kind === "super";
   subscriber.type = "button";
   subscriber.className = `subscriber subscriber-${kind}`;
   subscriber.setAttribute("aria-label", fake
     ? "Reject fake subscriber bot"
-    : golden
-      ? `Collect golden subscriber raid worth ${amount} subscribers`
-      : "Collect subscriber");
+    : superSubscriber
+      ? `Collect super subscriber worth ${amount} subscribers`
+      : golden
+        ? `Collect golden subscriber raid worth ${amount} subscribers`
+        : "Collect subscriber");
   subscriber.style.left = `${left}%`;
   subscriber.style.setProperty("--raid-delay", `${delayMs}ms`);
   subscriber.style.setProperty("--raid-row-offset", `${rowOffset}px`);
@@ -1387,6 +1727,13 @@ function createSubscriberRaidMember({ kind, amount, left, rowOffset, drift, dela
     window.clearTimeout(timeout);
 
     if (fake) {
+      if (Math.random() < (fakeConversion.chance ?? 0)) {
+        showSubscriberSnark("verified by accident", subscriber);
+        subscriber.remove();
+        onCollect({ amount: fakeConversion.amount ?? 1, convertedFake: true });
+        return;
+      }
+
       showSubscriberSnark(randomItem(SUBSCRIBER_BOT_LINES), subscriber);
       subscriber.remove();
       onCollect({ fake: true, amount: 0 });
@@ -1394,10 +1741,54 @@ function createSubscriberRaidMember({ kind, amount, left, rowOffset, drift, dela
     }
 
     subscriber.remove();
-    onCollect({ amount, golden });
+    onCollect({ amount, golden, superSubscriber });
   });
 
   elements.subscriberContainer.appendChild(subscriber);
+
+  if (autoCollect) {
+    scheduleSubscriberAutoCollect(subscriber, autoCollector, delayMs);
+  }
+}
+
+function scheduleSubscriberAutoCollect(subscriber, autoCollector, raidDelayMs) {
+  const delayMin = Math.max(0, autoCollector.delayMinMs ?? 900);
+  const delayMax = Math.max(delayMin, autoCollector.delayMaxMs ?? 2500);
+  const collectDelay = raidDelayMs + randomInt(delayMin, delayMax);
+
+  window.setTimeout(() => {
+    if (!subscriber.isConnected) {
+      return;
+    }
+
+    showSubscriberAutoClicker(subscriber);
+  }, collectDelay);
+}
+
+function showSubscriberAutoClicker(subscriber) {
+  const containerRect = elements.subscriberContainer.getBoundingClientRect();
+  const targetRect = subscriber.getBoundingClientRect();
+
+  if (containerRect.width <= 0 || containerRect.height <= 0) {
+    subscriber.click();
+    return;
+  }
+
+  const cursor = document.createElement("span");
+  cursor.className = "subscriber-autoclicker";
+  cursor.style.setProperty("--auto-start-x", `${containerRect.width * 0.5}px`);
+  cursor.style.setProperty("--auto-start-y", `${containerRect.height * 0.78}px`);
+  cursor.style.setProperty("--auto-end-x", `${targetRect.left + targetRect.width / 2 - containerRect.left}px`);
+  cursor.style.setProperty("--auto-end-y", `${targetRect.top + targetRect.height / 2 - containerRect.top}px`);
+  elements.subscriberContainer.appendChild(cursor);
+
+  window.setTimeout(() => {
+    if (subscriber.isConnected) {
+      subscriber.click();
+    }
+  }, 620);
+
+  window.setTimeout(() => cursor.remove(), 920);
 }
 
 function showSubscriberRaidCallout(text) {
@@ -1468,9 +1859,11 @@ function renderOverlay(type) {
         ${statLine("Subscribers", formatNumber(state.subscribers), formatFullNumber(state.subscribers))}
         ${statLine("Subscribers Ever", formatNumber(state.totalSubscribersEver), formatFullNumber(state.totalSubscribersEver))}
         ${statLine("Towers Owned", formatNumber(getTotalTowersOwned(state)), formatFullNumber(getTotalTowersOwned(state)))}
+        ${statLine("Meme Button Clicks", formatNumber(state.totalClicks), formatFullNumber(state.totalClicks))}
         ${statLine("Likes Spent", formatNumber(state.totalLikesSpent), formatFullNumber(state.totalLikesSpent))}
         ${statLine("Likes From Clicks", formatNumber(state.totalLikesFromClicks), formatFullNumber(state.totalLikesFromClicks))}
         ${statLine("Play Time", formatDuration(state.playTimeSeconds))}
+        ${renderTermsOfServiceStats(state)}
       </div>
     `;
     return;
@@ -1496,8 +1889,10 @@ function renderOverlay(type) {
     const ownedOneTimeCount = getOwnedOneTimeUpgradeCount(state);
     const totalOneTimeCount = getOneTimeUpgradeCount();
     const activeTowerChains = getTowerUpgradeSummaries(state).filter((summary) => summary.ownedTotal > 0);
+    const ownedSubscriberSpawnUpgrades = getOwnedSubscriberSpawnUpgrades(state);
     const ownedCrossfeeds = getOwnedCrossfeedUpgrades(state);
     const ownedLegacyOverclocks = getOwnedLegacyOverclockUpgrades(state);
+    const ownedObscureUpgrades = getOwnedObscureUpgrades(state);
     elements.overlayContent.innerHTML = `
       <h2 id="overlay-title">Upgrade Dashboard</h2>
       <p class="overlay-subtitle">Track your owned upgrades, tower chains, Crossfeed synergies, and late-game Legacy Overclocks in one place.</p>
@@ -1512,6 +1907,17 @@ function renderOverlay(type) {
         <div class="owned-core-grid">
           ${renderCoreUpgradeCards(state)}
         </div>
+      </section>
+      <section class="upgrade-dashboard-section">
+        <h3>Subscriber Spawn</h3>
+        ${ownedSubscriberSpawnUpgrades.length > 0
+          ? `<div class="owned-crossfeed-list">${ownedSubscriberSpawnUpgrades.map((upgrade) => `
+            <div class="owned-crossfeed-item subscriber-spawn-upgrade-item">
+              <strong>${escapeHtml(upgrade.displayName)}</strong>
+              <span>${escapeHtml(describeUpgradeEffect(upgrade))}</span>
+            </div>
+          `).join("")}</div>`
+          : `<p class="empty-upgrade-state">No Subscriber Spawn upgrades owned yet. The follow button is still obeying normal weather.</p>`}
       </section>
       <section class="upgrade-dashboard-section">
         <h3>Tower Upgrade Chains</h3>
@@ -1535,6 +1941,17 @@ function renderOverlay(type) {
             </div>
           `).join("")}</div>`
           : `<p class="empty-upgrade-state">No Legacy Overclocks owned yet. The early towers are still waiting for their comeback arc.</p>`}
+      </section>
+      <section class="upgrade-dashboard-section">
+        <h3>Obscure Upgrades</h3>
+        ${ownedObscureUpgrades.length > 0
+          ? `<div class="owned-crossfeed-list">${ownedObscureUpgrades.map((upgrade) => `
+            <div class="owned-crossfeed-item obscure-upgrade-item">
+              <strong>${escapeHtml(upgrade.displayName)}</strong>
+              <span>${escapeHtml(describeUpgradeEffect(upgrade))}</span>
+            </div>
+          `).join("")}</div>`
+          : `<p class="empty-upgrade-state">No obscure upgrades owned yet. The weird shelf is empty, which feels temporary.</p>`}
       </section>
       <div class="upgrade-dashboard-note">
         Bought one-time upgrades disappear from the shop, but they stay summarized here.
@@ -1726,7 +2143,15 @@ function renderCrossfeedConspiracyWeb(ownedCrossfeeds, state) {
 
   for (const upgrade of ownedCrossfeeds) {
     implicatedTowerIds.add(upgrade.effect.towerId);
-    implicatedTowerIds.add(upgrade.effect.sourceTowerId);
+    if (upgrade.effect.countsAllOtherTowers) {
+      for (const tower of TOWERS) {
+        if (tower.id !== upgrade.effect.towerId && getTowerAmount(state, tower.id) > 0) {
+          implicatedTowerIds.add(tower.id);
+        }
+      }
+    } else {
+      implicatedTowerIds.add(upgrade.effect.sourceTowerId);
+    }
   }
 
   return `
@@ -1749,39 +2174,46 @@ function renderCrossfeedConspiracyWeb(ownedCrossfeeds, state) {
 function renderCrossfeedConspiracyLink(upgrade, state, index) {
   const sourceTower = TOWERS.find((tower) => tower.id === upgrade.effect.sourceTowerId);
   const targetTower = TOWERS.find((tower) => tower.id === upgrade.effect.towerId);
-  const sourceCopy = sourceTower
+  const countsAllOtherTowers = Boolean(upgrade.effect.countsAllOtherTowers);
+  const sourceNodeTower = countsAllOtherTowers ? null : sourceTower;
+  const sourceCopy = countsAllOtherTowers
+    ? { displayName: "Every Other Tower", description: "" }
+    : sourceTower
     ? getTowerDisplayCopy(state, sourceTower)
     : { displayName: "Unknown Source", description: "" };
   const targetCopy = targetTower
     ? getTowerDisplayCopy(state, targetTower)
     : { displayName: "Unknown Target", description: "" };
-  const sourceAmount = sourceTower ? getTowerAmount(state, sourceTower.id) : 0;
+  const sourceAmount = countsAllOtherTowers
+    ? TOWERS.reduce((sum, tower) => tower.id === upgrade.effect.towerId ? sum : sum + getTowerAmount(state, tower.id), 0)
+    : sourceTower ? getTowerAmount(state, sourceTower.id) : 0;
   const targetAmount = targetTower ? getTowerAmount(state, targetTower.id) : 0;
   const perSource = upgrade.effect.multiplierPerSource ?? 0;
-  const maxMultiplier = upgrade.effect.maxMultiplier ?? 1;
+  const maxMultiplier = upgrade.effect.maxMultiplier;
   const rawMultiplier = 1 + sourceAmount * perSource;
-  const currentMultiplier = Math.min(maxMultiplier, rawMultiplier);
-  const isCapped = currentMultiplier >= maxMultiplier && sourceAmount > 0;
-  const heat = maxMultiplier > 1
+  const hasCap = Number.isFinite(maxMultiplier);
+  const currentMultiplier = hasCap ? Math.min(maxMultiplier, rawMultiplier) : rawMultiplier;
+  const isCapped = hasCap && currentMultiplier >= maxMultiplier && sourceAmount > 0;
+  const heat = hasCap && maxMultiplier > 1
     ? Math.min(1, Math.max(0, (currentMultiplier - 1) / (maxMultiplier - 1)))
-    : 0;
+    : Math.min(1, Math.max(0, (currentMultiplier - 1) / 12));
 
   return `
     <article class="crossfeed-web-link ${isCapped ? "is-capped" : ""}" style="--crossfeed-heat:${heat.toFixed(3)};">
-      ${renderCrossfeedTowerNode(sourceTower, sourceCopy.displayName, sourceAmount, "Source pressure")}
+      ${renderCrossfeedTowerNode(sourceNodeTower, sourceCopy.displayName, sourceAmount, countsAllOtherTowers ? "All-shop pressure" : "Source pressure")}
       <div class="crossfeed-connector" aria-label="${escapeHtml(sourceCopy.displayName)} feeds ${escapeHtml(targetCopy.displayName)}">
         <span class="crossfeed-wire-label">engagement pipe ${index + 1}</span>
         <strong>x${formatNumber(currentMultiplier)} LPS</strong>
         <div class="crossfeed-badges">
           <span>+${formatNumber(perSource * 100)}% each</span>
-          <span>cap x${formatNumber(maxMultiplier)}</span>
+          <span>${hasCap ? `cap x${formatNumber(maxMultiplier)}` : "no cap"}</span>
           ${isCapped ? "<span>cap reached</span>" : ""}
         </div>
       </div>
       ${renderCrossfeedTowerNode(targetTower, targetCopy.displayName, targetAmount, "Target beneficiary")}
       <p class="crossfeed-warning">
         Dependency note: ${escapeHtml(sourceCopy.displayName)} is laundering engagement into ${escapeHtml(targetCopy.displayName)}.
-        ${isCapped ? "The graph has hit the legal maximum nonsense multiplier." : "Auditors have marked this as fine."}
+        ${isCapped ? "The graph has hit the legal maximum nonsense multiplier." : countsAllOtherTowers ? "There is no maximum. Legal has left the channel." : "Auditors have marked this as fine."}
       </p>
     </article>
   `;
@@ -1818,12 +2250,20 @@ function getOwnedOneTimeUpgradeCount(state) {
   return UPGRADES.filter((upgrade) => upgrade.maxLevel === 1 && getUpgradeLevel(state, upgrade.id) > 0).length;
 }
 
+function getOwnedSubscriberSpawnUpgrades(state) {
+  return UPGRADES.filter((upgrade) => upgrade.category === "subscriberSpawn" && getUpgradeLevel(state, upgrade.id) > 0);
+}
+
 function getOwnedCrossfeedUpgrades(state) {
   return UPGRADES.filter((upgrade) => upgrade.type === "towerAmountSynergy" && getUpgradeLevel(state, upgrade.id) > 0);
 }
 
 function getOwnedLegacyOverclockUpgrades(state) {
   return UPGRADES.filter((upgrade) => upgrade.category === "legacyOverclock" && getUpgradeLevel(state, upgrade.id) > 0);
+}
+
+function getOwnedObscureUpgrades(state) {
+  return UPGRADES.filter((upgrade) => upgrade.category === "obscure" && getUpgradeLevel(state, upgrade.id) > 0);
 }
 
 function getLegacyOverclockUpgradeCount() {
@@ -2031,6 +2471,33 @@ function showBadIdeaConsequenceModal(consequence) {
   `);
 }
 
+function showTermsOfServiceModal(termsEvent, onAccept) {
+  showModal(`
+    <div class="modal-card terms-modal ${escapeHtml(termsEvent.bodyClass)}">
+      <span class="eyebrow">${escapeHtml(termsEvent.eyebrow)}</span>
+      <h2>${escapeHtml(termsEvent.title)}</h2>
+      <p>${escapeHtml(termsEvent.subtitle)}</p>
+      <ol class="terms-clause-list">
+        ${termsEvent.clauses.map((clause, index) => `
+          <li>
+            <span>${escapeHtml(`${termsEvent.referencePrefix}-${String(index + 1).padStart(2, "0")}`)}</span>
+            <p>${escapeHtml(clause)}</p>
+          </li>
+        `).join("")}
+      </ol>
+      <strong>By continuing, the farm becomes slightly less normal.</strong>
+      <div class="modal-actions">
+        <button type="button" data-terms-accept>${escapeHtml(termsEvent.acceptLabel)}</button>
+      </div>
+    </div>
+  `, { closeOnBackdrop: false });
+
+  elements.modalRoot.querySelector("[data-terms-accept]")?.addEventListener("click", () => {
+    onAccept?.();
+    closeModal();
+  });
+}
+
 function showOfflineModal({ likesEarned, secondsAway, productionSeconds = secondsAway, capacity = 0, maxOfflineSeconds = productionSeconds, companionLines = [] }) {
   if (likesEarned <= 0 || productionSeconds < 60) {
     return;
@@ -2074,13 +2541,15 @@ export function showResetConfirmation(onConfirm) {
   });
 }
 
-function showModal(markup) {
+function showModal(markup, { closeOnBackdrop = true } = {}) {
   elements.modalRoot.innerHTML = markup;
   elements.modalRoot.hidden = false;
   elements.modalRoot.querySelectorAll("[data-modal-close]").forEach((button) => {
     button.addEventListener("click", closeModal);
   });
-  elements.modalRoot.addEventListener("click", onModalBackdrop);
+  if (closeOnBackdrop) {
+    elements.modalRoot.addEventListener("click", onModalBackdrop);
+  }
 }
 
 function closeModal() {
@@ -2101,6 +2570,24 @@ function setSaveStatus(text) {
 
 function statLine(label, value, title = value) {
   return `<div class="stat-line"><span>${escapeHtml(label)}</span><strong title="${escapeHtml(title)}">${escapeHtml(value)}</strong></div>`;
+}
+
+function renderTermsOfServiceStats(state) {
+  const acceptedEvents = getAcceptedTermsEvents(state);
+
+  if (acceptedEvents.length === 0) {
+    return "";
+  }
+
+  const titles = acceptedEvents.map((event) => event.title).join(", ");
+  const consentPrediction = hasAcceptedTermsEvent(state, "personalized_reality_agreement")
+    ? statLine("Consent Predicted", "100%", "The Algorithm says this was always your preference.")
+    : "";
+
+  return `
+    ${statLine("Cursed Terms Accepted", `${formatNumber(acceptedEvents.length)} / ${formatNumber(TERMS_OF_SERVICE_EVENTS.length)}`, titles)}
+    ${consentPrediction}
+  `;
 }
 
 function formatUpgradeLevel(upgrade, level) {
@@ -2130,7 +2617,9 @@ function describeUpgradeEffect(upgrade) {
   if (upgrade.type === "towerAmountSynergy") {
     const tower = TOWERS.find((item) => item.id === upgrade.effect.towerId);
     const sourceTower = TOWERS.find((item) => item.id === upgrade.effect.sourceTowerId);
-    return `${tower?.displayName ?? "Tower"} +${formatPercent(upgrade.effect.multiplierPerSource)} LPS per ${sourceTower?.displayName ?? "other tower"} owned, max x${upgrade.effect.maxMultiplier}`;
+    return upgrade.effect.countsAllOtherTowers
+      ? `${tower?.displayName ?? "Tower"} +${formatPercent(upgrade.effect.multiplierPerSource)} LPS per other tower owned, no cap`
+      : `${tower?.displayName ?? "Tower"} +${formatPercent(upgrade.effect.multiplierPerSource)} LPS per ${sourceTower?.displayName ?? "other tower"} owned, max x${upgrade.effect.maxMultiplier}`;
   }
 
   if (upgrade.type === "globalLpsMultiplier") {
@@ -2143,6 +2632,19 @@ function describeUpgradeEffect(upgrade) {
       : `Subscriber spawns x${upgrade.effect.spawnMultiplier} per level`;
   }
 
+  if (upgrade.type === "subscriberFakeConversion") {
+    return `Fake subscribers convert ${formatPercent(upgrade.effect.conversionChance)} of the time`;
+  }
+
+  if (upgrade.type === "subscriberAutoCollector") {
+    return `Auto-collects falling subscribers ${formatPercent(upgrade.effect.autoCollectChance)} of the time`;
+  }
+
+  if (upgrade.type === "randomLpsBoost") {
+    const multipliers = upgrade.effect.multipliers?.map((multiplier) => `x${formatNumber(multiplier)}`).join(", ") ?? "random";
+    return `Sometimes triggers ${multipliers} LPS for ${formatDuration(upgrade.effect.durationSeconds ?? 15)}`;
+  }
+
   if (upgrade.type === "offlineProductionCapacity") {
     return `48h offline production +${formatPercent(upgrade.effect.capacityPerLevel)} per level, max ${formatPercent(upgrade.effect.maxCapacity)}`;
   }
@@ -2151,7 +2653,7 @@ function describeUpgradeEffect(upgrade) {
 }
 
 function formatPercent(value) {
-  return `${Math.round(value * 100)}%`;
+  return `${Number((value * 100).toFixed(2))}%`;
 }
 
 function formatBoostMultiplier(label, multiplier = 1) {

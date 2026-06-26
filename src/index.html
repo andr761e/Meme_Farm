@@ -8,6 +8,7 @@
   <link rel="icon" type="image/png" href="../assets/images/meme-button/meme-button.png" />
 </head>
 <body>
+  <div id="app-surface" class="app-surface">
   <header class="top-bar">
     <div class="brand-lockup" aria-label="Meme Farm">
       <span class="brand-mark">MF</span>
@@ -80,6 +81,8 @@
             </div>
           </div>
 
+          <section id="possessed-feed" class="possessed-feed" aria-label="Possessed live feed"></section>
+
           <div id="leaderboard-status" class="leaderboard-status"></div>
           <div id="leaderboard-list" class="leaderboard-list" aria-live="polite"></div>
         </div>
@@ -117,6 +120,7 @@
   </div>
 
   <div id="modal-root" class="modal-root" hidden></div>
+  </div>
 
   <script type="module" src="main.js"></script>
 </body>

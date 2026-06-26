@@ -1,6 +1,8 @@
 import { ACHIEVEMENTS } from "./data/achievements.js";
 import { TOWERS } from "./data/towers.js";
+import { TERMS_OF_SERVICE_EVENT_BY_TOWER_ID } from "./data/termsOfService.js";
 import {
+  acceptTermsOfService,
   addLikes,
   applyOfflineProgress,
   awardTower,
@@ -15,9 +17,12 @@ import {
   getSubscriberSpawnMultiplier,
   getTotalTowersOwned,
   getTowerAmount,
+  hasAcceptedTermsOfService,
+  maybeTriggerObscureLpsBoosts,
   pressBadIdeaButton,
   pruneExpiredBadIdeaConsequences,
   pruneExpiredLabBoosts,
+  pruneExpiredObscureLpsBoosts,
   purchaseLabBoost,
   purchaseTower,
   purchaseUpgrade,
@@ -92,6 +97,7 @@ function bootGame() {
       return gain;
     },
     onBuyTower: (towerId) => {
+      const amountBefore = getTowerAmount(gameState, towerId);
       const result = purchaseTower(gameState, towerId);
 
       if (!result.ok) {
@@ -103,8 +109,9 @@ function bootGame() {
 
       audio.purchase();
       ui.showToast("Tower bought.");
-      if (getTowerAmount(gameState, towerId) === 1) {
+      if (amountBefore === 0) {
         notifyTowerCameOnline(towerId);
+        maybeShowTermsOfService(towerId);
       }
       markChanged({ meaningful: true });
     },
@@ -170,7 +177,7 @@ function bootGame() {
       }
       markChanged({ meaningful: true });
     },
-    onCollectSubscriber: ({ amount = 1, fake = false, golden = false } = {}) => {
+    onCollectSubscriber: ({ amount = 1, fake = false, golden = false, superSubscriber = false, convertedFake = false } = {}) => {
       if (fake) {
         audio.pop();
         ui.showToast("Fake subscriber. Bot energy detected.");
@@ -178,10 +185,17 @@ function bootGame() {
       }
 
       const gained = collectSubscriber(gameState, amount);
+      if (superSubscriber) {
+        gameState.stats.superSubscribersCollected = (gameState.stats.superSubscribersCollected ?? 0) + 1;
+      }
       audio.purchase();
-      ui.showToast(golden
-        ? `+${formatNumber(gained)} Golden Subscribers`
-        : `+${formatNumber(gained)} Subscriber${gained === 1 ? "" : "s"}`);
+      ui.showToast(superSubscriber
+        ? `+${formatNumber(gained)} Super Subscriber Jackpot`
+        : convertedFake
+          ? `+${formatNumber(gained)} Verified Fake User`
+          : golden
+            ? `+${formatNumber(gained)} Golden Subscribers`
+            : `+${formatNumber(gained)} Subscriber${gained === 1 ? "" : "s"}`);
       markChanged({ meaningful: true });
     },
     onResetRequest: () => {
@@ -265,6 +279,10 @@ function bootGame() {
         dirty = true;
       }
 
+      if (pruneExpiredObscureLpsBoosts(gameState)) {
+        dirty = true;
+      }
+
       if (pruneExpiredBadIdeaConsequences(gameState)) {
         dirty = true;
       }
@@ -279,6 +297,13 @@ function bootGame() {
       subscriberSeconds += 1;
       if (maybeSpawnSubscriber(subscriberSeconds, getSubscriberSpawnMultiplier(gameState), ui)) {
         subscriberSeconds = 0;
+      }
+      const obscureBoosts = maybeTriggerObscureLpsBoosts(gameState);
+      if (obscureBoosts.length > 0) {
+        dirty = true;
+        for (const boost of obscureBoosts) {
+          ui.showToast(`${boost.name}: x${formatNumber(boost.multiplier)} LPS panic spike for ${formatDuration(boost.durationSeconds)}.`);
+        }
       }
       syncDesktopCompanion();
       flushIfAutosaveDue();
@@ -508,9 +533,27 @@ function createTowerOfflineLine(tower, amount) {
   return templates[tower.id] ?? `${formatNumber(amount)} ${tower.displayName}${amount === 1 ? "" : "s"} kept posting in the background.`;
 }
 
+function maybeShowTermsOfService(towerId) {
+  const termsEvent = TERMS_OF_SERVICE_EVENT_BY_TOWER_ID[towerId];
+
+  if (!termsEvent || hasAcceptedTermsOfService(gameState, termsEvent.id)) {
+    return;
+  }
+
+  ui.showTermsOfServiceModal(termsEvent, () => {
+    if (!acceptTermsOfService(gameState, termsEvent.id)) {
+      return;
+    }
+
+    audio.purchase();
+    ui.showToast(termsEvent.acceptedToast);
+    markChanged({ meaningful: true, immediate: true });
+  });
+}
+
 function isMajorAchievement(achievement) {
   const id = achievement.id ?? "";
-  return /1000000|100000000|1000000000|bad_idea|meme_lab|legacy_overclock|crossfeed|subscriber_spawn_all|tower_level_5_all/.test(id);
+  return /1000000|100000000|1000000000|bad_idea|meme_lab|legacy_overclock|crossfeed|subscriber_spawn_all|tower_level_5_all|super_subscriber/.test(id);
 }
 
 function checkAchievements({ silent = false, ui = null } = {}) {

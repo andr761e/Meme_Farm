@@ -80,10 +80,10 @@ function createWindow() {
     mainWindow.flashFrame(false);
   });
   mainWindow.on("enter-full-screen", () => {
-    applyDesktopWindowZoom(desktopWindowSettings);
+    scheduleDesktopWindowZoom();
   });
   mainWindow.on("leave-full-screen", () => {
-    applyDesktopWindowZoom(desktopWindowSettings);
+    scheduleDesktopWindowZoom();
   });
   mainWindow.on("resize", scheduleWindowBoundsSave);
   mainWindow.on("move", scheduleWindowBoundsSave);
@@ -257,7 +257,39 @@ function applyDesktopWindowZoom(settings) {
     return;
   }
 
+  if (isFullscreenPreset(settings.sizePreset)) {
+    mainWindow.webContents.setZoomFactor(1);
+    applyDesktopFitMode(true);
+    return;
+  }
+
+  applyDesktopFitMode(false);
   mainWindow.webContents.setZoomFactor(getWindowZoomFactor(settings.sizePreset));
+}
+
+function scheduleDesktopWindowZoom() {
+  setTimeout(() => {
+    applyDesktopWindowZoom(desktopWindowSettings);
+  }, 80);
+}
+
+function applyDesktopFitMode(enabled) {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return;
+  }
+
+  const scale = enabled ? getWindowZoomFactor("fullscreen") : 1;
+  const script = `
+    (() => {
+      const root = document.documentElement;
+      root.classList.toggle("desktop-fit-mode", ${JSON.stringify(Boolean(enabled))});
+      root.style.setProperty("--desktop-fit-scale", ${JSON.stringify(String(scale))});
+    })();
+  `;
+
+  mainWindow.webContents.executeJavaScript(script).catch(() => {
+    // The page may still be loading; the next scheduled/apply pass will catch it.
+  });
 }
 
 function applyDesktopWindowSettings(settings) {
@@ -270,8 +302,12 @@ function applyDesktopWindowSettings(settings) {
 
   if (isFullscreenPreset(settings.sizePreset)) {
     saveWindowBoundsNow();
-    applyDesktopWindowZoom(settings);
+    const display = screen.getDisplayMatching(mainWindow.getBounds());
+    mainWindow.setResizable(true);
+    mainWindow.setBounds(display.bounds);
     mainWindow.setFullScreen(true);
+    mainWindow.setResizable(false);
+    scheduleDesktopWindowZoom();
     return;
   }
 
@@ -366,7 +402,11 @@ function getWindowDimensions(sizePreset) {
 
 function getWindowZoomFactor(sizePreset) {
   if (isFullscreenPreset(sizePreset)) {
-    return 1;
+    const dimensions = getFullscreenContentDimensions();
+    return Math.min(
+      dimensions.width / CANONICAL_CONTENT_SIZE.width,
+      dimensions.height / CANONICAL_CONTENT_SIZE.height
+    );
   }
 
   const dimensions = getWindowDimensions(sizePreset);
@@ -374,6 +414,31 @@ function getWindowZoomFactor(sizePreset) {
     dimensions.width / CANONICAL_CONTENT_SIZE.width,
     dimensions.height / CANONICAL_CONTENT_SIZE.height
   );
+}
+
+function getFullscreenContentDimensions() {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    const contentBounds = mainWindow.getContentBounds();
+
+    if (mainWindow.isFullScreen() && contentBounds.width > 0 && contentBounds.height > 0) {
+      return {
+        width: contentBounds.width,
+        height: contentBounds.height
+      };
+    }
+
+    const display = screen.getDisplayMatching(mainWindow.getBounds());
+    return {
+      width: display.workArea.width,
+      height: display.workArea.height
+    };
+  }
+
+  const display = screen.getPrimaryDisplay();
+  return {
+    width: display.workArea.width,
+    height: display.workArea.height
+  };
 }
 
 function isFullscreenPreset(sizePreset) {

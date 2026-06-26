@@ -1,6 +1,8 @@
 import { TOWERS, TOWER_BY_ID, TOWER_COST_SCALE } from "./data/towers.js";
 import { UPGRADES, UPGRADE_BY_ID } from "./data/upgrades.js";
 import { BAD_IDEA_BUTTON, BAD_IDEA_CONSEQUENCE_BY_ID, MEME_LAB_BOOST_BY_ID } from "./data/memeLab.js";
+import { TERMS_OF_SERVICE_EVENT_BY_ID } from "./data/termsOfService.js";
+import { formatNumber } from "./utils/format.js";
 
 export const SAVE_VERSION = 1;
 export const VISUAL_TAKEOVER_DEFAULTS = {
@@ -49,6 +51,7 @@ export function createDefaultState() {
     achievements: {},
     lab: {
       activeBoosts: {},
+      activeObscureBoosts: {},
       activeConsequences: {},
       lastBadIdeaOutcome: null,
       totalBoostsPurchased: 0,
@@ -65,7 +68,9 @@ export function createDefaultState() {
       resetCount: 0,
       offlineLikesEarned: 0,
       bestLikesPerSecond: 0,
-      bestClickPower: 1
+      bestClickPower: 1,
+      superSubscribersCollected: 0,
+      acceptedTerms: {}
     },
     settings: {
       muted: false,
@@ -180,9 +185,12 @@ export function getTowerMultiplier(state, towerId) {
     }
 
     if (upgrade.type === "towerAmountSynergy") {
-      const sourceAmount = getTowerAmount(state, upgrade.effect.sourceTowerId);
+      const sourceAmount = upgrade.effect.countsAllOtherTowers
+        ? TOWERS.reduce((sum, tower) => tower.id === upgrade.effect.towerId ? sum : sum + getTowerAmount(state, tower.id), 0)
+        : getTowerAmount(state, upgrade.effect.sourceTowerId);
       const rawMultiplier = 1 + sourceAmount * upgrade.effect.multiplierPerSource * level;
-      return multiplier * Math.min(upgrade.effect.maxMultiplier, rawMultiplier);
+      const maxMultiplier = upgrade.effect.maxMultiplier;
+      return multiplier * (Number.isFinite(maxMultiplier) ? Math.min(maxMultiplier, rawMultiplier) : rawMultiplier);
     }
 
     return multiplier;
@@ -211,9 +219,9 @@ export function getTowerEffectiveLps(state, towerId) {
   return tower.lps * amount * getTowerMultiplier(state, towerId) * getGlobalLpsMultiplier(state);
 }
 
-export function getLikesPerSecond(state) {
+export function getLikesPerSecond(state, now = Date.now()) {
   const baseLps = TOWERS.reduce((sum, tower) => sum + getTowerEffectiveLps(state, tower.id), 0);
-  return baseLps * getLabBoostMultipliers(state).lps;
+  return baseLps * getLabBoostMultipliers(state, now).lps * getObscureLpsBoostMultiplier(state, now);
 }
 
 export function getClickPower(state) {
@@ -264,6 +272,38 @@ export function getLabBoostMultipliers(state, now = Date.now()) {
   );
 }
 
+export function getActiveObscureLpsBoosts(state, now = Date.now()) {
+  const activeBoosts = state.lab?.activeObscureBoosts ?? {};
+
+  return Object.entries(activeBoosts)
+    .map(([id, active]) => {
+      const upgrade = UPGRADE_BY_ID[id];
+      const expiresAt = Number(active?.expiresAt);
+      const multiplier = Number(active?.multiplier);
+      const remainingSeconds = Math.max(0, Math.ceil((expiresAt - now) / 1000));
+
+      if (!upgrade || upgrade.type !== "randomLpsBoost" || !Number.isFinite(multiplier) || multiplier <= 1 || remainingSeconds <= 0) {
+        return null;
+      }
+
+      return {
+        id,
+        name: upgrade.displayName,
+        multiplier,
+        expiresAt,
+        remainingSeconds
+      };
+    })
+    .filter(Boolean);
+}
+
+export function getObscureLpsBoostMultiplier(state, now = Date.now()) {
+  return getActiveObscureLpsBoosts(state, now).reduce(
+    (multiplier, boost) => multiplier * boost.multiplier,
+    1
+  );
+}
+
 export function updateLeaderboardRecords(state) {
   state.stats ??= {};
 
@@ -287,6 +327,40 @@ export function getSubscriberSpawnMultiplier(state) {
     const level = getUpgradeLevel(state, upgrade.id);
     return multiplier * Math.pow(upgrade.effect.spawnMultiplier, level);
   }, 1);
+}
+
+export function getFakeSubscriberConversion(state) {
+  return UPGRADES.reduce(
+    (conversion, upgrade) => {
+      if (upgrade.type !== "subscriberFakeConversion" || getUpgradeLevel(state, upgrade.id) <= 0) {
+        return conversion;
+      }
+
+      return {
+        chance: conversion.chance + (upgrade.effect.conversionChance ?? 0),
+        amount: Math.max(conversion.amount, upgrade.effect.amount ?? 1)
+      };
+    },
+    { chance: 0, amount: 1 }
+  );
+}
+
+export function getSubscriberAutoCollector(state) {
+  return UPGRADES.reduce(
+    (collector, upgrade) => {
+      if (upgrade.type !== "subscriberAutoCollector" || getUpgradeLevel(state, upgrade.id) <= 0) {
+        return collector;
+      }
+
+      return {
+        chance: collector.chance + (upgrade.effect.autoCollectChance ?? 0),
+        maxPerRaid: Math.max(collector.maxPerRaid, upgrade.effect.maxPerRaid ?? 1),
+        delayMinMs: Math.min(collector.delayMinMs, upgrade.effect.delayMinMs ?? collector.delayMinMs),
+        delayMaxMs: Math.max(collector.delayMaxMs, upgrade.effect.delayMaxMs ?? collector.delayMaxMs)
+      };
+    },
+    { chance: 0, maxPerRaid: 0, delayMinMs: 900, delayMaxMs: 2500 }
+  );
 }
 
 export function getOfflineProductionCapacity(state) {
@@ -332,11 +406,11 @@ export function isUpgradeUnlocked(state, upgrade) {
     return true;
   }
 
-  return isUnlockSatisfied(state, upgrade.unlockAt);
+  return isUnlockSatisfied(state, upgrade.unlockAt, { ignoreTotalLikesEver: true });
 }
 
-export function isUnlockSatisfied(state, unlockAt = {}) {
-  if ((unlockAt.totalLikesEver ?? 0) > state.totalLikesEver) {
+export function isUnlockSatisfied(state, unlockAt = {}, options = {}) {
+  if (!options.ignoreTotalLikesEver && (unlockAt.totalLikesEver ?? 0) > state.totalLikesEver) {
     return false;
   }
 
@@ -408,6 +482,21 @@ export function purchaseTower(state, towerId) {
   state.totalLikesSpent += cost;
   awardTower(state, towerId, 1);
   return { ok: true, cost };
+}
+
+export function hasAcceptedTermsOfService(state, eventId) {
+  return Boolean(TERMS_OF_SERVICE_EVENT_BY_ID[eventId] && state.stats?.acceptedTerms?.[eventId]);
+}
+
+export function acceptTermsOfService(state, eventId) {
+  if (!TERMS_OF_SERVICE_EVENT_BY_ID[eventId]) {
+    return false;
+  }
+
+  state.stats ??= {};
+  state.stats.acceptedTerms ??= {};
+  state.stats.acceptedTerms[eventId] = Date.now();
+  return true;
 }
 
 export function awardTower(state, towerId, amount = 1) {
@@ -565,6 +654,68 @@ export function pruneExpiredLabBoosts(state, now = Date.now()) {
   return changed;
 }
 
+export function pruneExpiredObscureLpsBoosts(state, now = Date.now()) {
+  const activeBoosts = state.lab?.activeObscureBoosts;
+
+  if (!activeBoosts) {
+    return false;
+  }
+
+  let changed = false;
+
+  for (const [id, active] of Object.entries(activeBoosts)) {
+    const upgrade = UPGRADE_BY_ID[id];
+    const expiresAt = Number(active?.expiresAt);
+    const multiplier = Number(active?.multiplier);
+
+    if (!upgrade || upgrade.type !== "randomLpsBoost" || !Number.isFinite(expiresAt) || expiresAt <= now || !Number.isFinite(multiplier) || multiplier <= 1) {
+      delete activeBoosts[id];
+      changed = true;
+    }
+  }
+
+  return changed;
+}
+
+export function maybeTriggerObscureLpsBoosts(state, now = Date.now(), rng = Math.random) {
+  pruneExpiredObscureLpsBoosts(state, now);
+  const random = normalizeRandomSource(rng);
+  const triggered = [];
+  state.lab ??= {};
+  state.lab.activeObscureBoosts ??= {};
+
+  for (const upgrade of UPGRADES) {
+    if (upgrade.type !== "randomLpsBoost" || getUpgradeLevel(state, upgrade.id) <= 0 || state.lab.activeObscureBoosts[upgrade.id]) {
+      continue;
+    }
+
+    const chance = Math.max(0, Number(upgrade.effect?.triggerChancePerSecond) || 0);
+
+    if (random() >= chance) {
+      continue;
+    }
+
+    const multipliers = Array.isArray(upgrade.effect?.multipliers)
+      ? upgrade.effect.multipliers.filter((multiplier) => Number(multiplier) > 1)
+      : [];
+    const multiplier = multipliers[Math.floor(random() * multipliers.length)] ?? 2;
+    const durationSeconds = Math.max(1, Number(upgrade.effect?.durationSeconds) || 15);
+
+    state.lab.activeObscureBoosts[upgrade.id] = {
+      multiplier,
+      expiresAt: now + durationSeconds * 1000
+    };
+    triggered.push({
+      id: upgrade.id,
+      name: upgrade.displayName,
+      multiplier,
+      durationSeconds
+    });
+  }
+
+  return triggered;
+}
+
 export function collectSubscriber(state, amount = 1) {
   const value = Math.max(1, Math.floor(clampNumber(amount, 1)));
   state.subscribers += value;
@@ -580,6 +731,8 @@ export function tickProduction(state, deltaSeconds) {
 
 function applyProduction(state, deltaSeconds) {
   const labMultipliers = getLabBoostMultipliers(state);
+  const obscureLpsMultiplier = getObscureLpsBoostMultiplier(state);
+  const temporaryLpsMultiplier = labMultipliers.lps * obscureLpsMultiplier;
   const lps = getLikesPerSecond(state);
   const gained = lps * deltaSeconds;
 
@@ -590,7 +743,7 @@ function applyProduction(state, deltaSeconds) {
   addLikes(state, gained);
 
   for (const tower of TOWERS) {
-    const produced = getTowerEffectiveLps(state, tower.id) * labMultipliers.lps * deltaSeconds;
+    const produced = getTowerEffectiveLps(state, tower.id) * temporaryLpsMultiplier * deltaSeconds;
     state.towers[tower.id].totalProduced += produced;
   }
 
@@ -761,7 +914,7 @@ function applyBadIdeaOutcome(state, outcome, random) {
     awardTower(state, tower.id, amount);
     return {
       label: `+${amount} ${tower.displayName}`,
-      message: `${outcome.name}: +${formatInlineNumber(amount)} ${tower.displayName}.`
+      message: `${outcome.name}: +${formatNumber(amount)} ${tower.displayName}.`
     };
   }
 
@@ -769,8 +922,8 @@ function applyBadIdeaOutcome(state, outcome, random) {
     const likes = Math.max(outcome.minimumLikes ?? 0, getLikesPerSecond(state) * (outcome.seconds ?? 0));
     const gained = addLikes(state, likes);
     return {
-      label: `+${formatInlineNumber(gained)} Likes`,
-      message: `${outcome.name}: +${formatInlineNumber(gained)} Likes.`
+      label: `+${formatNumber(gained)} Likes`,
+      message: `${outcome.name}: +${formatNumber(gained)} Likes.`
     };
   }
 
@@ -779,8 +932,8 @@ function applyBadIdeaOutcome(state, outcome, random) {
     const likes = getClickPower(state) * clicks;
     const gained = addLikes(state, likes);
     return {
-      label: `+${formatInlineNumber(gained)} Likes`,
-      message: `${outcome.name}: +${formatInlineNumber(gained)} Likes.`
+      label: `+${formatNumber(gained)} Likes`,
+      message: `${outcome.name}: +${formatNumber(gained)} Likes.`
     };
   }
 
@@ -789,8 +942,8 @@ function applyBadIdeaOutcome(state, outcome, random) {
     state.subscribers += amount;
     state.totalSubscribersEver += amount;
     return {
-      label: `+${formatInlineNumber(amount)} Subscribers`,
-      message: `${outcome.name}: +${formatInlineNumber(amount)} Subscribers.`
+      label: `+${formatNumber(amount)} Subscribers`,
+      message: `${outcome.name}: +${formatNumber(amount)} Subscribers.`
     };
   }
 
@@ -800,9 +953,9 @@ function applyBadIdeaOutcome(state, outcome, random) {
     const amount = Math.min(availableLikes, rawAmount);
     state.likes = Math.max(0, availableLikes - amount);
     return {
-      label: `-${formatInlineNumber(amount)} Likes`,
+      label: `-${formatNumber(amount)} Likes`,
       message: amount > 0
-        ? `${outcome.name}: -${formatInlineNumber(amount)} Likes.`
+        ? `${outcome.name}: -${formatNumber(amount)} Likes.`
         : `${outcome.name}: the invoice found no Likes to collect.`
     };
   }
@@ -812,9 +965,9 @@ function applyBadIdeaOutcome(state, outcome, random) {
     const amount = Math.min(availableSubscribers, Math.max(0, Math.floor(clampNumber(outcome.amount))));
     state.subscribers = Math.max(0, availableSubscribers - amount);
     return {
-      label: `-${formatInlineNumber(amount)} Subscribers`,
+      label: `-${formatNumber(amount)} Subscribers`,
       message: amount > 0
-        ? `${outcome.name}: -${formatInlineNumber(amount)} Subscribers.`
+        ? `${outcome.name}: -${formatNumber(amount)} Subscribers.`
         : `${outcome.name}: nobody extra was left to disappoint.`
     };
   }
@@ -882,16 +1035,3 @@ function clampRoll(value) {
   return Math.min(0.999999, Math.max(0, number));
 }
 
-function formatInlineNumber(value) {
-  const number = Number(value);
-
-  if (!Number.isFinite(number)) {
-    return "0";
-  }
-
-  if (number >= 1000000) {
-    return number.toExponential(2).replace("+", "");
-  }
-
-  return Math.round(number).toLocaleString("en-US");
-}

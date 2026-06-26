@@ -161,6 +161,13 @@ async function main() {
     }
   }
 
+  for (const upgrade of upgradesModule.UPGRADES.filter((item) => item.category === "obscure")) {
+    const expectedObscureMilestoneId = `upgrade_${upgrade.id}`;
+    if (!achievementIds.has(expectedObscureMilestoneId)) {
+      throw new Error(`Missing Obscure upgrade milestone: ${expectedObscureMilestoneId}`);
+    }
+  }
+
   for (const expectedId of [
     "tower_level_5_first",
     "tower_level_5_10",
@@ -227,8 +234,8 @@ async function main() {
     throw new Error("Click Boost and 48 Hour Offline Production Capacity should always be the first upgrades.");
   }
 
-  if (upgradesModule.UPGRADES[0].costScale !== 2.55) {
-    throw new Error("Click Boost price scaling should stay at the intended 2.55x repeat-purchase curve.");
+  if (upgradesModule.UPGRADES[0].costScale !== 2.2) {
+    throw new Error("Click Boost price scaling should stay at the intended 2.20x repeat-purchase curve.");
   }
 
   const expectedOfflineTierCosts = [
@@ -361,11 +368,12 @@ async function main() {
       const expectedUnlock = Math.ceil(Math.max(tower.unlockAt?.totalLikesEver ?? 0, expectedBaseCost * 2));
       const targetRequirement = upgrade.unlockAt?.towerRequirements?.find((requirement) => requirement.towerId === upgrade.effect.towerId);
       const sourceRequirement = upgrade.unlockAt?.towerRequirements?.find((requirement) => requirement.towerId === upgrade.effect.sourceTowerId);
+      const isLikeButtonCrossfeed = upgrade.effect.towerId === "swirling_like_button";
       if (
         upgrade.maxLevel !== 1 ||
         !upgrade.effect.sourceTowerId ||
         !upgrade.effect.multiplierPerSource ||
-        upgrade.effect.maxMultiplier !== 10 ||
+        (isLikeButtonCrossfeed ? upgrade.effect.maxMultiplier !== null || upgrade.effect.countsAllOtherTowers !== true : upgrade.effect.maxMultiplier !== 10) ||
         upgrade.baseCost !== expectedBaseCost ||
         upgrade.unlockAt?.amount !== 10 ||
         upgrade.unlockAt?.totalLikesEver !== expectedUnlock ||
@@ -378,46 +386,46 @@ async function main() {
   }
 
   const expectedStandardTowerMultipliers = [
-    [25, 500, 12000, 350000, 12000000],
-    [24.7, 477, 11113, 313876, 10430000],
-    [24.4, 455, 10291, 281480, 9060000],
-    [24, 434, 9530, 252428, 7870000],
-    [23.7, 414, 8826, 226374, 6840000],
-    [23.4, 395, 8173, 203010, 5940000],
-    [23.1, 377, 7569, 182057, 5160000],
-    [22.8, 360, 7009, 163266, 4490000],
-    [22.5, 343, 6491, 146415, 3900000],
-    [22.2, 328, 6011, 131303, 3390000],
-    [21.9, 313, 5567, 117751, 2940000],
-    [21.6, 298, 5155, 105598, 2560000],
-    [21.4, 285, 4774, 94699, 2220000],
-    [21.1, 271, 4421, 84925, 1930000],
-    [20.8, 259, 4094, 76160, 1680000],
-    [20.5, 247, 3791, 68299, 1460000],
-    [20.3, 236, 3511, 61250, 1270000],
-    [20, 225, 3251, 54928, 1100000],
-    [19.7, 215, 3011, 49259, 956362],
-    [19.5, 205, 2788, 44175, 830981],
-    [19.2, 195, 2582, 39615, 722038],
-    [19, 186, 2391, 35527, 627378],
-    [18.7, 178, 2214, 31860, 545127],
-    [18.5, 170, 2051, 28572, 473660],
-    [18.3, 162, 1899, 25623, 411563],
-    [18, 155, 1759, 22978, 357606],
-    [17.8, 147, 1629, 20606, 310723],
-    [17.6, 141, 1508, 18480, 269987],
-    [17.3, 134, 1397, 16572, 234591],
-    [17.1, 128, 1293, 14862, 203836],
-    [16.9, 122, 1198, 13328, 177113],
-    [16.7, 117, 1109, 11952, 153893],
-    [16.4, 111, 1027, 10719, 133717],
-    [16.2, 106, 951, 9612, 116187],
-    [16, 101, 881, 8620, 100954],
-    [15.8, 96.5, 816, 7731, 87719],
-    [15.6, 92.1, 756, 6933, 76219],
-    [15.4, 87.9, 700, 6217, 66227],
-    [15.2, 83.8, 648, 5575, 57544],
-    [15, 80, 600, 5000, 50000]
+    [22.5, 390, 7440, 161000, 3840000],
+    [22.2, 372.1, 6890, 144383, 3337600],
+    [22, 354.9, 6380, 129481, 2899200],
+    [21.6, 338.5, 5909, 116117, 2518400],
+    [21.3, 322.9, 5472, 104132, 2188800],
+    [21.1, 308.1, 5067, 93385, 1900800],
+    [20.8, 294.1, 4693, 83746, 1651200],
+    [20.5, 280.8, 4346, 75102, 1436800],
+    [20.3, 267.5, 4024, 67351, 1248000],
+    [20, 255.8, 3727, 60399, 1084800],
+    [19.7, 244.1, 3452, 54165, 940800],
+    [19.4, 232.4, 3196, 48575, 819200],
+    [19.3, 222.3, 2960, 43562, 710400],
+    [19, 211.4, 2741, 39066, 617600],
+    [18.7, 202, 2538, 35034, 537600],
+    [18.5, 192.7, 2350, 31418, 467200],
+    [18.3, 184.1, 2177, 28175, 406400],
+    [18, 175.5, 2016, 25267, 352000],
+    [17.7, 167.7, 1867, 22659, 306036],
+    [17.6, 159.9, 1729, 20321, 265914],
+    [17.3, 152.1, 1601, 18223, 231052],
+    [17.1, 145.1, 1482, 16342, 200761],
+    [16.8, 138.8, 1373, 14656, 174441],
+    [16.7, 132.6, 1272, 13143, 151571],
+    [16.5, 126.4, 1177, 11787, 131700],
+    [16.2, 120.9, 1091, 10570, 114434],
+    [16, 114.7, 1010, 9479, 99431],
+    [15.8, 110, 935, 8501, 86396],
+    [15.6, 104.5, 866, 7623, 75069],
+    [15.4, 99.8, 802, 6837, 65228],
+    [15.2, 95.2, 743, 6131, 56676],
+    [15, 91.3, 688, 5498, 49246],
+    [14.8, 86.6, 637, 4931, 42789],
+    [14.6, 82.7, 590, 4422, 37180],
+    [14.4, 78.8, 546, 3965, 32305],
+    [14.2, 75.3, 506, 3556, 28070],
+    [14, 71.8, 469, 3189, 24390],
+    [13.9, 68.6, 434, 2860, 21193],
+    [13.7, 65.4, 402, 2565, 18414],
+    [13.5, 62.4, 372, 2300, 16000]
   ];
   const expectedStandardTowerUnlocks = [
     { amount: 10, costRatio: 0.75 },
@@ -518,19 +526,19 @@ async function main() {
   const secondDoubleUpgrade = upgradesModule.UPGRADES.find((upgrade) => upgrade.id === "swirling_like_button_double_2");
   const gatedUpgradeState = stateModule.createDefaultState();
   gatedUpgradeState.towers.swirling_like_button.amount = secondDoubleUpgrade.unlockAt.amount;
-  gatedUpgradeState.totalLikesEver = secondDoubleUpgrade.unlockAt.totalLikesEver;
+  gatedUpgradeState.totalLikesEver = 0;
   if (stateModule.isUpgradeUnlocked(gatedUpgradeState, secondDoubleUpgrade) || stateModule.shouldShowUpgradeInShop(gatedUpgradeState, secondDoubleUpgrade)) {
     throw new Error("Expected tier 2 tower upgrade to stay locked until tier 1 is bought.");
   }
 
   gatedUpgradeState.upgrades.swirling_like_button_double_1.level = 1;
   if (!stateModule.isUpgradeUnlocked(gatedUpgradeState, secondDoubleUpgrade) || !stateModule.shouldShowUpgradeInShop(gatedUpgradeState, secondDoubleUpgrade)) {
-    throw new Error("Expected tier 2 tower upgrade to unlock after tier 1 is bought.");
+    throw new Error("Expected tier 2 tower upgrade to unlock after tier 1 is bought, regardless of lifetime likes.");
   }
 
   const amountGatedState = stateModule.createDefaultState();
   amountGatedState.towers.swirling_like_button.amount = secondDoubleUpgrade.unlockAt.amount - 1;
-  amountGatedState.totalLikesEver = secondDoubleUpgrade.unlockAt.totalLikesEver;
+  amountGatedState.totalLikesEver = 0;
   amountGatedState.upgrades.swirling_like_button_double_1.level = 1;
   if (stateModule.isUpgradeUnlocked(amountGatedState, secondDoubleUpgrade) || stateModule.shouldShowUpgradeInShop(amountGatedState, secondDoubleUpgrade)) {
     throw new Error("Expected tier 2 tower upgrade to require the tier-specific tower amount.");
@@ -559,13 +567,13 @@ async function main() {
   const synergyState = stateModule.createDefaultState();
   synergyState.towers.swirling_like_button.amount = 10;
   synergyState.towers.shitposter_intern.amount = 1000;
-  synergyState.totalLikesEver = firstSynergyUpgrade.unlockAt.totalLikesEver;
+  synergyState.totalLikesEver = 0;
   synergyState.likes = stateModule.getUpgradeCost(synergyState, firstSynergyUpgrade.id);
   const baseSynergyLps = stateModule.getTowerEffectiveLps(synergyState, "swirling_like_button");
   const synergyPurchase = stateModule.purchaseUpgrade(synergyState, firstSynergyUpgrade.id);
-  const expectedSynergyMultiplier = firstSynergyUpgrade.effect.maxMultiplier;
+  const expectedSynergyMultiplier = 1 + synergyState.towers.shitposter_intern.amount * firstSynergyUpgrade.effect.multiplierPerSource;
   if (!synergyPurchase.ok || stateModule.getTowerEffectiveLps(synergyState, "swirling_like_button") !== baseSynergyLps * expectedSynergyMultiplier) {
-    throw new Error("Expected crossfeed upgrade to scale one tower from another tower's owned amount, capped at x10.");
+    throw new Error("Expected Like Button crossfeed upgrade to scale from every other tower owned with no cap.");
   }
 
   const sourceGatedSynergyState = stateModule.createDefaultState();
@@ -577,11 +585,40 @@ async function main() {
     throw new Error("Expected crossfeed upgrade to require 40 owned source towers before becoming visible.");
   }
 
+  const doomscrollUpgrade = upgradesModule.UPGRADES.find((upgrade) => upgrade.id === "doomscroll_surge");
+  const doomscrollState = stateModule.createDefaultState();
+  doomscrollState.towers.doomscroller.amount = 1;
+  doomscrollState.likes = stateModule.getUpgradeCost(doomscrollState, doomscrollUpgrade.id);
+  const doomscrollPurchase = stateModule.purchaseUpgrade(doomscrollState, doomscrollUpgrade.id);
+  if (!doomscrollPurchase.ok || doomscrollPurchase.upgrade?.type !== "randomLpsBoost") {
+    throw new Error("Expected Doomscroller obscure upgrade to be buyable after owning a Doomscroller.");
+  }
+
+  const baseDoomscrollLps = stateModule.getLikesPerSecond(doomscrollState);
+  const triggeredDoomscrollBoosts = stateModule.maybeTriggerObscureLpsBoosts(doomscrollState, 1000, () => 0);
+  if (
+    triggeredDoomscrollBoosts.length !== 1 ||
+    triggeredDoomscrollBoosts[0].multiplier !== 2 ||
+    stateModule.getLikesPerSecond(doomscrollState, 1000) !== baseDoomscrollLps * 2 ||
+    stateModule.getActiveObscureLpsBoosts(doomscrollState, 1000)[0]?.remainingSeconds !== 15
+  ) {
+    throw new Error("Expected Doomscroller obscure upgrade to trigger a timed random LPS boost.");
+  }
+
+  const serializedDoomscroll = saveModule.serializeState(doomscrollState);
+  if (serializedDoomscroll.lab.activeObscureBoosts.doomscroll_surge?.multiplier !== 2) {
+    throw new Error("Expected active Doomscroller obscure boost to be saved.");
+  }
+
+  if (!stateModule.pruneExpiredObscureLpsBoosts(doomscrollState, 16000) || stateModule.getActiveObscureLpsBoosts(doomscrollState, 16000).length !== 0) {
+    throw new Error("Expected expired Doomscroller obscure boost to be pruned.");
+  }
+
   const legacyUpgrade = upgradesModule.UPGRADES.find((upgrade) => upgrade.id === "shitposter_intern_legacy_overclock");
   const legacyState = stateModule.createDefaultState();
   legacyState.towers.shitposter_intern.amount = 25;
   legacyState.upgrades.shitposter_intern_double_5.level = 1;
-  legacyState.totalLikesEver = legacyUpgrade.unlockAt.totalLikesEver;
+  legacyState.totalLikesEver = 0;
   legacyState.likes = stateModule.getUpgradeCost(legacyState, legacyUpgrade.id);
   const baseLegacyLps = stateModule.getTowerEffectiveLps(legacyState, "shitposter_intern");
   const legacyPurchase = stateModule.purchaseUpgrade(legacyState, legacyUpgrade.id);
@@ -713,9 +750,9 @@ async function main() {
     badIdeaWeightsTotal !== 100 ||
     randomTowerShipment?.weight !== 1 ||
     starterPackMisdelivery?.weight !== 1 ||
-    clickbaitSprint?.clicks !== 1000
+    clickbaitSprint?.clicks !== 10000
   ) {
-    throw new Error("Expected rare Bad Idea tower outcomes and a 1,000-click Clickbait Sprint.");
+    throw new Error("Expected rare Bad Idea tower outcomes and a 10,000-click Clickbait Sprint.");
   }
 
   const badIdeaState = stateModule.createDefaultState();

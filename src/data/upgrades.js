@@ -4,46 +4,46 @@ const towerImage = (fileName) => `../assets/images/Towers/${fileName}`;
 const iconImage = (fileName) => `../assets/images/icons/${fileName}`;
 
 const STANDARD_TOWER_COST_MULTIPLIERS = [
-  [25, 500, 12000, 350000, 12000000],
-  [24.7, 477, 11113, 313876, 10430000],
-  [24.4, 455, 10291, 281480, 9060000],
-  [24, 434, 9530, 252428, 7870000],
-  [23.7, 414, 8826, 226374, 6840000],
-  [23.4, 395, 8173, 203010, 5940000],
-  [23.1, 377, 7569, 182057, 5160000],
-  [22.8, 360, 7009, 163266, 4490000],
-  [22.5, 343, 6491, 146415, 3900000],
-  [22.2, 328, 6011, 131303, 3390000],
-  [21.9, 313, 5567, 117751, 2940000],
-  [21.6, 298, 5155, 105598, 2560000],
-  [21.4, 285, 4774, 94699, 2220000],
-  [21.1, 271, 4421, 84925, 1930000],
-  [20.8, 259, 4094, 76160, 1680000],
-  [20.5, 247, 3791, 68299, 1460000],
-  [20.3, 236, 3511, 61250, 1270000],
-  [20, 225, 3251, 54928, 1100000],
-  [19.7, 215, 3011, 49259, 956362],
-  [19.5, 205, 2788, 44175, 830981],
-  [19.2, 195, 2582, 39615, 722038],
-  [19, 186, 2391, 35527, 627378],
-  [18.7, 178, 2214, 31860, 545127],
-  [18.5, 170, 2051, 28572, 473660],
-  [18.3, 162, 1899, 25623, 411563],
-  [18, 155, 1759, 22978, 357606],
-  [17.8, 147, 1629, 20606, 310723],
-  [17.6, 141, 1508, 18480, 269987],
-  [17.3, 134, 1397, 16572, 234591],
-  [17.1, 128, 1293, 14862, 203836],
-  [16.9, 122, 1198, 13328, 177113],
-  [16.7, 117, 1109, 11952, 153893],
-  [16.4, 111, 1027, 10719, 133717],
-  [16.2, 106, 951, 9612, 116187],
-  [16, 101, 881, 8620, 100954],
-  [15.8, 96.5, 816, 7731, 87719],
-  [15.6, 92.1, 756, 6933, 76219],
-  [15.4, 87.9, 700, 6217, 66227],
-  [15.2, 83.8, 648, 5575, 57544],
-  [15, 80, 600, 5000, 50000]
+  [22.5, 390, 7440, 161000, 3840000],
+  [22.2, 372.1, 6890, 144383, 3337600],
+  [22, 354.9, 6380, 129481, 2899200],
+  [21.6, 338.5, 5909, 116117, 2518400],
+  [21.3, 322.9, 5472, 104132, 2188800],
+  [21.1, 308.1, 5067, 93385, 1900800],
+  [20.8, 294.1, 4693, 83746, 1651200],
+  [20.5, 280.8, 4346, 75102, 1436800],
+  [20.3, 267.5, 4024, 67351, 1248000],
+  [20, 255.8, 3727, 60399, 1084800],
+  [19.7, 244.1, 3452, 54165, 940800],
+  [19.4, 232.4, 3196, 48575, 819200],
+  [19.3, 222.3, 2960, 43562, 710400],
+  [19, 211.4, 2741, 39066, 617600],
+  [18.7, 202, 2538, 35034, 537600],
+  [18.5, 192.7, 2350, 31418, 467200],
+  [18.3, 184.1, 2177, 28175, 406400],
+  [18, 175.5, 2016, 25267, 352000],
+  [17.7, 167.7, 1867, 22659, 306036],
+  [17.6, 159.9, 1729, 20321, 265914],
+  [17.3, 152.1, 1601, 18223, 231052],
+  [17.1, 145.1, 1482, 16342, 200761],
+  [16.8, 138.8, 1373, 14656, 174441],
+  [16.7, 132.6, 1272, 13143, 151571],
+  [16.5, 126.4, 1177, 11787, 131700],
+  [16.2, 120.9, 1091, 10570, 114434],
+  [16, 114.7, 1010, 9479, 99431],
+  [15.8, 110, 935, 8501, 86396],
+  [15.6, 104.5, 866, 7623, 75069],
+  [15.4, 99.8, 802, 6837, 65228],
+  [15.2, 95.2, 743, 6131, 56676],
+  [15, 91.3, 688, 5498, 49246],
+  [14.8, 86.6, 637, 4931, 42789],
+  [14.6, 82.7, 590, 4422, 37180],
+  [14.4, 78.8, 546, 3965, 32305],
+  [14.2, 75.3, 506, 3556, 28070],
+  [14, 71.8, 469, 3189, 24390],
+  [13.9, 68.6, 434, 2860, 21193],
+  [13.7, 65.4, 402, 2565, 18414],
+  [13.5, 62.4, 372, 2300, 16000]
 ];
 const STANDARD_TOWER_UNLOCK_REQUIREMENTS = [
   { tier: 1, amount: 10, costRatio: 0.75 },
@@ -155,9 +155,9 @@ const CORE_UPGRADES = [
     description: "Makes each meme button press hit harder. Still suspiciously manual.",
     type: "clickPower",
     baseCost: 100,
-    costScale: 2.55,
+    costScale: 2.2,
     effect: { multiplier: 2 },
-    image: towerImage("Tower 1 - Swirling Like Button.png"),
+    image: iconImage("icon 1 - Tower-baserede challenges.png"),
     unlockAt: {}
   },
   {
@@ -186,6 +186,68 @@ const CORE_UPGRADES = [
   }
 ];
 
+const OBSCURE_UPGRADES = [
+  {
+    id: "verified_fake_user",
+    displayName: "Verified Fake User",
+    description: "Fake subscriber bots have a small chance to become real subscribers when clicked. The checkmark is doing a lot of work.",
+    type: "subscriberFakeConversion",
+    category: "obscure",
+    baseCost: 2500000,
+    costScale: 1,
+    maxLevel: 1,
+    effect: { conversionChance: 0.1, amount: 1 },
+    image: towerImage("Tower 5 - Botnet.png"),
+    unlockAt: {
+      towerId: "botnet",
+      amount: 1,
+      totalLikesEver: 2000000
+    }
+  },
+  {
+    id: "brainchip_autoclicker",
+    displayName: "Brainchip Autoclicker",
+    description: "A neural cursor sometimes darts out and collects a falling subscriber for you. Disturbingly helpful.",
+    type: "subscriberAutoCollector",
+    category: "obscure",
+    baseCost: 25000000000000,
+    costScale: 1,
+    maxLevel: 1,
+    effect: {
+      autoCollectChance: 0.22,
+      maxPerRaid: 1,
+      delayMinMs: 900,
+      delayMaxMs: 2500
+    },
+    image: iconImage("icon 1 - Tower-baserede challenges.png"),
+    unlockAt: {
+      towerId: "cursed_content_forge",
+      amount: 1,
+      totalLikesEver: 300000000
+    }
+  },
+  {
+    id: "doomscroll_surge",
+    displayName: "Doomscroll Session",
+    description: "Every so often a deeply unhealthy scrolling session panic-spikes your whole farm for 15 seconds. Terrible for focus. Excellent for LPS.",
+    type: "randomLpsBoost",
+    category: "obscure",
+    baseCost: 75000000,
+    costScale: 1,
+    maxLevel: 1,
+    effect: {
+      triggerChancePerSecond: 0.0125,
+      durationSeconds: 15,
+      multipliers: [2, 3, 4, 5]
+    },
+    image: towerImage("Tower 6 - Doomscroller.png"),
+    unlockAt: {
+      towerId: "doomscroller",
+      amount: 1
+    }
+  }
+];
+
 const TOWER_UPGRADES = TOWERS.flatMap((tower, index) => [
   ...createStandardTowerUpgrades(tower, index),
   createTowerSynergyUpgrade(tower, index)
@@ -197,6 +259,7 @@ const LEGACY_TOWER_UPGRADES = LEGACY_OVERCLOCKS.map(createLegacyTowerUpgrade).fi
 
 export const UPGRADES = [
   ...CORE_UPGRADES,
+  ...OBSCURE_UPGRADES,
   ...SUBSCRIBER_SPAWN_UPGRADES,
   ...TOWER_UPGRADES,
   ...LEGACY_TOWER_UPGRADES
@@ -246,11 +309,14 @@ function createTowerSynergyUpgrade(tower, index) {
   const maxMultiplier = 10;
   const costMultiplier = getCrossfeedCostMultiplier(index);
   const baseCost = Math.ceil(tower.baseCost * costMultiplier);
+  const countsAllOtherTowers = tower.id === "swirling_like_button";
 
   return {
     id: `${tower.id}_crossfeed_${sourceTower.id}`,
     displayName: `${tower.displayName} Crossfeed`,
-    description: `${tower.displayName} gets +${formatPercent(perTowerBonus)} LPS for each ${sourceTower.displayName} owned, capped at x${maxMultiplier}.`,
+    description: countsAllOtherTowers
+      ? `${tower.displayName} gets +${formatPercent(perTowerBonus)} LPS for every other tower you own. No cap. The small button has unionized the entire shop.`
+      : `${tower.displayName} gets +${formatPercent(perTowerBonus)} LPS for each ${sourceTower.displayName} owned, capped at x${maxMultiplier}.`,
     type: "towerAmountSynergy",
     baseCost,
     costScale: 1,
@@ -259,7 +325,8 @@ function createTowerSynergyUpgrade(tower, index) {
       towerId: tower.id,
       sourceTowerId: sourceTower.id,
       multiplierPerSource: perTowerBonus,
-      maxMultiplier
+      maxMultiplier: countsAllOtherTowers ? null : maxMultiplier,
+      countsAllOtherTowers
     },
     image: tower.image,
     unlockAt: {
@@ -348,5 +415,5 @@ function getTowerUpgradeName(tower) {
 }
 
 function formatPercent(value) {
-  return `${Math.round(value * 1000) / 10}%`;
+  return `${Number((value * 100).toFixed(2))}%`;
 }

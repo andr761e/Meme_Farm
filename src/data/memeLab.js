@@ -82,27 +82,27 @@ export const MEME_LAB_PROGRAMS = [
       {
         id: "emergency_repost",
         name: "Emergency Repost",
-        description: "Gain 90 seconds of your current LPS as Likes, with a small minimum payout.",
+        description: "Gain 1,200 seconds of your current LPS as Likes, with a small minimum payout.",
         weight: 28,
         type: "addLikesFromLps",
-        seconds: 90,
+        seconds: 1200,
         minimumLikes: 250
       },
       {
         id: "clickbait_sprint",
         name: "Clickbait Sprint",
-        description: "Gain 1,000 clicks worth of Likes instantly.",
+        description: "Gain 10,000 clicks worth of Likes instantly.",
         weight: 24,
         type: "addLikesFromClicks",
-        clicks: 1000
+        clicks: 10000
       },
       {
         id: "audience_confusion",
         name: "Audience Confusion",
-        description: "Gain 6 subscribers because nobody can tell if this is ironic.",
+        description: "Gain 40 subscribers because nobody can tell if this is ironic.",
         weight: 18,
         type: "addSubscribers",
-        amount: 6,
+        amount: 40,
         consequence: {
           id: "comment_section_riot",
           title: "Comment Section Riot",

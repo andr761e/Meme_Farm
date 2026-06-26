@@ -363,6 +363,13 @@ const CORE_MILESTONES = [
     isUnlocked: (state) => state.totalSubscribersEver >= 1000
   },
   {
+    id: "super_subscriber_jackpot",
+    title: "Verified By Mistake",
+    description: "Collect a 1-in-1,000 Super Subscriber. The fake account was somehow the realest one here.",
+    icon: "SSS",
+    isUnlocked: (state) => (state.stats?.superSubscribersCollected ?? 0) >= 1
+  },
+  {
     id: "twenty_lps",
     title: "20 LPS",
     description: "The meme stream has measurable velocity.",
@@ -604,6 +611,7 @@ const TOWER_CROSSFEED_MILESTONES = TOWERS.map((tower, index) => {
 
 const LEGACY_OVERCLOCK_UPGRADES = UPGRADES.filter((upgrade) => upgrade.category === "legacyOverclock");
 const SUBSCRIBER_SPAWN_UPGRADES = UPGRADES.filter((upgrade) => upgrade.category === "subscriberSpawn");
+const OBSCURE_UPGRADES = UPGRADES.filter((upgrade) => upgrade.category === "obscure");
 
 const LEGACY_OVERCLOCK_MILESTONES = LEGACY_OVERCLOCK_UPGRADES.map((upgrade, index) => {
   const tower = TOWERS.find((item) => item.id === upgrade.effect.towerId);
@@ -720,6 +728,14 @@ const SUBSCRIBER_UPGRADE_MILESTONES = [
   }
 ];
 
+const OBSCURE_UPGRADE_MILESTONES = OBSCURE_UPGRADES.map((upgrade, index) => ({
+  id: `upgrade_${upgrade.id}`,
+  title: upgrade.displayName,
+  description: `Buy ${upgrade.displayName}. The upgrade tab has started stocking suspicious side hustles.`,
+  icon: `OB-${index + 1}`,
+  isUnlocked: (state) => getUpgradeLevel(state, upgrade.id) >= 1
+}));
+
 const UPGRADE_COLLECTION_MILESTONES = [
   {
     id: "tower_level_5_first",
@@ -798,6 +814,7 @@ export const ACHIEVEMENTS = [
   ...BAD_IDEA_OUTCOME_MILESTONES,
   ...MEME_LAB_COLLECTION_MILESTONES,
   ...SUBSCRIBER_UPGRADE_MILESTONES,
+  ...OBSCURE_UPGRADE_MILESTONES,
   ...UPGRADE_COLLECTION_MILESTONES
 ];
 
