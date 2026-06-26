@@ -1,9 +1,11 @@
 import { TOWERS } from "./towers.js";
 import { UPGRADES } from "./upgrades.js";
 import { BAD_IDEA_BUTTON, MEME_LAB_BOOSTS } from "./memeLab.js";
+import { PRESTIGE_TIERS } from "./prestige.js";
 import {
   getClickPower,
   getLikesPerSecond,
+  getPrestigeLevel,
   getTotalTowersOwned,
   getTowerAmount,
   getUpgradeLevel
@@ -802,6 +804,14 @@ const UPGRADE_COLLECTION_MILESTONES = [
   }
 ];
 
+const PRESTIGE_MILESTONES = PRESTIGE_TIERS.map((tier) => ({
+  id: `prestige_${tier.level}`,
+  title: tier.pinName,
+  description: `Go Viral and earn the ${tier.pinName}. Your run is gone, but the public record has become louder.`,
+  icon: tier.symbol,
+  isUnlocked: (state) => getPrestigeLevel(state) >= tier.level
+}));
+
 export const ACHIEVEMENTS = [
   ...CORE_MILESTONES,
   ...TOWER_PURCHASE_MILESTONES,
@@ -815,7 +825,8 @@ export const ACHIEVEMENTS = [
   ...MEME_LAB_COLLECTION_MILESTONES,
   ...SUBSCRIBER_UPGRADE_MILESTONES,
   ...OBSCURE_UPGRADE_MILESTONES,
-  ...UPGRADE_COLLECTION_MILESTONES
+  ...UPGRADE_COLLECTION_MILESTONES,
+  ...PRESTIGE_MILESTONES
 ];
 
 function ownsFirstTowers(state, count) {

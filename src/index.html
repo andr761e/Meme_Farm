@@ -16,6 +16,7 @@
         <h1>Meme Farm</h1>
         <span id="save-status" class="save-status">Fresh boot</span>
       </div>
+      <span id="prestige-pin" class="prestige-pin prestige-pin-hidden" hidden></span>
     </div>
     <div id="top-ticker" class="top-ticker" aria-live="polite">
       <span data-role="ticker-track">Meme Farm bulletin loading...</span>
@@ -39,6 +40,13 @@
         <span id="subscriber-count" class="resource-detail">0 Subscribers</span>
         <div id="active-boost-timers" class="active-boost-timers" aria-live="polite" hidden></div>
       </div>
+
+      <section id="prestige-panel" class="prestige-panel" aria-live="polite" hidden>
+        <span id="prestige-panel-kicker">Go Viral</span>
+        <strong id="prestige-panel-title">The feed is watching</strong>
+        <small id="prestige-panel-copy">Buy the final tower to unlock a public prestige pin.</small>
+        <button id="go-viral-button" type="button">Go Viral</button>
+      </section>
 
       <div class="meme-button-wrapper">
         <div id="orbit-container" aria-hidden="true"></div>
@@ -75,7 +83,7 @@
               <span id="leaderboard-metric-label">Metric</span>
               <button id="leaderboard-metric-toggle" class="leaderboard-metric-toggle" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="leaderboard-metric-list">
                 <span data-role="selected-metric">Lifetime Likes</span>
-                <small data-role="selected-metric-description">Total likes earned in this run.</small>
+                <small data-role="selected-metric-description">Best lifetime-like score preserved across Go Viral resets.</small>
               </button>
               <div id="leaderboard-metric-list" class="leaderboard-metric-list" role="listbox" aria-labelledby="leaderboard-metric-label" hidden></div>
             </div>

@@ -11,12 +11,14 @@ import {
   DESKTOP_COMPANION_DEFAULTS,
   DESKTOP_WINDOW_DEFAULTS,
   DESKTOP_WINDOW_PRESETS,
+  canGoViral,
   gameState,
   getApocalypseEra,
   getLikesPerSecond,
   getSubscriberSpawnMultiplier,
   getTotalTowersOwned,
   getTowerAmount,
+  goViral,
   hasAcceptedTermsOfService,
   maybeTriggerObscureLpsBoosts,
   pressBadIdeaButton,
@@ -238,6 +240,28 @@ function bootGame() {
       };
       syncDesktopWindow();
       markChanged({ meaningful: true });
+    },
+    onGoViralRequest: () => {
+      if (!canGoViral(gameState)) {
+        ui.showToast("Go Viral unlocks after buying the final tower.");
+        return;
+      }
+
+      ui.showGoViralConfirmation(() => {
+        const result = goViral(gameState);
+
+        if (!result.ok) {
+          ui.showToast(result.reason === "maxed"
+            ? "The feed has no higher pin to give."
+            : "Go Viral is not ready yet.");
+          return;
+        }
+
+        audio.purchase();
+        ui.showPrestigeEvent(result);
+        ui.showToast(`${result.tier.pinName} earned. The farm has been reset for prestige ${result.level}.`);
+        markChanged({ meaningful: true, immediate: true });
+      });
     }
   });
 
@@ -553,7 +577,7 @@ function maybeShowTermsOfService(towerId) {
 
 function isMajorAchievement(achievement) {
   const id = achievement.id ?? "";
-  return /1000000|100000000|1000000000|bad_idea|meme_lab|legacy_overclock|crossfeed|subscriber_spawn_all|tower_level_5_all|super_subscriber/.test(id);
+  return /1000000|100000000|1000000000|bad_idea|meme_lab|legacy_overclock|crossfeed|subscriber_spawn_all|tower_level_5_all|super_subscriber|prestige_/.test(id);
 }
 
 function checkAchievements({ silent = false, ui = null } = {}) {

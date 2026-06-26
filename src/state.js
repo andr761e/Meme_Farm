@@ -1,8 +1,11 @@
 import { TOWERS, TOWER_BY_ID, TOWER_COST_SCALE } from "./data/towers.js";
 import { UPGRADES, UPGRADE_BY_ID } from "./data/upgrades.js";
 import { BAD_IDEA_BUTTON, BAD_IDEA_CONSEQUENCE_BY_ID, MEME_LAB_BOOST_BY_ID } from "./data/memeLab.js";
+import { PRESTIGE_MAX_LEVEL, PRESTIGE_TIER_BY_LEVEL, PRESTIGE_TIERS } from "./data/prestige.js";
 import { TERMS_OF_SERVICE_EVENT_BY_ID } from "./data/termsOfService.js";
 import { formatNumber } from "./utils/format.js";
+
+export { PRESTIGE_MAX_LEVEL, PRESTIGE_TIERS };
 
 export const SAVE_VERSION = 1;
 export const VISUAL_TAKEOVER_DEFAULTS = {
@@ -48,6 +51,8 @@ export function createDefaultState() {
     totalClicks: 0,
     totalLikesFromClicks: 0,
     totalLikesSpent: 0,
+    prestige: createDefaultPrestigeState(),
+    leaderboardRecords: createDefaultLeaderboardRecords(),
     achievements: {},
     lab: {
       activeBoosts: {},
@@ -95,6 +100,27 @@ export function createDefaultUpgradeState() {
   };
 }
 
+export function createDefaultPrestigeState() {
+  return {
+    level: 0,
+    viralResets: 0,
+    lastWentViralAt: 0
+  };
+}
+
+export function createDefaultLeaderboardRecords() {
+  return {
+    totalLikesEver: 0,
+    highestLps: 0,
+    totalTowersOwned: 0,
+    milestonesUnlocked: 0,
+    totalClicks: 0,
+    highestClickPower: 1,
+    subscribersCollected: 0,
+    prestigeLevel: 0
+  };
+}
+
 export function replaceGameState(nextState) {
   for (const key of Object.keys(gameState)) {
     delete gameState[key];
@@ -108,6 +134,77 @@ export function resetGameState() {
   const nextState = createDefaultState();
   nextState.stats.resetCount = resetCount;
   replaceGameState(nextState);
+}
+
+export function getPrestigeLevel(state) {
+  return Math.max(0, Math.min(PRESTIGE_MAX_LEVEL, Math.floor(Number(state.prestige?.level) || 0)));
+}
+
+export function getPrestigeTier(stateOrLevel) {
+  const level = typeof stateOrLevel === "number"
+    ? stateOrLevel
+    : getPrestigeLevel(stateOrLevel);
+  return PRESTIGE_TIER_BY_LEVEL[level] ?? null;
+}
+
+export function getNextPrestigeTier(state) {
+  return PRESTIGE_TIER_BY_LEVEL[getPrestigeLevel(state) + 1] ?? null;
+}
+
+export function getFinalTower() {
+  return TOWERS[TOWERS.length - 1] ?? null;
+}
+
+export function canGoViral(state) {
+  const finalTower = getFinalTower();
+  return Boolean(finalTower && getPrestigeLevel(state) < PRESTIGE_MAX_LEVEL && getTowerAmount(state, finalTower.id) >= 1);
+}
+
+export function goViral(state, now = Date.now()) {
+  const nextTier = getNextPrestigeTier(state);
+  const finalTower = getFinalTower();
+
+  if (!nextTier) {
+    return { ok: false, reason: "maxed" };
+  }
+
+  if (!finalTower || getTowerAmount(state, finalTower.id) < 1) {
+    return { ok: false, reason: "locked", finalTower };
+  }
+
+  updateLeaderboardRecords(state);
+
+  const preservedSettings = clonePlainObject(state.settings);
+  const preservedRecords = {
+    ...createDefaultLeaderboardRecords(),
+    ...(state.leaderboardRecords ?? {})
+  };
+  const previousPrestige = state.prestige ?? createDefaultPrestigeState();
+  const nextState = createDefaultState();
+
+  nextState.settings = preservedSettings;
+  nextState.leaderboardRecords = {
+    ...preservedRecords,
+    prestigeLevel: Math.max(preservedRecords.prestigeLevel ?? 0, nextTier.level)
+  };
+  nextState.prestige = {
+    level: nextTier.level,
+    viralResets: (previousPrestige.viralResets ?? getPrestigeLevel(state)) + 1,
+    lastWentViralAt: now
+  };
+
+  for (const key of Object.keys(state)) {
+    delete state[key];
+  }
+
+  Object.assign(state, nextState);
+
+  return {
+    ok: true,
+    tier: nextTier,
+    level: nextTier.level,
+    finalTower
+  };
 }
 
 export function getTowerAmount(state, towerId) {
@@ -166,6 +263,10 @@ export function shouldShowUpgradeInShop(state, upgrade) {
 
 export function getTotalTowersOwned(state) {
   return Object.values(state.towers).reduce((sum, tower) => sum + (tower.amount ?? 0), 0);
+}
+
+export function getUnlockedAchievementCount(state) {
+  return Object.values(state.achievements ?? {}).filter(Boolean).length;
 }
 
 export function getTowerMultiplier(state, towerId) {
@@ -306,16 +407,31 @@ export function getObscureLpsBoostMultiplier(state, now = Date.now()) {
 
 export function updateLeaderboardRecords(state) {
   state.stats ??= {};
+  state.leaderboardRecords ??= createDefaultLeaderboardRecords();
 
   const previousBestLps = state.stats.bestLikesPerSecond ?? 0;
   const previousBestClickPower = state.stats.bestClickPower ?? 1;
-  const nextBestLps = Math.max(previousBestLps, getLikesPerSecond(state));
-  const nextBestClickPower = Math.max(previousBestClickPower, getClickPower(state));
+  const currentLps = getLikesPerSecond(state);
+  const currentClickPower = getClickPower(state);
+  const nextBestLps = Math.max(previousBestLps, currentLps);
+  const nextBestClickPower = Math.max(previousBestClickPower, currentClickPower);
+  const previousRecords = { ...state.leaderboardRecords };
 
   state.stats.bestLikesPerSecond = nextBestLps;
   state.stats.bestClickPower = nextBestClickPower;
 
-  return nextBestLps !== previousBestLps || nextBestClickPower !== previousBestClickPower;
+  state.leaderboardRecords.totalLikesEver = Math.max(state.leaderboardRecords.totalLikesEver ?? 0, state.totalLikesEver ?? 0);
+  state.leaderboardRecords.highestLps = Math.max(state.leaderboardRecords.highestLps ?? 0, nextBestLps);
+  state.leaderboardRecords.totalTowersOwned = Math.max(state.leaderboardRecords.totalTowersOwned ?? 0, getTotalTowersOwned(state));
+  state.leaderboardRecords.milestonesUnlocked = Math.max(state.leaderboardRecords.milestonesUnlocked ?? 0, getUnlockedAchievementCount(state));
+  state.leaderboardRecords.totalClicks = Math.max(state.leaderboardRecords.totalClicks ?? 0, state.totalClicks ?? 0);
+  state.leaderboardRecords.highestClickPower = Math.max(state.leaderboardRecords.highestClickPower ?? 1, nextBestClickPower);
+  state.leaderboardRecords.subscribersCollected = Math.max(state.leaderboardRecords.subscribersCollected ?? 0, state.totalSubscribersEver ?? 0);
+  state.leaderboardRecords.prestigeLevel = Math.max(state.leaderboardRecords.prestigeLevel ?? 0, getPrestigeLevel(state));
+
+  return nextBestLps !== previousBestLps ||
+    nextBestClickPower !== previousBestClickPower ||
+    Object.keys(state.leaderboardRecords).some((key) => state.leaderboardRecords[key] !== previousRecords[key]);
 }
 
 export function getSubscriberSpawnMultiplier(state) {
@@ -905,6 +1021,14 @@ function isMajorTowerOnline(state, towerId) {
 function clampNumber(value, fallback = 0) {
   const number = Number(value);
   return Number.isFinite(number) ? Math.max(0, number) : fallback;
+}
+
+function clonePlainObject(value) {
+  if (!value || typeof value !== "object") {
+    return value;
+  }
+
+  return JSON.parse(JSON.stringify(value));
 }
 
 function applyBadIdeaOutcome(state, outcome, random) {

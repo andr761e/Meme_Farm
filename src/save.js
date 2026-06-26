@@ -7,8 +7,11 @@ import {
   DESKTOP_COMPANION_DEFAULTS,
   DESKTOP_WINDOW_DEFAULTS,
   DESKTOP_WINDOW_PRESETS,
+  PRESTIGE_MAX_LEVEL,
   SAVE_VERSION,
   VISUAL_TAKEOVER_DEFAULTS,
+  createDefaultLeaderboardRecords,
+  createDefaultPrestigeState,
   createDefaultState
 } from "./state.js";
 
@@ -76,6 +79,8 @@ export function serializeState(state) {
     totalClicks: safeNumber(state.totalClicks),
     totalLikesFromClicks: safeNumber(state.totalLikesFromClicks),
     totalLikesSpent: safeNumber(state.totalLikesSpent),
+    prestige: sanitizePrestigeState(state.prestige),
+    leaderboardRecords: sanitizeLeaderboardRecords(state.leaderboardRecords),
     achievements: sanitizeAchievements(state.achievements),
     lab: sanitizeLabState(state.lab),
     towers: Object.fromEntries(
@@ -127,6 +132,8 @@ export function mergeSaveData(data) {
   next.totalClicks = safeNumber(source.totalClicks);
   next.totalLikesFromClicks = safeNumber(source.totalLikesFromClicks);
   next.totalLikesSpent = safeNumber(source.totalLikesSpent);
+  next.prestige = sanitizePrestigeState(source.prestige);
+  next.leaderboardRecords = sanitizeLeaderboardRecords(source.leaderboardRecords);
   next.achievements = sanitizeAchievements(source.achievements);
   next.lab = sanitizeLabState(source.lab);
   next.stats = {
@@ -189,6 +196,32 @@ function sanitizeDesktopWindowSettings(value) {
     : DESKTOP_WINDOW_DEFAULTS.sizePreset;
 
   return { sizePreset };
+}
+
+function sanitizePrestigeState(value) {
+  const defaults = createDefaultPrestigeState();
+  const level = Math.max(0, Math.min(PRESTIGE_MAX_LEVEL, Math.floor(safeNumber(value?.level))));
+
+  return {
+    level,
+    viralResets: Math.max(level, safeNumber(value?.viralResets)),
+    lastWentViralAt: safeNumber(value?.lastWentViralAt)
+  };
+}
+
+function sanitizeLeaderboardRecords(value) {
+  const defaults = createDefaultLeaderboardRecords();
+
+  return {
+    totalLikesEver: safeNumber(value?.totalLikesEver, defaults.totalLikesEver),
+    highestLps: safeNumber(value?.highestLps, defaults.highestLps),
+    totalTowersOwned: safeNumber(value?.totalTowersOwned, defaults.totalTowersOwned),
+    milestonesUnlocked: safeNumber(value?.milestonesUnlocked, defaults.milestonesUnlocked),
+    totalClicks: safeNumber(value?.totalClicks, defaults.totalClicks),
+    highestClickPower: safeNumber(value?.highestClickPower, defaults.highestClickPower),
+    subscribersCollected: safeNumber(value?.subscribersCollected, defaults.subscribersCollected),
+    prestigeLevel: Math.max(0, Math.min(PRESTIGE_MAX_LEVEL, Math.floor(safeNumber(value?.prestigeLevel, defaults.prestigeLevel))))
+  };
 }
 
 function sanitizeLabState(lab) {

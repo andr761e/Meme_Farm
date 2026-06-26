@@ -24,6 +24,10 @@ import {
   getSubscriberAutoCollector,
   getNextLockedTower,
   getOfflineProductionCapacity,
+  canGoViral,
+  getNextPrestigeTier,
+  getPrestigeLevel,
+  getPrestigeTier,
   getProgressionTitle,
   getTowerAmount,
   getTowerCost,
@@ -39,6 +43,7 @@ import {
   DESKTOP_COMPANION_DEFAULTS,
   DESKTOP_WINDOW_DEFAULTS,
   DESKTOP_WINDOW_PRESETS,
+  PRESTIGE_MAX_LEVEL,
   VISUAL_TAKEOVER_DEFAULTS
 } from "./state.js";
 import { formatDuration, formatFullNumber, formatLongScaleNumber, formatNumber } from "./utils/format.js";
@@ -310,7 +315,8 @@ const LEGENDARY_ACHIEVEMENT_PATTERNS = [
   /tower_level_5_all/,
   /bad_idea_every_outcome/,
   /meme_lab_all_bribes/,
-  /subscriber_spawn_all_5/
+  /subscriber_spawn_all_5/,
+  /prestige_/
 ];
 const RARE_ACHIEVEMENT_PATTERNS = [
   /1000000000/,
@@ -398,6 +404,7 @@ export function initUI(options) {
   bindTopNav();
   bindTabs();
   bindMemeButton();
+  bindPrestigeControls();
   bindShopTabs();
   bindSocialControls();
 
@@ -408,6 +415,8 @@ export function initUI(options) {
     showToast,
     showAchievementReaction,
     showLegacyOverclockEvent,
+    showPrestigeEvent,
+    showGoViralConfirmation,
     showTermsOfServiceModal,
     showBadIdeaConsequenceModal,
     showOfflineModal,
@@ -421,6 +430,7 @@ export function updateUI(state) {
   updateBadIdeaConsequenceClasses(state);
   updateTermsOfServiceClasses(state);
   updateResources(state);
+  updatePrestigeDisplay(state);
   updateTowerCards(state);
   updateUpgradeCards(state);
   updateSocial(state);
@@ -442,12 +452,18 @@ function collectElements() {
   return {
     body: document.body,
     topTicker: document.getElementById("top-ticker"),
+    prestigePin: document.getElementById("prestige-pin"),
     apocalypseStage: document.getElementById("apocalypse-stage"),
     totalLikes: document.getElementById("total-likes"),
     lps: document.getElementById("likes-per-sec"),
     clickPower: document.getElementById("click-power"),
     subscribers: document.getElementById("subscriber-count"),
     activeBoostTimers: document.getElementById("active-boost-timers"),
+    prestigePanel: document.getElementById("prestige-panel"),
+    prestigePanelKicker: document.getElementById("prestige-panel-kicker"),
+    prestigePanelTitle: document.getElementById("prestige-panel-title"),
+    prestigePanelCopy: document.getElementById("prestige-panel-copy"),
+    goViralButton: document.getElementById("go-viral-button"),
     memeButton: document.getElementById("meme-button"),
     memeWrapper: document.querySelector(".meme-button-wrapper"),
     orbitContainer: document.getElementById("orbit-container"),
@@ -494,6 +510,12 @@ function bindMemeButton() {
     if (event.animationName === "memeClickPop") {
       elements.memeButton.classList.remove("meme-click-pop");
     }
+  });
+}
+
+function bindPrestigeControls() {
+  elements.goViralButton?.addEventListener("click", () => {
+    handlers.onGoViralRequest?.();
   });
 }
 
@@ -801,6 +823,73 @@ function updateResources(state) {
   updateActiveBoostTimers(state);
 }
 
+function updatePrestigeDisplay(state) {
+  const level = getPrestigeLevel(state);
+  const tier = getPrestigeTier(state);
+  const nextTier = getNextPrestigeTier(state);
+  const eligible = canGoViral(state);
+
+  if (elements.prestigePin) {
+    elements.prestigePin.hidden = level <= 0;
+    elements.prestigePin.className = level > 0
+      ? `prestige-pin prestige-pin-${level}`
+      : "prestige-pin prestige-pin-hidden";
+    elements.prestigePin.textContent = tier?.symbol ?? "";
+    elements.prestigePin.title = tier ? `${tier.pinName}: ${tier.description}` : "";
+    elements.prestigePin.setAttribute("aria-label", tier ? `${tier.pinName}, prestige ${level}` : "No Go Viral prestige");
+  }
+
+  if (!elements.prestigePanel) {
+    return;
+  }
+
+  const shouldShow = level > 0 || eligible;
+  elements.prestigePanel.hidden = !shouldShow;
+
+  if (!shouldShow) {
+    return;
+  }
+
+  elements.prestigePanel.dataset.prestigeLevel = String(level);
+  elements.prestigePanel.classList.toggle("is-eligible", eligible);
+  elements.prestigePanel.classList.toggle("is-maxed", level >= PRESTIGE_MAX_LEVEL);
+
+  if (level >= PRESTIGE_MAX_LEVEL) {
+    elements.prestigePanelKicker.textContent = "Max Viral Prestige";
+    elements.prestigePanelTitle.textContent = tier?.pinName ?? "Mythic feed status";
+    elements.prestigePanelCopy.textContent = "All three public prestige pins are active. The internet has run out of official warnings.";
+    elements.goViralButton.disabled = true;
+    elements.goViralButton.textContent = "Fully Viral";
+    return;
+  }
+
+  elements.prestigePanelKicker.textContent = level > 0
+    ? `${tier.pinName} active`
+    : "Go Viral";
+  elements.prestigePanelTitle.textContent = nextTier
+    ? `Next pin: ${nextTier.pinName}`
+    : "The feed is watching";
+  elements.prestigePanelCopy.textContent = eligible
+    ? "Reset this run, preserve leaderboard records, and claim the next public pin."
+    : "Buy the final tower to make this run eligible for a Go Viral reset.";
+  elements.goViralButton.disabled = !eligible;
+  elements.goViralButton.textContent = nextTier
+    ? `Go Viral: ${nextTier.symbol}`
+    : "Go Viral";
+}
+
+function renderPrestigePin(level, variant = "") {
+  const normalizedLevel = Math.max(0, Math.min(PRESTIGE_MAX_LEVEL, Math.floor(Number(level) || 0)));
+  const tier = getPrestigeTier(normalizedLevel);
+
+  if (!tier) {
+    return "";
+  }
+
+  const variantClass = variant ? ` prestige-pin-${variant}` : "";
+  return `<span class="prestige-pin prestige-pin-${normalizedLevel}${variantClass}" title="${escapeHtml(tier.pinName)}" aria-label="${escapeHtml(tier.pinName)}">${escapeHtml(tier.symbol)}</span>`;
+}
+
 function updateTopTicker(state) {
   if (!elements.topTicker) {
     return;
@@ -1072,7 +1161,7 @@ function updateSocial(state) {
     <div class="leaderboard-row ${row.isPlayer ? "is-player" : ""}">
       <span class="leaderboard-rank">#${row.rank}</span>
       <span class="leaderboard-player">
-        <strong>${escapeHtml(row.name)}</strong>
+        <strong>${escapeHtml(row.name)}${renderPrestigePin(row.prestigeLevel, "leaderboard")}</strong>
         ${row.isPlayer ? "<small>You</small>" : `<small>${activeLeaderboardScope === "friends" ? "Friend" : "Player"}</small>`}
       </span>
       <span class="leaderboard-score">${escapeHtml(formatLeaderboardValue(metric.id, row.score))}</span>
@@ -1847,11 +1936,14 @@ function renderOverlay(type) {
   const state = handlers.state;
 
   if (type === "stats") {
+    const prestigeTier = getPrestigeTier(state);
     elements.overlayContent.innerHTML = `
       <h2 id="overlay-title">Game Statistics</h2>
       <div class="stats-list">
+        ${statLine("Go Viral Prestige", prestigeTier ? `${prestigeTier.symbol} - ${prestigeTier.pinName}` : "No public pin")}
         ${statLine("Total Likes", `${formatNumber(state.likes)} Likes`, `${formatFullNumber(state.likes)} Likes`)}
         ${statLine("Total Likes Ever", `${formatNumber(state.totalLikesEver)} Likes`, `${formatFullNumber(state.totalLikesEver)} Likes`)}
+        ${statLine("Leaderboard Likes Record", `${formatNumber(state.leaderboardRecords?.totalLikesEver ?? 0)} Likes`, `${formatFullNumber(state.leaderboardRecords?.totalLikesEver ?? 0)} Likes`)}
         ${statLine("Brainrot Tier", getProgressionTitle(state))}
         ${statLine("Likes Per Second", formatNumber(getLikesPerSecond(state)), formatFullNumber(getLikesPerSecond(state)))}
         ${statLine("Click Power", `+${formatNumber(getClickPower(state))}`, `+${formatFullNumber(getClickPower(state))}`)}
@@ -2433,6 +2525,36 @@ function showLegacyOverclockEvent(upgrade) {
   window.setTimeout(() => event.remove(), 5600);
 }
 
+function showPrestigeEvent(result) {
+  const tier = result.tier;
+  const finalTower = result.finalTower;
+  const event = document.createElement("section");
+  event.className = `prestige-reaction prestige-reaction-${result.level}`;
+  event.setAttribute("aria-label", `${tier.pinName} earned`);
+  event.innerHTML = `
+    <div class="prestige-reaction-noise" aria-hidden="true"></div>
+    <article class="prestige-reaction-card">
+      <span class="prestige-reaction-kicker">Your meme went viral</span>
+      <div class="prestige-reaction-pin">
+        ${renderPrestigePin(result.level, "reaction")}
+      </div>
+      <strong>${escapeHtml(tier.pinName)}</strong>
+      <span>${escapeHtml(tier.description)}</span>
+      <small>${escapeHtml(finalTower?.displayName ?? "The final tower")} has been converted into public reputation. The farm is reset. The leaderboard receipts remain.</small>
+    </article>
+  `;
+
+  elements.achievementReactionLayer.appendChild(event);
+  elements.body.classList.remove("prestige-screen-hit");
+  void elements.body.offsetWidth;
+  elements.body.classList.add("prestige-screen-hit");
+
+  window.setTimeout(() => {
+    elements.body.classList.remove("prestige-screen-hit");
+  }, 1300);
+  window.setTimeout(() => event.remove(), 6400);
+}
+
 function getAchievementReaction(achievement) {
   const id = achievement.id ?? "";
 
@@ -2495,6 +2617,39 @@ function showTermsOfServiceModal(termsEvent, onAccept) {
   elements.modalRoot.querySelector("[data-terms-accept]")?.addEventListener("click", () => {
     onAccept?.();
     closeModal();
+  });
+}
+
+function showGoViralConfirmation(onConfirm) {
+  const nextTier = getNextPrestigeTier(handlers.state);
+
+  if (!nextTier) {
+    return;
+  }
+
+  showModal(`
+    <div class="modal-card prestige-confirm-modal">
+      <span class="eyebrow">Go Viral reset</span>
+      <h2>Send This Meme Into The Public Record?</h2>
+      <div class="prestige-confirm-pin">
+        ${renderPrestigePin(nextTier.level, "modal")}
+        <span>
+          <strong>${escapeHtml(nextTier.pinName)}</strong>
+          <small>${escapeHtml(nextTier.description)}</small>
+        </span>
+      </div>
+      <p>This resets likes, towers, upgrades, subscribers, milestones, lab effects, local stats, and the current run.</p>
+      <p>Your leaderboard records are preserved before the reset, and your new prestige pin becomes visible beside your name.</p>
+      <div class="modal-actions">
+        <button type="button" data-modal-close>Cancel</button>
+        <button type="button" id="confirm-go-viral">Go Viral</button>
+      </div>
+    </div>
+  `);
+
+  document.getElementById("confirm-go-viral").addEventListener("click", () => {
+    closeModal();
+    onConfirm?.();
   });
 }
 

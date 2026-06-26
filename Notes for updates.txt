@@ -1,0 +1,2 @@
+- Let stats show stats from each prestige and lifetime
+- CoD like menu where you consent to prestige

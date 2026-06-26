@@ -702,6 +702,65 @@ textarea:focus-visible {
   font-size: 0.78rem;
 }
 
+.prestige-pin {
+  display: inline-grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  margin-left: 2px;
+  border: 1px solid rgba(255, 230, 109, 0.64);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 50% 34%, rgba(255, 255, 255, 0.24), transparent 22%),
+    conic-gradient(from 20deg, rgba(66, 232, 255, 0.4), rgba(255, 230, 109, 0.5), rgba(255, 79, 216, 0.42), rgba(66, 232, 255, 0.4)),
+    rgba(9, 10, 20, 0.92);
+  color: #fff7b0;
+  font-size: 0.72rem;
+  font-weight: 950;
+  line-height: 1;
+  text-shadow: 0 0 10px rgba(255, 230, 109, 0.64);
+  box-shadow:
+    inset 0 0 14px rgba(255, 255, 255, 0.08),
+    0 0 18px rgba(255, 230, 109, 0.18);
+  vertical-align: middle;
+}
+
+.prestige-pin-2 {
+  border-color: rgba(66, 232, 255, 0.82);
+  box-shadow:
+    inset 0 0 16px rgba(66, 232, 255, 0.16),
+    0 0 20px rgba(66, 232, 255, 0.26),
+    0 0 28px rgba(255, 79, 216, 0.16);
+}
+
+.prestige-pin-3 {
+  border-color: rgba(255, 79, 216, 0.9);
+  background:
+    radial-gradient(circle at 50% 32%, rgba(255, 255, 255, 0.34), transparent 20%),
+    conic-gradient(from 0deg, #ff4fd8, #ffe66d, #4ee1ff, #ff4fd8),
+    rgba(9, 10, 20, 0.92);
+  box-shadow:
+    inset 0 0 18px rgba(255, 255, 255, 0.12),
+    0 0 20px rgba(255, 79, 216, 0.34),
+    0 0 34px rgba(255, 230, 109, 0.2);
+  animation: prestigePinPulse 1.7s ease-in-out infinite;
+}
+
+.prestige-pin-leaderboard {
+  width: 25px;
+  height: 25px;
+  margin-left: 8px;
+  font-size: 0.58rem;
+  flex: 0 0 auto;
+}
+
+.prestige-pin-modal,
+.prestige-pin-reaction {
+  width: 72px;
+  height: 72px;
+  font-size: 1.1rem;
+}
+
 .top-ticker {
   justify-self: center;
   width: min(100%, 66vw, 1160px);
@@ -1068,6 +1127,79 @@ body.tos-papal-decree .resource-panel {
   color: var(--yellow);
   font-weight: 900;
   white-space: nowrap;
+}
+
+.prestige-panel {
+  position: absolute;
+  left: 50%;
+  bottom: 16px;
+  z-index: 7;
+  display: grid;
+  justify-items: center;
+  gap: 5px;
+  width: min(430px, calc(100% - 28px));
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 230, 109, 0.42);
+  border-radius: 10px;
+  background:
+    linear-gradient(120deg, rgba(255, 230, 109, 0.12), transparent 34%, rgba(255, 79, 216, 0.1)),
+    rgba(7, 9, 18, 0.86);
+  box-shadow: var(--shadow-strong), inset 0 0 22px rgba(255, 255, 255, 0.05);
+  text-align: center;
+  transform: translateX(-50%);
+  backdrop-filter: blur(10px);
+}
+
+.prestige-panel[hidden] {
+  display: none;
+}
+
+.prestige-panel > span {
+  color: var(--cyan);
+  font-size: 0.68rem;
+  font-weight: 950;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.prestige-panel strong {
+  color: #fff7b0;
+  font-size: 0.96rem;
+  line-height: 1.1;
+}
+
+.prestige-panel small {
+  color: var(--muted);
+  line-height: 1.25;
+}
+
+.prestige-panel button {
+  margin-top: 4px;
+  padding: 7px 12px;
+  border: 1px solid rgba(255, 230, 109, 0.68);
+  border-radius: 8px;
+  background:
+    linear-gradient(90deg, rgba(255, 230, 109, 0.18), rgba(255, 79, 216, 0.12)),
+    rgba(255, 255, 255, 0.06);
+  color: var(--yellow);
+  font-size: 0.78rem;
+  font-weight: 950;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.prestige-panel.is-eligible {
+  border-color: rgba(255, 79, 216, 0.66);
+  box-shadow:
+    var(--shadow-strong),
+    0 0 26px rgba(255, 79, 216, 0.18),
+    inset 0 0 22px rgba(255, 255, 255, 0.06);
+}
+
+.prestige-panel button:disabled {
+  cursor: not-allowed;
+  opacity: 0.56;
 }
 
 .meme-button-wrapper {
@@ -2042,6 +2174,12 @@ body.tos-algorithm-contract .leaderboard-status::after {
 .leaderboard-player strong,
 .leaderboard-player small {
   display: block;
+}
+
+.leaderboard-player strong {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
 }
 
 .leaderboard-player small {
@@ -3321,6 +3459,37 @@ body.takeover-meme-lord.takeover-cursed-tiktok .tower-card .shop-name-letter {
   line-height: 1.5;
 }
 
+.prestige-confirm-modal {
+  border-color: rgba(255, 79, 216, 0.6);
+  background:
+    linear-gradient(135deg, rgba(255, 79, 216, 0.16), transparent 38%, rgba(255, 230, 109, 0.12)),
+    rgba(8, 9, 20, 0.98);
+}
+
+.prestige-confirm-pin {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 14px;
+  align-items: center;
+  margin: 8px 0;
+  padding: 12px;
+  border: 1px solid rgba(255, 230, 109, 0.32);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.045);
+  text-align: left;
+}
+
+.prestige-confirm-pin strong,
+.prestige-confirm-pin small {
+  display: block;
+}
+
+.prestige-confirm-pin small {
+  margin-top: 4px;
+  color: var(--muted);
+  line-height: 1.35;
+}
+
 .terms-modal {
   border-color: rgba(255, 230, 109, 0.36);
   background:
@@ -3723,6 +3892,107 @@ body.takeover-meme-lord.takeover-cursed-tiktok .tower-card .shop-name-letter {
   font-weight: 900;
 }
 
+.prestige-reaction {
+  position: fixed;
+  inset: 64px 0 0;
+  z-index: 124;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  overflow: hidden;
+  animation: prestigeReactionFade 360ms ease-in 5900ms forwards;
+}
+
+.prestige-reaction-noise {
+  position: absolute;
+  inset: 0;
+  background:
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.045) 0 1px, transparent 1px 7px),
+    radial-gradient(circle at 50% 38%, rgba(255, 79, 216, 0.22), transparent 36%),
+    radial-gradient(circle at 22% 72%, rgba(66, 232, 255, 0.16), transparent 30%),
+    radial-gradient(circle at 82% 20%, rgba(255, 230, 109, 0.18), transparent 28%);
+  mix-blend-mode: screen;
+  opacity: 0.9;
+  animation: prestigeNoise 960ms steps(2, end) 3;
+}
+
+.prestige-reaction-card {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  width: min(740px, calc(100vw - 32px));
+  padding: 24px;
+  border: 2px solid rgba(255, 79, 216, 0.72);
+  border-radius: 10px;
+  background:
+    linear-gradient(120deg, rgba(255, 79, 216, 0.2), transparent 34%, rgba(255, 230, 109, 0.18)),
+    radial-gradient(circle at 50% 0%, rgba(66, 232, 255, 0.18), transparent 34%),
+    rgba(5, 6, 14, 0.97);
+  box-shadow:
+    var(--shadow-strong),
+    0 0 52px rgba(255, 79, 216, 0.24),
+    inset 0 0 30px rgba(255, 255, 255, 0.07);
+  text-align: center;
+  overflow: hidden;
+  animation: prestigeCardIn 480ms cubic-bezier(0.18, 0.9, 0.22, 1.18), prestigeCardPulse 1.4s ease-in-out 520ms 3;
+}
+
+.prestige-reaction-card::before {
+  content: "PUBLIC RECORD UPDATED";
+  position: absolute;
+  left: -18%;
+  right: -18%;
+  top: 18px;
+  padding: 5px 0;
+  background:
+    repeating-linear-gradient(90deg, rgba(255, 79, 216, 0.24) 0 20px, rgba(255, 230, 109, 0.2) 20px 40px),
+    rgba(255, 230, 109, 0.08);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.64rem;
+  font-weight: 950;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  transform: rotate(-4deg);
+}
+
+.prestige-reaction-kicker,
+.prestige-reaction-pin,
+.prestige-reaction-card strong,
+.prestige-reaction-card > span:not(.prestige-reaction-kicker),
+.prestige-reaction-card small {
+  position: relative;
+  z-index: 1;
+}
+
+.prestige-reaction-kicker {
+  color: var(--cyan);
+  font-size: 0.78rem;
+  font-weight: 950;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.prestige-reaction-card strong {
+  color: #fff7b0;
+  font-size: clamp(1.55rem, 3.4vw, 3rem);
+  line-height: 1;
+  text-transform: uppercase;
+  text-shadow: 0 0 26px rgba(255, 230, 109, 0.3);
+}
+
+.prestige-reaction-card > span:not(.prestige-reaction-kicker),
+.prestige-reaction-card small {
+  max-width: 590px;
+  color: var(--ink);
+  line-height: 1.36;
+}
+
+.prestige-reaction-card small {
+  color: var(--cyan);
+  font-weight: 900;
+}
+
 body.achievement-screen-pulse .main-container {
   animation: achievementScreenPulse 620ms ease-out;
 }
@@ -3733,6 +4003,11 @@ body.achievement-screen-legendary .main-container {
 
 body.legacy-overclock-screen-hit .main-container {
   animation: legacyOverclockScreenHit 980ms ease-out;
+}
+
+body.prestige-screen-hit .main-container,
+body.prestige-screen-hit .top-bar {
+  animation: prestigeScreenHit 1180ms ease-out;
 }
 
 .toast {
@@ -3902,6 +4177,74 @@ body.legacy-overclock-screen-hit .main-container {
   to {
     opacity: 0;
     transform: scale(1.02);
+  }
+}
+
+@keyframes prestigePinPulse {
+  0%,
+  100% {
+    filter: saturate(1);
+    transform: scale(1);
+  }
+
+  50% {
+    filter: saturate(1.45);
+    transform: scale(1.06);
+  }
+}
+
+@keyframes prestigeCardIn {
+  from {
+    opacity: 0;
+    transform: translateY(26px) scale(0.92) rotate(-1.5deg);
+  }
+}
+
+@keyframes prestigeCardPulse {
+  50% {
+    filter: saturate(1.55) brightness(1.08);
+    transform: scale(1.018);
+  }
+}
+
+@keyframes prestigeNoise {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+    opacity: 0.82;
+  }
+
+  35% {
+    transform: translate3d(-8px, 4px, 0);
+    opacity: 0.98;
+  }
+
+  70% {
+    transform: translate3d(7px, -3px, 0);
+    opacity: 0.88;
+  }
+}
+
+@keyframes prestigeScreenHit {
+  0% {
+    transform: scale(1.01);
+    filter: hue-rotate(0deg) saturate(1.45);
+  }
+
+  32% {
+    transform: scale(0.992) rotate(-0.25deg);
+    filter: hue-rotate(95deg) saturate(1.65);
+  }
+
+  100% {
+    transform: none;
+    filter: none;
+  }
+}
+
+@keyframes prestigeReactionFade {
+  to {
+    opacity: 0;
   }
 }
 

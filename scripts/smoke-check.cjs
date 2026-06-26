@@ -37,7 +37,8 @@ async function main() {
     "milestones_unlocked",
     "total_clicks",
     "highest_click_power",
-    "subscribers_collected"
+    "subscribers_collected",
+    "prestige_level"
   ];
   const metricIds = new Set(leaderboardsModule.LEADERBOARD_METRICS.map((metric) => metric.id));
   for (const metricId of expectedMetrics) {
@@ -181,6 +182,12 @@ async function main() {
   ]) {
     if (!achievementIds.has(expectedId)) {
       throw new Error(`Missing aggregate upgrade milestone: ${expectedId}`);
+    }
+  }
+
+  for (const expectedId of ["prestige_1", "prestige_2", "prestige_3"]) {
+    if (!achievementIds.has(expectedId)) {
+      throw new Error(`Missing Go Viral prestige milestone: ${expectedId}`);
     }
   }
 
@@ -635,6 +642,43 @@ async function main() {
     throw new Error("Expected leaderboard records to update after tower purchase.");
   }
 
+  const prestigeState = stateModule.createDefaultState();
+  const prestigeFinalTower = towersModule.TOWERS[towersModule.TOWERS.length - 1];
+  prestigeState.likes = 123456789;
+  prestigeState.totalLikesEver = 987654321;
+  prestigeState.totalClicks = 4321;
+  prestigeState.totalSubscribersEver = 222;
+  prestigeState.achievements.likes_100 = true;
+  prestigeState.towers[prestigeFinalTower.id].amount = 1;
+  prestigeState.towers.swirling_like_button.amount = 42;
+  prestigeState.upgrades.power_click.level = 4;
+
+  if (!stateModule.canGoViral(prestigeState)) {
+    throw new Error("Expected Go Viral prestige to unlock after buying the final tower.");
+  }
+
+  const prestigeResult = stateModule.goViral(prestigeState, 12345);
+  if (
+    !prestigeResult.ok ||
+    prestigeState.prestige.level !== 1 ||
+    prestigeState.likes !== 0 ||
+    prestigeState.totalLikesEver !== 0 ||
+    prestigeState.totalClicks !== 0 ||
+    prestigeState.totalSubscribersEver !== 0 ||
+    prestigeState.towers[prestigeFinalTower.id].amount !== 0 ||
+    prestigeState.upgrades.power_click.level !== 0 ||
+    prestigeState.leaderboardRecords.totalLikesEver !== 987654321 ||
+    prestigeState.leaderboardRecords.totalClicks !== 4321 ||
+    prestigeState.leaderboardRecords.subscribersCollected !== 222 ||
+    prestigeState.leaderboardRecords.prestigeLevel !== 1
+  ) {
+    throw new Error("Expected Go Viral prestige to reset local progress while preserving leaderboard records and the public pin.");
+  }
+
+  if (stateModule.canGoViral(prestigeState)) {
+    throw new Error("Expected Go Viral prestige to require rebuying the final tower after a reset.");
+  }
+
   if (stateModule.getOfflineProductionCapacity(state) !== 0) {
     throw new Error("Expected default offline production capacity to start at 0%.");
   }
@@ -865,6 +909,17 @@ async function main() {
   });
   if (!leaderboardRows.some((row) => row.isPlayer)) {
     throw new Error("Expected leaderboard rows to include the local player.");
+  }
+
+  const prestigeLeaderboardState = stateModule.createDefaultState();
+  prestigeLeaderboardState.prestige.level = 2;
+  prestigeLeaderboardState.leaderboardRecords.totalLikesEver = 999;
+  const prestigeLeaderboardRows = leaderboardsModule.getLeaderboardRows(prestigeLeaderboardState, {
+    scope: "global",
+    metricId: "total_likes_ever"
+  });
+  if (prestigeLeaderboardRows.find((row) => row.isPlayer)?.prestigeLevel !== 2) {
+    throw new Error("Expected leaderboard rows to expose the player's public prestige pin.");
   }
 
   const migrated = saveModule.mergeSaveData({
