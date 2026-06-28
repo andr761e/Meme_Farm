@@ -12,7 +12,8 @@ import {
   VISUAL_TAKEOVER_DEFAULTS,
   createDefaultLeaderboardRecords,
   createDefaultPrestigeState,
-  createDefaultState
+  createDefaultState,
+  sanitizePrestigeRunStatsByLevel
 } from "./state.js";
 
 export const SAVE_KEY = "memeFarmSave";
@@ -205,7 +206,8 @@ function sanitizePrestigeState(value) {
   return {
     level,
     viralResets: Math.max(level, safeNumber(value?.viralResets)),
-    lastWentViralAt: safeNumber(value?.lastWentViralAt)
+    lastWentViralAt: safeNumber(value?.lastWentViralAt),
+    runStats: sanitizePrestigeRunStatsByLevel(value?.runStats ?? defaults.runStats)
   };
 }
 

@@ -21,14 +21,16 @@ import {
   getLabBoostMultipliers,
   getLikesPerSecond,
   getFakeSubscriberConversion,
+  getLifetimePrestigeStats,
   getSubscriberAutoCollector,
   getNextLockedTower,
-  getOfflineProductionCapacity,
   canGoViral,
+  hasFinalTower,
   getNextPrestigeTier,
   getPrestigeLevel,
+  getPrestigeRunStats,
   getPrestigeTier,
-  getProgressionTitle,
+  getPrestigeTowerLpsMultiplier,
   getTowerAmount,
   getTowerCost,
   getTowerEffectiveLps,
@@ -44,6 +46,7 @@ import {
   DESKTOP_WINDOW_DEFAULTS,
   DESKTOP_WINDOW_PRESETS,
   PRESTIGE_MAX_LEVEL,
+  PRESTIGE_STAT_LEVELS,
   VISUAL_TAKEOVER_DEFAULTS
 } from "./state.js";
 import { formatDuration, formatFullNumber, formatLongScaleNumber, formatNumber } from "./utils/format.js";
@@ -373,11 +376,13 @@ const TAKEOVER_OPTIONS = [
     description: "System labels from The Algorithm Itself."
   }
 ];
+const STATS_LIFETIME_VIEW_ID = "lifetime";
 
 let elements;
 let handlers;
 let activeOverlay = null;
 let activeTooltip = null;
+let activeStatsView = STATS_LIFETIME_VIEW_ID;
 let lastOrbiterCount = -1;
 let lastTakeoverSignature = "";
 let lastCommentRiotBurstAt = 0;
@@ -650,10 +655,15 @@ function renderTowerShop() {
       <span class="shop-state" data-role="state">Locked</span>
       <span class="shop-copy">
         <span class="shop-name" aria-label="${escapeHtml(tower.displayName)}">${renderShopNameText(tower.displayName)}</span>
-        <span class="shop-desc">${escapeHtml(tower.description)}</span>
         <span class="shop-meta">
-          <span data-role="cost">0 Likes</span>
-          <span data-role="production">0 LPS each</span>
+          <span class="shop-meta-line">
+            <b class="shop-meta-label">Price:</b>
+            <span class="shop-meta-value" data-role="cost">0 Likes</span>
+          </span>
+          <span class="shop-meta-line">
+            <b class="shop-meta-label">Producing:</b>
+            <span class="shop-meta-value" data-role="production">0 LPS</span>
+          </span>
         </span>
       </span>
     </button>
@@ -827,7 +837,12 @@ function updatePrestigeDisplay(state) {
   const level = getPrestigeLevel(state);
   const tier = getPrestigeTier(state);
   const nextTier = getNextPrestigeTier(state);
+  const currentLpsMultiplier = getPrestigeTowerLpsMultiplier(state);
+  const nextLpsMultiplier = nextTier
+    ? getPrestigeTowerLpsMultiplier(nextTier.level)
+    : currentLpsMultiplier;
   const eligible = canGoViral(state);
+  const finalTowerOwned = hasFinalTower(state);
 
   if (elements.prestigePin) {
     elements.prestigePin.hidden = level <= 0;
@@ -843,7 +858,7 @@ function updatePrestigeDisplay(state) {
     return;
   }
 
-  const shouldShow = level > 0 || eligible;
+  const shouldShow = finalTowerOwned;
   elements.prestigePanel.hidden = !shouldShow;
 
   if (!shouldShow) {
@@ -857,7 +872,7 @@ function updatePrestigeDisplay(state) {
   if (level >= PRESTIGE_MAX_LEVEL) {
     elements.prestigePanelKicker.textContent = "Max Viral Prestige";
     elements.prestigePanelTitle.textContent = tier?.pinName ?? "Mythic feed status";
-    elements.prestigePanelCopy.textContent = "All three public prestige pins are active. The internet has run out of official warnings.";
+    elements.prestigePanelCopy.textContent = `Permanent x${currentLpsMultiplier} tower LPS is active. All three public prestige pins are yours.`;
     elements.goViralButton.disabled = true;
     elements.goViralButton.textContent = "Fully Viral";
     return;
@@ -870,11 +885,11 @@ function updatePrestigeDisplay(state) {
     ? `Next pin: ${nextTier.pinName}`
     : "The feed is watching";
   elements.prestigePanelCopy.textContent = eligible
-    ? "Reset this run, preserve leaderboard records, and claim the next public pin."
+    ? `Permanent reward: all tower LPS increases from x${currentLpsMultiplier} to x${nextLpsMultiplier}. This resets the current run.`
     : "Buy the final tower to make this run eligible for a Go Viral reset.";
   elements.goViralButton.disabled = !eligible;
   elements.goViralButton.textContent = nextTier
-    ? `Go Viral: ${nextTier.symbol}`
+    ? `Go Viral: ${nextTier.symbol} / x${nextLpsMultiplier} LPS`
     : "Go Viral";
 }
 
@@ -925,12 +940,16 @@ function getTopTickerSnapshot(state) {
   };
 }
 
-function getAcceptedTermsEvents(state) {
-  return TERMS_OF_SERVICE_EVENTS.filter((event) => hasAcceptedTermsEvent(state, event.id));
+function getAcceptedTermsEvents(source) {
+  return TERMS_OF_SERVICE_EVENTS.filter((event) => hasAcceptedTermsEvent(source, event.id));
 }
 
-function hasAcceptedTermsEvent(state, eventId) {
-  return Boolean(state.stats?.acceptedTerms?.[eventId]);
+function hasAcceptedTermsEvent(source, eventId) {
+  return Boolean(getAcceptedTermsMap(source)[eventId]);
+}
+
+function getAcceptedTermsMap(source) {
+  return source?.stats?.acceptedTerms ?? source?.acceptedTerms ?? {};
 }
 
 function getTermsOfServiceTickerLine(state) {
@@ -1048,10 +1067,9 @@ function updateTowerCards(state) {
       nameElement.setAttribute("aria-label", copy.displayName);
       nameElement.innerHTML = renderShopNameText(copy.displayName);
     }
-    card.querySelector(".shop-desc").textContent = copy.description;
     card.querySelector('[data-role="count"]').textContent = `x${formatNumber(amount)}`;
     card.querySelector('[data-role="cost"]').textContent = `${formatNumber(cost)} Likes`;
-    card.querySelector('[data-role="production"]').textContent = `${formatNumber(tower.lps * getTowerMultiplierForDisplay(state, tower.id))} LPS each`;
+    card.querySelector('[data-role="production"]').textContent = `${formatNumber(tower.lps * getTowerMultiplierForDisplay(state, tower.id))} LPS`;
     const stateElement = card.querySelector('[data-role="state"]');
     const stateText = canAfford ? "Can afford" : `Need ${formatNumber(cost - state.likes)}`;
     stateElement.textContent = stateText;
@@ -1936,28 +1954,15 @@ function renderOverlay(type) {
   const state = handlers.state;
 
   if (type === "stats") {
-    const prestigeTier = getPrestigeTier(state);
+    const statsSnapshot = getStatsSnapshotForActiveView(state);
     elements.overlayContent.innerHTML = `
       <h2 id="overlay-title">Game Statistics</h2>
+      ${renderStatsViewTabs(state)}
       <div class="stats-list">
-        ${statLine("Go Viral Prestige", prestigeTier ? `${prestigeTier.symbol} - ${prestigeTier.pinName}` : "No public pin")}
-        ${statLine("Total Likes", `${formatNumber(state.likes)} Likes`, `${formatFullNumber(state.likes)} Likes`)}
-        ${statLine("Total Likes Ever", `${formatNumber(state.totalLikesEver)} Likes`, `${formatFullNumber(state.totalLikesEver)} Likes`)}
-        ${statLine("Leaderboard Likes Record", `${formatNumber(state.leaderboardRecords?.totalLikesEver ?? 0)} Likes`, `${formatFullNumber(state.leaderboardRecords?.totalLikesEver ?? 0)} Likes`)}
-        ${statLine("Brainrot Tier", getProgressionTitle(state))}
-        ${statLine("Likes Per Second", formatNumber(getLikesPerSecond(state)), formatFullNumber(getLikesPerSecond(state)))}
-        ${statLine("Click Power", `+${formatNumber(getClickPower(state))}`, `+${formatFullNumber(getClickPower(state))}`)}
-        ${statLine("48h Offline Capacity", formatPercent(getOfflineProductionCapacity(state)))}
-        ${statLine("Subscribers", formatNumber(state.subscribers), formatFullNumber(state.subscribers))}
-        ${statLine("Subscribers Ever", formatNumber(state.totalSubscribersEver), formatFullNumber(state.totalSubscribersEver))}
-        ${statLine("Towers Owned", formatNumber(getTotalTowersOwned(state)), formatFullNumber(getTotalTowersOwned(state)))}
-        ${statLine("Meme Button Clicks", formatNumber(state.totalClicks), formatFullNumber(state.totalClicks))}
-        ${statLine("Likes Spent", formatNumber(state.totalLikesSpent), formatFullNumber(state.totalLikesSpent))}
-        ${statLine("Likes From Clicks", formatNumber(state.totalLikesFromClicks), formatFullNumber(state.totalLikesFromClicks))}
-        ${statLine("Play Time", formatDuration(state.playTimeSeconds))}
-        ${renderTermsOfServiceStats(state)}
+        ${renderStatsList(statsSnapshot, state)}
       </div>
     `;
+    bindStatsViewTabs();
     return;
   }
 
@@ -2540,6 +2545,7 @@ function showPrestigeEvent(result) {
       </div>
       <strong>${escapeHtml(tier.pinName)}</strong>
       <span>${escapeHtml(tier.description)}</span>
+      <div class="prestige-reaction-reward">Permanent reward: all towers now produce x${formatNumber(result.towerLpsMultiplier)} LPS</div>
       <small>${escapeHtml(finalTower?.displayName ?? "The final tower")} has been converted into public reputation. The farm is reset. The leaderboard receipts remain.</small>
     </article>
   `;
@@ -2627,6 +2633,9 @@ function showGoViralConfirmation(onConfirm) {
     return;
   }
 
+  const currentLpsMultiplier = getPrestigeTowerLpsMultiplier(handlers.state);
+  const nextLpsMultiplier = getPrestigeTowerLpsMultiplier(nextTier.level);
+
   showModal(`
     <div class="modal-card prestige-confirm-modal">
       <span class="eyebrow">Go Viral reset</span>
@@ -2638,11 +2647,16 @@ function showGoViralConfirmation(onConfirm) {
           <small>${escapeHtml(nextTier.description)}</small>
         </span>
       </div>
-      <p>This resets likes, towers, upgrades, subscribers, milestones, lab effects, local stats, and the current run.</p>
-      <p>Your leaderboard records are preserved before the reset, and your new prestige pin becomes visible beside your name.</p>
+      <div class="prestige-confirm-reward">
+        <span>Permanent production reward</span>
+        <strong>All tower LPS increases from x${formatNumber(currentLpsMultiplier)} to x${formatNumber(nextLpsMultiplier)}</strong>
+        <small>This multiplier remains active for every tower in all future runs.</small>
+      </div>
+      <p class="prestige-reset-warning"><b>Reset warning:</b> This resets likes, towers, upgrades, subscribers, milestones, lab effects, local stats, and the current run.</p>
+      <p>Your leaderboard records, prestige history, new pin, and permanent tower multiplier are preserved.</p>
       <div class="modal-actions">
         <button type="button" data-modal-close>Cancel</button>
-        <button type="button" id="confirm-go-viral">Go Viral</button>
+        <button type="button" id="confirm-go-viral">Go Viral &amp; Unlock x${formatNumber(nextLpsMultiplier)} LPS</button>
       </div>
     </div>
   `);
@@ -2723,19 +2737,121 @@ function setSaveStatus(text) {
   elements.saveStatus.textContent = text;
 }
 
+function getStatsViewOptions(state) {
+  const reachedLevel = getPrestigeLevel(state);
+
+  return [
+    { id: STATS_LIFETIME_VIEW_ID, label: "Lifetime" },
+    ...PRESTIGE_STAT_LEVELS
+      .filter((level) => level <= reachedLevel)
+      .map((level) => ({
+        id: `prestige-${level}`,
+        label: `Prestige ${level}`,
+        level
+      }))
+  ];
+}
+
+function renderStatsViewTabs(state) {
+  const options = getStatsViewOptions(state);
+  const activeOption = options.find((option) => option.id === activeStatsView);
+
+  if (!activeOption) {
+    activeStatsView = STATS_LIFETIME_VIEW_ID;
+  }
+
+  return `
+    <div class="stats-view-tabs" role="tablist" aria-label="Stats scope">
+      ${options.map((option) => {
+        const active = option.id === activeStatsView;
+        return `
+          <button class="stats-view-tab ${active ? "active" : ""}" type="button" role="tab" aria-selected="${active}" data-stats-view="${escapeHtml(option.id)}">
+            ${escapeHtml(option.label)}
+          </button>
+        `;
+      }).join("")}
+    </div>
+  `;
+}
+
+function bindStatsViewTabs() {
+  elements.overlayContent.querySelectorAll("[data-stats-view]").forEach((button) => {
+    button.addEventListener("click", () => {
+      activeStatsView = button.dataset.statsView ?? STATS_LIFETIME_VIEW_ID;
+      renderOverlay("stats");
+    });
+  });
+}
+
+function getStatsSnapshotForActiveView(state) {
+  const option = getStatsViewOptions(state).find((item) => item.id === activeStatsView);
+
+  if (!option || option.id === STATS_LIFETIME_VIEW_ID) {
+    activeStatsView = STATS_LIFETIME_VIEW_ID;
+    return {
+      ...getLifetimePrestigeStats(state),
+      viewId: STATS_LIFETIME_VIEW_ID,
+      viewLabel: "Lifetime",
+      isLifetime: true
+    };
+  }
+
+  return {
+    ...getPrestigeRunStats(state, option.level),
+    viewId: option.id,
+    viewLabel: option.label,
+    isLifetime: false
+  };
+}
+
+function renderStatsList(snapshot, state) {
+  return `
+    ${statLine("Go Viral Prestige", getStatsPrestigeLabel(snapshot, state))}
+    ${statLine("Total Likes", `${formatNumber(snapshot.likes)} Likes`, `${formatFullNumber(snapshot.likes)} Likes`)}
+    ${statLine("Total Likes Ever", `${formatNumber(snapshot.totalLikesEver)} Likes`, `${formatFullNumber(snapshot.totalLikesEver)} Likes`)}
+    ${statLine("Leaderboard Likes Record", `${formatNumber(snapshot.leaderboardLikesRecord)} Likes`, `${formatFullNumber(snapshot.leaderboardLikesRecord)} Likes`)}
+    ${statLine("Brainrot Tier", snapshot.progressionTitle)}
+    ${statLine("Likes Per Second", formatNumber(snapshot.likesPerSecond), formatFullNumber(snapshot.likesPerSecond))}
+    ${statLine("Click Power", `+${formatNumber(snapshot.clickPower)}`, `+${formatFullNumber(snapshot.clickPower)}`)}
+    ${statLine("48h Offline Capacity", formatPercent(snapshot.offlineCapacity))}
+    ${statLine("Subscribers", formatNumber(snapshot.subscribers), formatFullNumber(snapshot.subscribers))}
+    ${statLine("Subscribers Ever", formatNumber(snapshot.totalSubscribersEver), formatFullNumber(snapshot.totalSubscribersEver))}
+    ${statLine("Towers Owned", formatNumber(snapshot.towersOwned), formatFullNumber(snapshot.towersOwned))}
+    ${statLine("Meme Button Clicks", formatNumber(snapshot.totalClicks), formatFullNumber(snapshot.totalClicks))}
+    ${statLine("Likes Spent", formatNumber(snapshot.totalLikesSpent), formatFullNumber(snapshot.totalLikesSpent))}
+    ${statLine("Likes From Clicks", formatNumber(snapshot.totalLikesFromClicks), formatFullNumber(snapshot.totalLikesFromClicks))}
+    ${statLine("Play Time", formatDuration(snapshot.playTimeSeconds))}
+    ${renderTermsOfServiceStats(snapshot)}
+  `;
+}
+
+function getStatsPrestigeLabel(snapshot, state) {
+  if (snapshot.isLifetime) {
+    const currentTier = getPrestigeTier(state);
+    return currentTier ? `${currentTier.symbol} - ${currentTier.pinName}` : "No public pin";
+  }
+
+  if (!snapshot.hasData) {
+    return "No run recorded";
+  }
+
+  const tier = getPrestigeTier(snapshot.level);
+  return tier ? `${tier.symbol} - ${tier.pinName}` : "No public pin";
+}
+
 function statLine(label, value, title = value) {
   return `<div class="stat-line"><span>${escapeHtml(label)}</span><strong title="${escapeHtml(title)}">${escapeHtml(value)}</strong></div>`;
 }
 
-function renderTermsOfServiceStats(state) {
-  const acceptedEvents = getAcceptedTermsEvents(state);
+function renderTermsOfServiceStats(source) {
+  const acceptedEvents = getAcceptedTermsEvents(source);
 
   if (acceptedEvents.length === 0) {
     return "";
   }
 
   const titles = acceptedEvents.map((event) => event.title).join(", ");
-  const consentPrediction = hasAcceptedTermsEvent(state, "personalized_reality_agreement")
+  const consentPrediction = hasAcceptedTermsEvent(source, "personalized_reality_agreement")
     ? statLine("Consent Predicted", "100%", "The Algorithm says this was always your preference.")
     : "";
 

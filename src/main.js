@@ -259,7 +259,7 @@ function bootGame() {
 
         audio.purchase();
         ui.showPrestigeEvent(result);
-        ui.showToast(`${result.tier.pinName} earned. The farm has been reset for prestige ${result.level}.`);
+        ui.showToast(`${result.tier.pinName} earned. All towers now produce x${formatNumber(result.towerLpsMultiplier)} LPS.`);
         markChanged({ meaningful: true, immediate: true });
       });
     }

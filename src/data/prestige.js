@@ -5,6 +5,7 @@ export const PRESTIGE_TIERS = [
     symbol: "V1",
     title: "Containment Leak",
     pinName: "Containment Leak Pin",
+    towerLpsMultiplier: 2,
     description: "Your meme escaped the farm, tripped three alarms, and came back with a permanent public stain."
   },
   {
@@ -13,6 +14,7 @@ export const PRESTIGE_TIERS = [
     symbol: "V2",
     title: "Algorithmic Coronation",
     pinName: "Algorithmic Coronation Pin",
+    towerLpsMultiplier: 4,
     description: "The feed crowned you in public, then immediately pretended this was always the plan."
   },
   {
@@ -21,6 +23,7 @@ export const PRESTIGE_TIERS = [
     symbol: "V3",
     title: "Myth of the Feed",
     pinName: "Myth of the Feed Pin",
+    towerLpsMultiplier: 8,
     description: "Your account has become a cautionary legend used to frighten new platforms into compliance."
   }
 ];

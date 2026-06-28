@@ -191,6 +191,19 @@ async function main() {
     }
   }
 
+  const prestigeMilestones = new Map(achievementsModule.ACHIEVEMENTS
+    .filter((achievement) => achievement.id.startsWith("prestige_"))
+    .map((achievement) => [achievement.id, achievement]));
+  const prestigeThreeState = stateModule.createDefaultState();
+  prestigeThreeState.prestige.level = 3;
+  if (
+    prestigeMilestones.get("prestige_1").isUnlocked(prestigeThreeState) ||
+    prestigeMilestones.get("prestige_2").isUnlocked(prestigeThreeState) ||
+    !prestigeMilestones.get("prestige_3").isUnlocked(prestigeThreeState)
+  ) {
+    throw new Error("Expected a fresh Prestige 3 run to unlock only the Prestige 3 entry milestone.");
+  }
+
   const tierFiveMilestone = achievementsModule.ACHIEVEMENTS.find((achievement) => achievement.id === "upgrade_swirling_like_button_double_5");
   const crossfeedMilestone = achievementsModule.ACHIEVEMENTS.find((achievement) => achievement.id === "upgrade_swirling_like_button_crossfeed");
   const towerAmountMilestone = achievementsModule.ACHIEVEMENTS.find((achievement) => achievement.id === "tower_swirling_like_button_100");
@@ -509,6 +522,19 @@ async function main() {
     throw new Error("Expected tower purchase to increase LPS.");
   }
 
+  for (const [level, expectedMultiplier] of [[0, 1], [1, 2], [2, 4], [3, 8]]) {
+    const prestigeMultiplierState = stateModule.createDefaultState();
+    prestigeMultiplierState.prestige.level = level;
+    prestigeMultiplierState.towers.swirling_like_button.amount = 1;
+    const expectedLps = towersModule.TOWERS[0].lps * expectedMultiplier;
+    if (
+      stateModule.getPrestigeTowerLpsMultiplier(prestigeMultiplierState) !== expectedMultiplier ||
+      Math.abs(stateModule.getTowerEffectiveLps(prestigeMultiplierState, "swirling_like_button") - expectedLps) > Number.EPSILON
+    ) {
+      throw new Error(`Expected Prestige ${level} to apply a permanent x${expectedMultiplier} tower LPS multiplier.`);
+    }
+  }
+
   const subscriberSpawnState = stateModule.createDefaultState();
   const baseSubscriberSpawnMultiplier = stateModule.getSubscriberSpawnMultiplier(subscriberSpawnState);
   let expectedSubscriberSpawnMultiplier = baseSubscriberSpawnMultiplier;
@@ -648,10 +674,18 @@ async function main() {
   prestigeState.totalLikesEver = 987654321;
   prestigeState.totalClicks = 4321;
   prestigeState.totalSubscribersEver = 222;
+  prestigeState.totalLikesSpent = 7654321;
+  prestigeState.totalLikesFromClicks = 1234;
+  prestigeState.playTimeSeconds = 456;
+  prestigeState.stats.acceptedTerms.personalized_reality_agreement = 111;
   prestigeState.achievements.likes_100 = true;
   prestigeState.towers[prestigeFinalTower.id].amount = 1;
   prestigeState.towers.swirling_like_button.amount = 42;
   prestigeState.upgrades.power_click.level = 4;
+
+  if (!stateModule.hasFinalTower(prestigeState)) {
+    throw new Error("Expected final tower ownership to be detectable before Go Viral.");
+  }
 
   if (!stateModule.canGoViral(prestigeState)) {
     throw new Error("Expected Go Viral prestige to unlock after buying the final tower.");
@@ -660,6 +694,7 @@ async function main() {
   const prestigeResult = stateModule.goViral(prestigeState, 12345);
   if (
     !prestigeResult.ok ||
+    prestigeResult.towerLpsMultiplier !== 2 ||
     prestigeState.prestige.level !== 1 ||
     prestigeState.likes !== 0 ||
     prestigeState.totalLikesEver !== 0 ||
@@ -673,6 +708,29 @@ async function main() {
     prestigeState.leaderboardRecords.prestigeLevel !== 1
   ) {
     throw new Error("Expected Go Viral prestige to reset local progress while preserving leaderboard records and the public pin.");
+  }
+
+  const archivedPrestigeZero = stateModule.getPrestigeRunStats(prestigeState, 0);
+  const lifetimePrestigeStats = stateModule.getLifetimePrestigeStats(prestigeState);
+  if (
+    !archivedPrestigeZero.hasData ||
+    archivedPrestigeZero.totalLikesEver !== 987654321 ||
+    archivedPrestigeZero.totalClicks !== 4321 ||
+    archivedPrestigeZero.totalLikesSpent !== 7654321 ||
+    archivedPrestigeZero.totalLikesFromClicks !== 1234 ||
+    archivedPrestigeZero.playTimeSeconds !== 456 ||
+    archivedPrestigeZero.acceptedTerms.personalized_reality_agreement !== 111 ||
+    lifetimePrestigeStats.totalLikesEver !== 987654321 ||
+    lifetimePrestigeStats.totalClicks !== 4321 ||
+    lifetimePrestigeStats.totalSubscribersEver !== 222
+  ) {
+    throw new Error("Expected Go Viral to archive Prestige 0 stats and expose lifetime stat totals after reset.");
+  }
+
+  const serializedPrestigeState = saveModule.serializeState(prestigeState);
+  const migratedPrestigeState = saveModule.mergeSaveData(serializedPrestigeState);
+  if (stateModule.getPrestigeRunStats(migratedPrestigeState, 0).totalLikesEver !== 987654321) {
+    throw new Error("Expected per-prestige stats to survive save serialization.");
   }
 
   if (stateModule.canGoViral(prestigeState)) {

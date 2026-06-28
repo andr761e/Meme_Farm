@@ -8,6 +8,7 @@ import { formatNumber } from "./utils/format.js";
 export { PRESTIGE_MAX_LEVEL, PRESTIGE_TIERS };
 
 export const SAVE_VERSION = 1;
+export const PRESTIGE_STAT_LEVELS = [0, ...PRESTIGE_TIERS.map((tier) => tier.level)];
 export const VISUAL_TAKEOVER_DEFAULTS = {
   botnet: true,
   discordMod: true,
@@ -104,7 +105,40 @@ export function createDefaultPrestigeState() {
   return {
     level: 0,
     viralResets: 0,
-    lastWentViralAt: 0
+    lastWentViralAt: 0,
+    runStats: createDefaultPrestigeRunStatsByLevel()
+  };
+}
+
+export function createDefaultPrestigeRunStatsByLevel() {
+  return Object.fromEntries(
+    PRESTIGE_STAT_LEVELS.map((level) => [level, createDefaultPrestigeRunStats(level)])
+  );
+}
+
+export function createDefaultPrestigeRunStats(level = 0) {
+  const normalizedLevel = normalizePrestigeLevel(level);
+
+  return {
+    level: normalizedLevel,
+    likes: 0,
+    totalLikesEver: 0,
+    leaderboardLikesRecord: 0,
+    progressionTitle: getProgressionTitle({ totalLikesEver: 0 }),
+    likesPerSecond: 0,
+    clickPower: 1,
+    offlineCapacity: 0,
+    subscribers: 0,
+    totalSubscribersEver: 0,
+    towersOwned: 0,
+    totalClicks: 0,
+    totalLikesSpent: 0,
+    totalLikesFromClicks: 0,
+    playTimeSeconds: 0,
+    superSubscribersCollected: 0,
+    acceptedTerms: {},
+    capturedAt: 0,
+    hasData: false
   };
 }
 
@@ -137,7 +171,7 @@ export function resetGameState() {
 }
 
 export function getPrestigeLevel(state) {
-  return Math.max(0, Math.min(PRESTIGE_MAX_LEVEL, Math.floor(Number(state.prestige?.level) || 0)));
+  return normalizePrestigeLevel(state.prestige?.level);
 }
 
 export function getPrestigeTier(stateOrLevel) {
@@ -145,6 +179,10 @@ export function getPrestigeTier(stateOrLevel) {
     ? stateOrLevel
     : getPrestigeLevel(stateOrLevel);
   return PRESTIGE_TIER_BY_LEVEL[level] ?? null;
+}
+
+export function getPrestigeTowerLpsMultiplier(stateOrLevel) {
+  return getPrestigeTier(stateOrLevel)?.towerLpsMultiplier ?? 1;
 }
 
 export function getNextPrestigeTier(state) {
@@ -155,14 +193,151 @@ export function getFinalTower() {
   return TOWERS[TOWERS.length - 1] ?? null;
 }
 
-export function canGoViral(state) {
+export function hasFinalTower(state) {
   const finalTower = getFinalTower();
-  return Boolean(finalTower && getPrestigeLevel(state) < PRESTIGE_MAX_LEVEL && getTowerAmount(state, finalTower.id) >= 1);
+  return Boolean(finalTower && getTowerAmount(state, finalTower.id) >= 1);
+}
+
+export function canGoViral(state) {
+  return getPrestigeLevel(state) < PRESTIGE_MAX_LEVEL && hasFinalTower(state);
+}
+
+export function getCurrentPrestigeRunStats(state, capturedAt = 0) {
+  const likesPerSecond = getLikesPerSecond(state);
+  const clickPower = getClickPower(state);
+  const totalLikesEver = clampNumber(state.totalLikesEver);
+
+  return {
+    level: getPrestigeLevel(state),
+    likes: clampNumber(state.likes),
+    totalLikesEver,
+    leaderboardLikesRecord: Math.max(clampNumber(state.leaderboardRecords?.totalLikesEver), totalLikesEver),
+    progressionTitle: getProgressionTitle(state),
+    likesPerSecond,
+    clickPower,
+    offlineCapacity: getOfflineProductionCapacity(state),
+    subscribers: clampNumber(state.subscribers),
+    totalSubscribersEver: clampNumber(state.totalSubscribersEver),
+    towersOwned: getTotalTowersOwned(state),
+    totalClicks: clampNumber(state.totalClicks),
+    totalLikesSpent: clampNumber(state.totalLikesSpent),
+    totalLikesFromClicks: clampNumber(state.totalLikesFromClicks),
+    playTimeSeconds: clampNumber(state.playTimeSeconds),
+    superSubscribersCollected: clampNumber(state.stats?.superSubscribersCollected),
+    acceptedTerms: sanitizeAcceptedTermsSnapshot(state.stats?.acceptedTerms),
+    capturedAt,
+    hasData: true
+  };
+}
+
+export function getPrestigeRunStats(state, level) {
+  const normalizedLevel = normalizePrestigeLevel(level);
+
+  if (normalizedLevel === getPrestigeLevel(state)) {
+    return getCurrentPrestigeRunStats(state);
+  }
+
+  return sanitizePrestigeRunStats(
+    state.prestige?.runStats?.[normalizedLevel],
+    createDefaultPrestigeRunStats(normalizedLevel)
+  );
+}
+
+export function getLifetimePrestigeStats(state) {
+  const snapshots = PRESTIGE_STAT_LEVELS.map((level) => getPrestigeRunStats(state, level));
+  const activeSnapshots = snapshots.filter((snapshot) => snapshot.hasData);
+  const totalLikesEver = Math.max(
+    activeSnapshots.reduce((sum, snapshot) => sum + snapshot.totalLikesEver, 0),
+    clampNumber(state.leaderboardRecords?.totalLikesEver)
+  );
+  const totalSubscribersEver = Math.max(
+    activeSnapshots.reduce((sum, snapshot) => sum + snapshot.totalSubscribersEver, 0),
+    clampNumber(state.leaderboardRecords?.subscribersCollected)
+  );
+  const totalClicks = Math.max(
+    activeSnapshots.reduce((sum, snapshot) => sum + snapshot.totalClicks, 0),
+    clampNumber(state.leaderboardRecords?.totalClicks)
+  );
+  const acceptedTerms = Object.assign({}, ...activeSnapshots.map((snapshot) => snapshot.acceptedTerms));
+
+  return {
+    level: getPrestigeLevel(state),
+    likes: clampNumber(state.likes),
+    totalLikesEver,
+    leaderboardLikesRecord: Math.max(clampNumber(state.leaderboardRecords?.totalLikesEver), totalLikesEver),
+    progressionTitle: getProgressionTitle({ totalLikesEver }),
+    likesPerSecond: Math.max(
+      clampNumber(state.leaderboardRecords?.highestLps),
+      ...activeSnapshots.map((snapshot) => snapshot.likesPerSecond)
+    ),
+    clickPower: Math.max(
+      Math.max(1, clampNumber(state.leaderboardRecords?.highestClickPower, 1)),
+      ...activeSnapshots.map((snapshot) => snapshot.clickPower)
+    ),
+    offlineCapacity: Math.max(0, ...activeSnapshots.map((snapshot) => snapshot.offlineCapacity)),
+    subscribers: clampNumber(state.subscribers),
+    totalSubscribersEver,
+    towersOwned: Math.max(
+      clampNumber(state.leaderboardRecords?.totalTowersOwned),
+      ...activeSnapshots.map((snapshot) => snapshot.towersOwned)
+    ),
+    totalClicks,
+    totalLikesSpent: activeSnapshots.reduce((sum, snapshot) => sum + snapshot.totalLikesSpent, 0),
+    totalLikesFromClicks: activeSnapshots.reduce((sum, snapshot) => sum + snapshot.totalLikesFromClicks, 0),
+    playTimeSeconds: activeSnapshots.reduce((sum, snapshot) => sum + snapshot.playTimeSeconds, 0),
+    superSubscribersCollected: activeSnapshots.reduce((sum, snapshot) => sum + snapshot.superSubscribersCollected, 0),
+    acceptedTerms,
+    capturedAt: Math.max(0, ...activeSnapshots.map((snapshot) => snapshot.capturedAt)),
+    hasData: activeSnapshots.length > 0
+  };
+}
+
+export function sanitizePrestigeRunStatsByLevel(value) {
+  const source = value && typeof value === "object" ? value : {};
+  const defaults = createDefaultPrestigeRunStatsByLevel();
+
+  return Object.fromEntries(
+    PRESTIGE_STAT_LEVELS.map((level) => [
+      level,
+      sanitizePrestigeRunStats(source[level], defaults[level])
+    ])
+  );
+}
+
+export function sanitizePrestigeRunStats(value, fallback = createDefaultPrestigeRunStats(0)) {
+  const defaultStats = typeof fallback === "number"
+    ? createDefaultPrestigeRunStats(fallback)
+    : fallback;
+  const source = value && typeof value === "object" ? value : {};
+  const level = normalizePrestigeLevel(source.level ?? defaultStats.level);
+
+  return {
+    level,
+    likes: clampNumber(source.likes, defaultStats.likes),
+    totalLikesEver: clampNumber(source.totalLikesEver, defaultStats.totalLikesEver),
+    leaderboardLikesRecord: clampNumber(source.leaderboardLikesRecord, defaultStats.leaderboardLikesRecord),
+    progressionTitle: String(source.progressionTitle ?? defaultStats.progressionTitle),
+    likesPerSecond: clampNumber(source.likesPerSecond, defaultStats.likesPerSecond),
+    clickPower: Math.max(1, clampNumber(source.clickPower, defaultStats.clickPower)),
+    offlineCapacity: clampNumber(source.offlineCapacity, defaultStats.offlineCapacity),
+    subscribers: clampNumber(source.subscribers, defaultStats.subscribers),
+    totalSubscribersEver: clampNumber(source.totalSubscribersEver, defaultStats.totalSubscribersEver),
+    towersOwned: clampNumber(source.towersOwned, defaultStats.towersOwned),
+    totalClicks: clampNumber(source.totalClicks, defaultStats.totalClicks),
+    totalLikesSpent: clampNumber(source.totalLikesSpent, defaultStats.totalLikesSpent),
+    totalLikesFromClicks: clampNumber(source.totalLikesFromClicks, defaultStats.totalLikesFromClicks),
+    playTimeSeconds: clampNumber(source.playTimeSeconds, defaultStats.playTimeSeconds),
+    superSubscribersCollected: clampNumber(source.superSubscribersCollected, defaultStats.superSubscribersCollected),
+    acceptedTerms: sanitizeAcceptedTermsSnapshot(source.acceptedTerms ?? defaultStats.acceptedTerms),
+    capturedAt: clampNumber(source.capturedAt, defaultStats.capturedAt),
+    hasData: Boolean(source.hasData ?? defaultStats.hasData)
+  };
 }
 
 export function goViral(state, now = Date.now()) {
   const nextTier = getNextPrestigeTier(state);
   const finalTower = getFinalTower();
+  const currentLevel = getPrestigeLevel(state);
 
   if (!nextTier) {
     return { ok: false, reason: "maxed" };
@@ -180,6 +355,8 @@ export function goViral(state, now = Date.now()) {
     ...(state.leaderboardRecords ?? {})
   };
   const previousPrestige = state.prestige ?? createDefaultPrestigeState();
+  const preservedRunStats = sanitizePrestigeRunStatsByLevel(previousPrestige.runStats);
+  preservedRunStats[currentLevel] = getCurrentPrestigeRunStats(state, now);
   const nextState = createDefaultState();
 
   nextState.settings = preservedSettings;
@@ -190,7 +367,8 @@ export function goViral(state, now = Date.now()) {
   nextState.prestige = {
     level: nextTier.level,
     viralResets: (previousPrestige.viralResets ?? getPrestigeLevel(state)) + 1,
-    lastWentViralAt: now
+    lastWentViralAt: now,
+    runStats: preservedRunStats
   };
 
   for (const key of Object.keys(state)) {
@@ -203,6 +381,7 @@ export function goViral(state, now = Date.now()) {
     ok: true,
     tier: nextTier,
     level: nextTier.level,
+    towerLpsMultiplier: getPrestigeTowerLpsMultiplier(nextTier.level),
     finalTower
   };
 }
@@ -317,7 +496,11 @@ export function getTowerEffectiveLps(state, towerId) {
     return 0;
   }
 
-  return tower.lps * amount * getTowerMultiplier(state, towerId) * getGlobalLpsMultiplier(state);
+  return tower.lps
+    * amount
+    * getTowerMultiplier(state, towerId)
+    * getGlobalLpsMultiplier(state)
+    * getPrestigeTowerLpsMultiplier(state);
 }
 
 export function getLikesPerSecond(state, now = Date.now()) {
@@ -1023,12 +1206,28 @@ function clampNumber(value, fallback = 0) {
   return Number.isFinite(number) ? Math.max(0, number) : fallback;
 }
 
+function normalizePrestigeLevel(value) {
+  return Math.max(0, Math.min(PRESTIGE_MAX_LEVEL, Math.floor(Number(value) || 0)));
+}
+
 function clonePlainObject(value) {
   if (!value || typeof value !== "object") {
     return value;
   }
 
   return JSON.parse(JSON.stringify(value));
+}
+
+function sanitizeAcceptedTermsSnapshot(acceptedTerms) {
+  if (!acceptedTerms || typeof acceptedTerms !== "object") {
+    return {};
+  }
+
+  return Object.fromEntries(
+    Object.entries(acceptedTerms)
+      .filter(([id, value]) => TERMS_OF_SERVICE_EVENT_BY_ID[id] && value)
+      .map(([id, value]) => [id, clampNumber(value, Date.now())])
+  );
 }
 
 function applyBadIdeaOutcome(state, outcome, random) {
@@ -1158,4 +1357,3 @@ function clampRoll(value) {
 
   return Math.min(0.999999, Math.max(0, number));
 }
-

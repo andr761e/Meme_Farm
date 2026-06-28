@@ -806,10 +806,12 @@ const UPGRADE_COLLECTION_MILESTONES = [
 
 const PRESTIGE_MILESTONES = PRESTIGE_TIERS.map((tier) => ({
   id: `prestige_${tier.level}`,
-  title: tier.pinName,
-  description: `Go Viral and earn the ${tier.pinName}. Your run is gone, but the public record has become louder.`,
+  title: tier.level === PRESTIGE_TIERS.length ? "Final Viral Myth" : tier.pinName,
+  description: tier.level === PRESTIGE_TIERS.length
+    ? `Enter Prestige ${tier.level} and earn the ${tier.pinName}. This is the final Go Viral threshold, and the feed is out of warnings.`
+    : `Go Viral and earn the ${tier.pinName}. Your run is gone, but the public record has become louder.`,
   icon: tier.symbol,
-  isUnlocked: (state) => getPrestigeLevel(state) >= tier.level
+  isUnlocked: (state) => getPrestigeLevel(state) === tier.level
 }));
 
 export const ACHIEVEMENTS = [
