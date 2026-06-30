@@ -810,7 +810,7 @@ const PRESTIGE_MILESTONES = PRESTIGE_TIERS.map((tier) => ({
   description: tier.level === PRESTIGE_TIERS.length
     ? `Enter Prestige ${tier.level} and earn the ${tier.pinName}. This is the final Go Viral threshold, and the feed is out of warnings.`
     : `Go Viral and earn the ${tier.pinName}. Your run is gone, but the public record has become louder.`,
-  icon: tier.symbol,
+  image: tier.image,
   isUnlocked: (state) => getPrestigeLevel(state) === tier.level
 }));
 

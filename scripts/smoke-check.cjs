@@ -17,9 +17,11 @@ async function main() {
   const achievementsModule = await importModule("src/data/achievements.js");
   const memeLabModule = await importModule("src/data/memeLab.js");
   const leaderboardsModule = await importModule("src/leaderboards.js");
+  const steamModule = await importModule("src/steam.js");
   const stateModule = await importModule("src/state.js");
   const saveModule = await importModule("src/save.js");
   const formatModule = await importModule("src/utils/format.js");
+  const steamElectronModule = require(path.join(root, "electron", "steam.cjs"));
 
   assertUniqueIds(towersModule.TOWERS, "tower");
   assertUniqueIds(upgradesModule.UPGRADES, "upgrade");
@@ -29,6 +31,7 @@ async function main() {
   assertUniqueIds(leaderboardsModule.LEADERBOARD_METRICS, "leaderboard metric");
   assertAssetsExist(towersModule.TOWERS, "tower");
   assertAssetsExist(upgradesModule.UPGRADES, "upgrade");
+  assertAssetsExist(stateModule.PRESTIGE_TIERS, "prestige");
 
   const expectedMetrics = [
     "total_likes_ever",
@@ -37,8 +40,7 @@ async function main() {
     "milestones_unlocked",
     "total_clicks",
     "highest_click_power",
-    "subscribers_collected",
-    "prestige_level"
+    "subscribers_collected"
   ];
   const metricIds = new Set(leaderboardsModule.LEADERBOARD_METRICS.map((metric) => metric.id));
   for (const metricId of expectedMetrics) {
@@ -53,6 +55,40 @@ async function main() {
 
   if (leaderboardsModule.LEADERBOARD_METRICS.some((metric) => !/^MF_[A-Z0-9_]+$/.test(metric.steamName ?? ""))) {
     throw new Error("Every leaderboard metric should define a Steam-ready leaderboard name.");
+  }
+
+  const rendererLeaderboardNames = new Set(leaderboardsModule.LEADERBOARD_METRICS.map((metric) => metric.steamName));
+  if (
+    rendererLeaderboardNames.size !== steamElectronModule.STEAM_LEADERBOARD_NAMES.size ||
+    [...rendererLeaderboardNames].some((name) => !steamElectronModule.STEAM_LEADERBOARD_NAMES.has(name))
+  ) {
+    throw new Error("Electron and renderer Steam leaderboard names must stay in sync.");
+  }
+
+  let previousSteamScore = -1;
+  for (const value of [0, 1, 10, 999, 1e6, 2147483647, 1e18, 1e45, 1e306, Number.MAX_VALUE]) {
+    const encoded = steamElectronModule.encodeLeaderboardValue(value, 3);
+    const decoded = steamModule.decodeSteamLeaderboardValue(encoded.details, encoded.score);
+    const bindingShapedDetails = [
+      {},
+      { 0: encoded.details[0] },
+      { 0: encoded.details[0], 1: encoded.details[1] },
+      { 0: encoded.details[0], 1: encoded.details[1], 2: encoded.details[2] }
+    ];
+    const normalizedDetails = steamElectronModule.normalizeDownloadedDetails(bindingShapedDetails);
+    const decodedNormalizedDetails = steamModule.decodeSteamLeaderboardValue(normalizedDetails, encoded.score);
+    const decodedRankScore = steamModule.decodeSteamRankScore(encoded.score);
+    if (
+      encoded.score < previousSteamScore ||
+      encoded.score > 2147483647 ||
+      encoded.details.some((item) => item < -2147483648 || item > 2147483647) ||
+      (value > 0 && Math.abs(decoded - value) / value > 1e-7) ||
+      (value > 0 && Math.abs(decodedNormalizedDetails - value) / value > 1e-7) ||
+      (value > 0 && Math.abs(decodedRankScore - value) / value > 2e-6)
+    ) {
+      throw new Error(`Steam leaderboard encoding failed for ${value}.`);
+    }
+    previousSteamScore = encoded.score;
   }
 
   if (
@@ -258,6 +294,13 @@ async function main() {
     throw new Error("Click Boost price scaling should stay at the intended 2.20x repeat-purchase curve.");
   }
 
+  if (
+    upgradesModule.UPGRADES[0].effect.towerLpsSharePerLevel !== 0.005 ||
+    upgradesModule.UPGRADES[0].effect.maxTowerLpsShare !== 0.05
+  ) {
+    throw new Error("Click Boost should add 0.5% tower LPS per level and cap that share at 5% per click.");
+  }
+
   const expectedOfflineTierCosts = [
     50000,
     250000,
@@ -319,18 +362,7 @@ async function main() {
   const towerUpgradeCounts = new Map();
   const towerSynergyCounts = new Map();
   const legacyOverclockCounts = new Map();
-  const expectedLegacyMultipliers = new Map([
-    ["swirling_like_button", 1000],
-    ["shitposter_intern", 720],
-    ["outdated_meme_reposter", 510],
-    ["edgy_teen", 370],
-    ["botnet", 265],
-    ["doomscroller", 190],
-    ["meme_subreddit", 135],
-    ["discord_mod", 100],
-    ["tiktok_zoomer", 70],
-    ["meme_lord", 50]
-  ]);
+  const expectedLegacyMultiplier = 1000;
   const expectedLegacyCostRatios = new Map([
     ["swirling_like_button", 0.67],
     ["shitposter_intern", 0.77],
@@ -368,7 +400,7 @@ async function main() {
       if (
         upgrade.type !== "towerMultiplier" ||
         upgrade.maxLevel !== 1 ||
-        upgrade.effect.multiplier !== expectedLegacyMultipliers.get(upgrade.effect.towerId) ||
+        upgrade.effect.multiplier !== expectedLegacyMultiplier ||
         upgrade.baseCost !== expectedBaseCost ||
         upgrade.unlockAt?.totalLikesEver !== expectedBaseCost ||
         upgrade.unlockAt?.upgradeId !== `${upgrade.effect.towerId}_double_5` ||
@@ -529,10 +561,28 @@ async function main() {
     const expectedLps = towersModule.TOWERS[0].lps * expectedMultiplier;
     if (
       stateModule.getPrestigeTowerLpsMultiplier(prestigeMultiplierState) !== expectedMultiplier ||
-      Math.abs(stateModule.getTowerEffectiveLps(prestigeMultiplierState, "swirling_like_button") - expectedLps) > Number.EPSILON
+      stateModule.getPrestigeClickPowerMultiplier(prestigeMultiplierState) !== expectedMultiplier ||
+      Math.abs(stateModule.getTowerEffectiveLps(prestigeMultiplierState, "swirling_like_button") - expectedLps) > Number.EPSILON ||
+      stateModule.getClickPower(prestigeMultiplierState) !== expectedMultiplier
     ) {
-      throw new Error(`Expected Prestige ${level} to apply a permanent x${expectedMultiplier} tower LPS multiplier.`);
+      throw new Error(`Expected Prestige ${level} to apply permanent x${expectedMultiplier} tower LPS and flat click multipliers.`);
     }
+  }
+
+  const hybridClickState = stateModule.createDefaultState();
+  hybridClickState.prestige.level = 3;
+  hybridClickState.towers.swirling_like_button.amount = 100;
+  hybridClickState.upgrades.power_click.level = 3;
+  const hybridTowerLps = stateModule.getTowerLikesPerSecond(hybridClickState);
+  const expectedHybridClickPower = (8 * Math.pow(2, 3)) + (hybridTowerLps * 0.015);
+  if (Math.abs(stateModule.getClickPower(hybridClickState) - expectedHybridClickPower) > 1e-9) {
+    throw new Error("Expected Click Boost to combine prestige-scaled flat power with a growing share of tower LPS.");
+  }
+
+  hybridClickState.upgrades.power_click.level = 12;
+  const expectedCappedClickPower = (8 * Math.pow(2, 12)) + (hybridTowerLps * 0.05);
+  if (Math.abs(stateModule.getClickPower(hybridClickState) - expectedCappedClickPower) > 1e-9) {
+    throw new Error("Expected Click Boost's tower LPS contribution to cap at 5% per click.");
   }
 
   const subscriberSpawnState = stateModule.createDefaultState();
@@ -659,9 +709,9 @@ async function main() {
     !legacyPurchase.ok ||
     legacyPurchase.upgrade?.id !== legacyUpgrade.id ||
     legacyPurchase.upgrade?.category !== "legacyOverclock" ||
-    stateModule.getTowerEffectiveLps(legacyState, "shitposter_intern") !== baseLegacyLps * 720
+    stateModule.getTowerEffectiveLps(legacyState, "shitposter_intern") !== baseLegacyLps * 1000
   ) {
-    throw new Error("Expected Legacy Overclock to multiply a weaker tower's LPS by its recommended multiplier.");
+    throw new Error("Expected every Legacy Overclock to multiply its tower's LPS by 1000.");
   }
 
   if (!stateModule.updateLeaderboardRecords(state)) {
@@ -695,6 +745,7 @@ async function main() {
   if (
     !prestigeResult.ok ||
     prestigeResult.towerLpsMultiplier !== 2 ||
+    prestigeResult.clickPowerMultiplier !== 2 ||
     prestigeState.prestige.level !== 1 ||
     prestigeState.likes !== 0 ||
     prestigeState.totalLikesEver !== 0 ||
@@ -965,8 +1016,12 @@ async function main() {
     scope: "friends",
     metricId: "total_likes_ever"
   });
-  if (!leaderboardRows.some((row) => row.isPlayer)) {
-    throw new Error("Expected leaderboard rows to include the local player.");
+  if (
+    leaderboardRows.length !== 1 ||
+    !leaderboardRows[0].isPlayer ||
+    leaderboardRows[0].rank !== null
+  ) {
+    throw new Error("Offline leaderboard rows should contain only the unranked local player, never mock competitors.");
   }
 
   const prestigeLeaderboardState = stateModule.createDefaultState();

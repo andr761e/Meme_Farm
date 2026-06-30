@@ -112,29 +112,6 @@ body::before {
   opacity: var(--era-noise-opacity);
 }
 
-body::after {
-  content: attr(data-apocalypse-label);
-  position: fixed;
-  right: 18px;
-  bottom: 14px;
-  z-index: 3;
-  max-width: min(340px, calc(100vw - 36px));
-  padding: 8px 11px;
-  border: 1px solid var(--era-accent);
-  border-radius: 8px;
-  background:
-    linear-gradient(90deg, var(--era-panel-wash), transparent),
-    rgba(5, 7, 14, 0.82);
-  color: var(--era-accent);
-  font-size: 0.76rem;
-  font-weight: 900;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  pointer-events: none;
-  box-shadow: 0 0 20px var(--era-panel-wash);
-  opacity: 0.82;
-}
-
 body.era-basement-posting {
   --era-accent: #42e8ff;
   --era-accent-soft: rgba(66, 232, 255, 0.12);
@@ -708,50 +685,36 @@ textarea:focus-visible {
   width: 34px;
   height: 34px;
   margin-left: 2px;
-  border: 1px solid rgba(255, 230, 109, 0.64);
-  border-radius: 50%;
-  background:
-    radial-gradient(circle at 50% 34%, rgba(255, 255, 255, 0.24), transparent 22%),
-    conic-gradient(from 20deg, rgba(66, 232, 255, 0.4), rgba(255, 230, 109, 0.5), rgba(255, 79, 216, 0.42), rgba(66, 232, 255, 0.4)),
-    rgba(9, 10, 20, 0.92);
-  color: #fff7b0;
-  font-size: 0.72rem;
-  font-weight: 950;
-  line-height: 1;
-  text-shadow: 0 0 10px rgba(255, 230, 109, 0.64);
-  box-shadow:
-    inset 0 0 14px rgba(255, 255, 255, 0.08),
-    0 0 18px rgba(255, 230, 109, 0.18);
   vertical-align: middle;
 }
 
-.prestige-pin-2 {
-  border-color: rgba(66, 232, 255, 0.82);
-  box-shadow:
-    inset 0 0 16px rgba(66, 232, 255, 0.16),
-    0 0 20px rgba(66, 232, 255, 0.26),
-    0 0 28px rgba(255, 79, 216, 0.16);
+.prestige-pin img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 0 7px rgba(66, 232, 255, 0.22));
 }
 
 .prestige-pin-3 {
-  border-color: rgba(255, 79, 216, 0.9);
-  background:
-    radial-gradient(circle at 50% 32%, rgba(255, 255, 255, 0.34), transparent 20%),
-    conic-gradient(from 0deg, #ff4fd8, #ffe66d, #4ee1ff, #ff4fd8),
-    rgba(9, 10, 20, 0.92);
-  box-shadow:
-    inset 0 0 18px rgba(255, 255, 255, 0.12),
-    0 0 20px rgba(255, 79, 216, 0.34),
-    0 0 34px rgba(255, 230, 109, 0.2);
   animation: prestigePinPulse 1.7s ease-in-out infinite;
 }
 
 .prestige-pin-leaderboard {
-  width: 25px;
-  height: 25px;
+  width: 30px;
+  height: 30px;
   margin-left: 8px;
-  font-size: 0.58rem;
   flex: 0 0 auto;
+  overflow: visible;
+}
+
+.prestige-pin-leaderboard img {
+  display: block;
+  width: 30px;
+  height: 30px;
+  max-width: none;
+  opacity: 1;
+  visibility: visible;
 }
 
 .prestige-pin-modal,
@@ -1798,6 +1761,20 @@ body.era-multiverse-collapse .divider {
   font-size: 0.85rem;
 }
 
+.achievement-icon-image {
+  overflow: hidden;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+}
+
+.achievement-icon-image img {
+  display: block;
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+}
+
 .achievement-title {
   font-weight: 900;
 }
@@ -2179,7 +2156,15 @@ body.tos-algorithm-contract .leaderboard-status::after {
 .leaderboard-player strong {
   display: inline-flex;
   align-items: center;
+  width: 100%;
   max-width: 100%;
+}
+
+.leaderboard-player-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .leaderboard-player small {
@@ -2546,7 +2531,8 @@ body.tos-algorithm-contract .leaderboard-status::after {
   opacity: 1;
 }
 
-.tower-card {
+.shop-card.tower-card,
+.shop-card.upgrade-card {
   height: 124px;
   grid-template-areas:
     "icon name name"
@@ -2554,11 +2540,13 @@ body.tos-algorithm-contract .leaderboard-status::after {
     "icon producing state";
 }
 
-.tower-card .shop-copy {
+.tower-card .shop-copy,
+.upgrade-card .shop-copy {
   display: contents;
 }
 
-.tower-card .shop-name {
+.tower-card .shop-name,
+.upgrade-card .shop-name {
   grid-area: name;
   display: -webkit-box;
   min-width: 0;
@@ -2568,25 +2556,37 @@ body.tos-algorithm-contract .leaderboard-status::after {
   -webkit-line-clamp: 2;
 }
 
-.tower-card .shop-meta {
+.tower-card .shop-meta,
+.upgrade-card .shop-meta {
   display: contents;
   font-size: 0.78rem;
 }
 
-.tower-card .shop-meta > .shop-meta-line {
+.tower-card .shop-meta > .shop-meta-line,
+.upgrade-card .shop-meta > .shop-meta-line {
   display: grid;
-  grid-template-columns: max-content minmax(0, 1fr);
+  grid-template-columns: max-content max-content;
   align-items: center;
+  justify-self: start;
   gap: 6px;
+  width: max-content;
+  max-width: 100%;
   min-width: 0;
   padding: 3px 7px;
 }
 
-.tower-card .shop-meta-line:first-child {
+.tower-card .shop-meta-value,
+.upgrade-card .shop-meta-value {
+  max-width: 18ch;
+}
+
+.tower-card .shop-meta-line:first-child,
+.upgrade-card .shop-meta-line:first-child {
   grid-area: price;
 }
 
-.tower-card .shop-meta-line:last-child {
+.tower-card .shop-meta-line:last-child,
+.upgrade-card .shop-meta-line:last-child {
   grid-area: producing;
 }
 
@@ -2818,6 +2818,51 @@ body.takeover-meme-lord.takeover-cursed-tiktok .tower-card .shop-name-letter {
   box-shadow: var(--shadow-strong), 0 0 24px rgba(66, 232, 255, 0.1);
   pointer-events: none;
   backdrop-filter: blur(10px);
+}
+
+.tooltip-tower {
+  width: min(470px, calc(100vw - 20px));
+}
+
+.tower-tooltip-layout {
+  display: grid;
+  gap: 10px;
+}
+
+.tower-tooltip-header {
+  min-width: 0;
+}
+
+.tower-tooltip-header .tooltip-description {
+  margin-bottom: 0;
+}
+
+.tower-tooltip-details {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+}
+
+.tower-tooltip-image {
+  display: block;
+  width: 92px;
+  height: 92px;
+  border: 1px solid rgba(66, 232, 255, 0.42);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow:
+    inset 0 0 16px rgba(255, 255, 255, 0.06),
+    0 0 18px rgba(66, 232, 255, 0.12);
+  object-fit: cover;
+}
+
+.tower-tooltip-stats {
+  min-width: 0;
+}
+
+.tower-tooltip-stats .tooltip-line:first-child {
+  margin-top: 0;
 }
 
 .tooltip-title {
@@ -3821,6 +3866,20 @@ body.takeover-meme-lord.takeover-cursed-tiktok .tower-card .shop-name-letter {
   text-align: center;
 }
 
+.achievement-reaction-icon-image {
+  overflow: visible;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+}
+
+.achievement-reaction-icon-image img {
+  display: block;
+  width: 54px;
+  height: 54px;
+  object-fit: contain;
+}
+
 .achievement-reaction strong {
   grid-area: title;
   font-size: 1.02rem;
@@ -4407,7 +4466,8 @@ body.prestige-screen-hit .top-bar {
 }
 
 @media (max-width: 1680px) {
-  .shop-card.tower-card {
+  .shop-card.tower-card,
+  .shop-card.upgrade-card {
     height: 124px;
     grid-template-columns: 66px minmax(0, 1fr) 62px;
     grid-template-areas:
@@ -4416,11 +4476,13 @@ body.prestige-screen-hit .top-bar {
       "icon producing state";
   }
 
-  .shop-card.tower-card .shop-copy {
+  .shop-card.tower-card .shop-copy,
+  .shop-card.upgrade-card .shop-copy {
     display: contents;
   }
 
-  .shop-card.tower-card .shop-name {
+  .shop-card.tower-card .shop-name,
+  .shop-card.upgrade-card .shop-name {
     grid-area: name;
     display: -webkit-box;
     min-width: 0;
@@ -4430,30 +4492,36 @@ body.prestige-screen-hit .top-bar {
     -webkit-line-clamp: 2;
   }
 
-  .shop-card.tower-card .shop-meta {
+  .shop-card.tower-card .shop-meta,
+  .shop-card.upgrade-card .shop-meta {
     display: contents;
     font-size: 0.7rem;
   }
 
-  .shop-card.tower-card .shop-meta > .shop-meta-line {
+  .shop-card.tower-card .shop-meta > .shop-meta-line,
+  .shop-card.upgrade-card .shop-meta > .shop-meta-line {
     gap: 4px;
     padding-inline: 4px;
   }
 
-  .shop-card.tower-card .shop-meta-line:first-child {
+  .shop-card.tower-card .shop-meta-line:first-child,
+  .shop-card.upgrade-card .shop-meta-line:first-child {
     grid-area: price;
   }
 
-  .shop-card.tower-card .shop-meta-line:last-child {
+  .shop-card.tower-card .shop-meta-line:last-child,
+  .shop-card.upgrade-card .shop-meta-line:last-child {
     grid-area: producing;
   }
 
-  .shop-card.tower-card .shop-count {
+  .shop-card.tower-card .shop-count,
+  .shop-card.upgrade-card .shop-count {
     justify-self: end;
     text-align: right;
   }
 
-  .shop-card.tower-card .shop-state {
+  .shop-card.tower-card .shop-state,
+  .shop-card.upgrade-card .shop-state {
     justify-self: end;
     text-align: right;
   }
@@ -4480,28 +4548,33 @@ body.prestige-screen-hit .top-bar {
 }
 
 @media (min-width: 901px) and (max-width: 1100px) {
-  .shop-card.tower-card {
+  .shop-card.tower-card,
+  .shop-card.upgrade-card {
     height: 136px;
     grid-template-columns: 52px minmax(0, 1fr) 52px;
     gap: 8px;
   }
 
-  .shop-card.tower-card .shop-icon {
+  .shop-card.tower-card .shop-icon,
+  .shop-card.upgrade-card .shop-icon {
     width: 52px;
     height: 52px;
   }
 
-  .shop-card.tower-card .shop-meta {
+  .shop-card.tower-card .shop-meta,
+  .shop-card.upgrade-card .shop-meta {
     font-size: 0.68rem;
   }
 
-  .shop-card.tower-card .shop-meta > .shop-meta-line {
+  .shop-card.tower-card .shop-meta > .shop-meta-line,
+  .shop-card.upgrade-card .shop-meta > .shop-meta-line {
     grid-template-columns: minmax(0, 1fr);
     gap: 0;
     padding-inline: 4px;
   }
 
-  .shop-card.tower-card .shop-meta-value {
+  .shop-card.tower-card .shop-meta-value,
+  .shop-card.upgrade-card .shop-meta-value {
     text-align: left;
   }
 }
@@ -4602,6 +4675,16 @@ body.prestige-screen-hit .top-bar {
     min-width: 0;
   }
 
+  .tower-tooltip-details {
+    grid-template-columns: 64px minmax(0, 1fr);
+    gap: 9px;
+  }
+
+  .tower-tooltip-image {
+    width: 64px;
+    height: 64px;
+  }
+
   .stats-view-tabs {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -4625,7 +4708,8 @@ body.prestige-screen-hit .top-bar {
     gap: 8px;
   }
 
-  .shop-card.tower-card {
+  .shop-card.tower-card,
+  .shop-card.upgrade-card {
     height: 124px;
     grid-template-columns: 52px minmax(0, 1fr) 62px;
     grid-template-areas:
@@ -4662,16 +4746,19 @@ body.prestige-screen-hit .top-bar {
 }
 
 @media (max-width: 360px) {
-  .shop-card.tower-card {
+  .shop-card.tower-card,
+  .shop-card.upgrade-card {
     height: 136px;
   }
 
-  .shop-card.tower-card .shop-meta > .shop-meta-line {
+  .shop-card.tower-card .shop-meta > .shop-meta-line,
+  .shop-card.upgrade-card .shop-meta > .shop-meta-line {
     grid-template-columns: minmax(0, 1fr);
     gap: 0;
   }
 
-  .shop-card.tower-card .shop-meta-value {
+  .shop-card.tower-card .shop-meta-value,
+  .shop-card.upgrade-card .shop-meta-value {
     text-align: left;
   }
 }
@@ -4721,14 +4808,16 @@ html.desktop-fit-mode .shop-card {
   gap: 6px 12px;
 }
 
-html.desktop-fit-mode .shop-card.tower-card {
+html.desktop-fit-mode .shop-card.tower-card,
+html.desktop-fit-mode .shop-card.upgrade-card {
   grid-template-areas:
     "icon name name"
     "icon price count"
     "icon producing state";
 }
 
-html.desktop-fit-mode .tower-card {
+html.desktop-fit-mode .tower-card,
+html.desktop-fit-mode .upgrade-card {
   height: 124px;
 }
 
@@ -4742,10 +4831,6 @@ html.desktop-fit-mode .shop-state {
   justify-self: end;
   max-width: 118px;
   text-align: right;
-}
-
-html.desktop-fit-mode .upgrade-card .shop-desc {
-  display: -webkit-box;
 }
 
 @media (prefers-reduced-motion: reduce) {

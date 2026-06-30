@@ -1,5 +1,0 @@
-- Undersøg om der er problemer med stats tab
-- Gennemgå evt. nogle af tower images
-- Husk at undersøge muligheder for bedre musik (Opdater settings for bedre seperering af musik så)
-- Milestones usynlige indtil prestige 3?
-- Gør Price og producing tag smallere. Opdater upgraders til lignende layout. 

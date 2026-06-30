@@ -10,6 +10,7 @@ import {
   getLeaderboardMetricValue,
   getLeaderboardRows
 } from "./leaderboards.js";
+import { getSteamLeaderboardView } from "./steam.js";
 import {
   getClickPower,
   getActiveObscureLpsBoosts,
@@ -30,6 +31,7 @@ import {
   getPrestigeLevel,
   getPrestigeRunStats,
   getPrestigeTier,
+  getPrestigeClickPowerMultiplier,
   getPrestigeTowerLpsMultiplier,
   getTowerAmount,
   getTowerCost,
@@ -444,7 +446,9 @@ export function updateUI(state) {
   updateTopTicker(state);
   updateDocumentTitle(state);
 
-  if (activeOverlay === "stats" || activeOverlay === "milestones" || activeOverlay === "upgrades") {
+  if (activeOverlay === "stats") {
+    updateStatsOverlay(state);
+  } else if (activeOverlay === "milestones" || activeOverlay === "upgrades") {
     renderOverlay(activeOverlay);
   }
 
@@ -687,10 +691,15 @@ function renderUpgradeShop() {
       <span class="shop-state" data-role="state">Locked</span>
       <span class="shop-copy">
         <span class="shop-name">${escapeHtml(upgrade.displayName)}</span>
-        <span class="shop-desc">${escapeHtml(upgrade.description)}</span>
         <span class="shop-meta">
-          <span data-role="cost">0 Likes</span>
-          <span data-role="effect">${escapeHtml(describeUpgradeEffect(upgrade))}</span>
+          <span class="shop-meta-line">
+            <b class="shop-meta-label">Price:</b>
+            <span class="shop-meta-value" data-role="cost">0 Likes</span>
+          </span>
+          <span class="shop-meta-line">
+            <b class="shop-meta-label">Effect:</b>
+            <span class="shop-meta-value" data-role="effect">${escapeHtml(describeUpgradeEffect(upgrade))}</span>
+          </span>
         </span>
       </span>
     </button>
@@ -849,7 +858,9 @@ function updatePrestigeDisplay(state) {
     elements.prestigePin.className = level > 0
       ? `prestige-pin prestige-pin-${level}`
       : "prestige-pin prestige-pin-hidden";
-    elements.prestigePin.textContent = tier?.symbol ?? "";
+    elements.prestigePin.innerHTML = tier
+      ? `<img src="${tier.image}" alt="" />`
+      : "";
     elements.prestigePin.title = tier ? `${tier.pinName}: ${tier.description}` : "";
     elements.prestigePin.setAttribute("aria-label", tier ? `${tier.pinName}, prestige ${level}` : "No Go Viral prestige");
   }
@@ -872,7 +883,7 @@ function updatePrestigeDisplay(state) {
   if (level >= PRESTIGE_MAX_LEVEL) {
     elements.prestigePanelKicker.textContent = "Max Viral Prestige";
     elements.prestigePanelTitle.textContent = tier?.pinName ?? "Mythic feed status";
-    elements.prestigePanelCopy.textContent = `Permanent x${currentLpsMultiplier} tower LPS is active. All three public prestige pins are yours.`;
+    elements.prestigePanelCopy.textContent = `Permanent x${currentLpsMultiplier} tower LPS and flat click power are active. Click Boost also scales with tower production.`;
     elements.goViralButton.disabled = true;
     elements.goViralButton.textContent = "Fully Viral";
     return;
@@ -885,11 +896,11 @@ function updatePrestigeDisplay(state) {
     ? `Next pin: ${nextTier.pinName}`
     : "The feed is watching";
   elements.prestigePanelCopy.textContent = eligible
-    ? `Permanent reward: all tower LPS increases from x${currentLpsMultiplier} to x${nextLpsMultiplier}. This resets the current run.`
+    ? `Permanent reward: tower LPS and flat click power increase from x${currentLpsMultiplier} to x${nextLpsMultiplier}. Click Boost also scales with tower production.`
     : "Buy the final tower to make this run eligible for a Go Viral reset.";
   elements.goViralButton.disabled = !eligible;
   elements.goViralButton.textContent = nextTier
-    ? `Go Viral: ${nextTier.symbol} / x${nextLpsMultiplier} LPS`
+    ? `Go Viral: Prestige ${nextTier.level} / x${nextLpsMultiplier} LPS`
     : "Go Viral";
 }
 
@@ -902,7 +913,7 @@ function renderPrestigePin(level, variant = "") {
   }
 
   const variantClass = variant ? ` prestige-pin-${variant}` : "";
-  return `<span class="prestige-pin prestige-pin-${normalizedLevel}${variantClass}" title="${escapeHtml(tier.pinName)}" aria-label="${escapeHtml(tier.pinName)}">${escapeHtml(tier.symbol)}</span>`;
+  return `<span class="prestige-pin prestige-pin-${normalizedLevel}${variantClass}" title="${escapeHtml(tier.pinName)}" aria-label="${escapeHtml(tier.pinName)}"><img src="${tier.image}" alt="" /></span>`;
 }
 
 function updateTopTicker(state) {
@@ -986,8 +997,6 @@ function updateApocalypseEra(state) {
   if (lastApocalypseEraClass !== era.className) {
     elements.body.classList.add(era.className);
     elements.body.dataset.apocalypseEra = era.id;
-    elements.body.dataset.apocalypseLabel = era.label;
-    elements.body.dataset.apocalypseHint = era.unlockHint;
     lastApocalypseEraClass = era.className;
   }
 }
@@ -1148,10 +1157,17 @@ function updateNextUnlock(state) {
 function updateSocial(state) {
   const metric = getLeaderboardMetric(activeLeaderboardMetric);
   const playerValue = getLeaderboardMetricValue(state, metric.id);
-  const rows = getLeaderboardRows(state, {
+  const localRows = getLeaderboardRows(state, {
     scope: activeLeaderboardScope,
     metricId: metric.id
   });
+  const steamView = getSteamLeaderboardView(state, {
+    scope: activeLeaderboardScope,
+    metricId: metric.id
+  });
+  const rows = steamView?.source === "steam" && !steamView.loading
+    ? steamView.rows
+    : localRows;
   const playerRow = rows.find((row) => row.isPlayer);
 
   elements.leaderboardGlobal.classList.toggle("active", activeLeaderboardScope === "global");
@@ -1172,14 +1188,14 @@ function updateSocial(state) {
   elements.leaderboardStatus.innerHTML = `
     <span>${escapeHtml(metric.description)}</span>
     <strong>Your ${escapeHtml(metric.label)}: ${escapeHtml(formatLeaderboardValue(metric.id, playerValue))}</strong>
-    <small>${activeLeaderboardScope === "friends" ? "Friends ranking" : "Global ranking"}</small>
+    <small>${escapeHtml(getLeaderboardSourceLabel(steamView, activeLeaderboardScope))}</small>
   `;
 
   elements.leaderboardList.innerHTML = rows.map((row) => `
     <div class="leaderboard-row ${row.isPlayer ? "is-player" : ""}">
-      <span class="leaderboard-rank">#${row.rank}</span>
+      <span class="leaderboard-rank">${row.rank ? `#${row.rank}` : "—"}</span>
       <span class="leaderboard-player">
-        <strong>${escapeHtml(row.name)}${renderPrestigePin(row.prestigeLevel, "leaderboard")}</strong>
+        <strong><span class="leaderboard-player-name">${escapeHtml(row.name)}</span>${renderPrestigePin(row.prestigeLevel, "leaderboard")}</strong>
         ${row.isPlayer ? "<small>You</small>" : `<small>${activeLeaderboardScope === "friends" ? "Friend" : "Player"}</small>`}
       </span>
       <span class="leaderboard-score">${escapeHtml(formatLeaderboardValue(metric.id, row.score))}</span>
@@ -1189,6 +1205,17 @@ function updateSocial(state) {
   if (playerRow) {
     elements.leaderboardStatus.dataset.rank = `#${playerRow.rank}`;
   }
+}
+
+function getLeaderboardSourceLabel(steamView, scope) {
+  const scopeLabel = scope === "friends" ? "Friends ranking" : "Global ranking";
+  if (steamView?.loading) {
+    return `${scopeLabel} • Connecting to Steam`;
+  }
+  if (steamView?.source === "steam") {
+    return `${scopeLabel} • Live on Steam`;
+  }
+  return `${scopeLabel} • Local preview`;
 }
 
 function updatePossessedFeed(state, rows, metric, playerRow) {
@@ -1225,7 +1252,7 @@ function updatePossessedFeed(state, rows, metric, playerRow) {
 function getPossessedFeedItems(state, rows, metric, playerRow) {
   const slot = Math.floor((state.playTimeSeconds ?? 0) / 9);
   const topRow = rows.find((row) => !row.isPlayer) ?? rows[0];
-  const playerRank = playerRow ? `#${playerRow.rank}` : "unranked";
+  const playerRank = playerRow?.rank ? `#${playerRow.rank}` : "unranked";
   const topPlayerName = topRow?.name ?? "Someone with a concerning amount of free time";
   const scopeName = activeLeaderboardScope === "friends" ? "Steam friends" : "global";
   const contextItems = [
@@ -2394,12 +2421,20 @@ function renderAchievementCards(state) {
     const unlocked = Boolean(state.achievements[achievement.id]);
     return `
       <div class="achievement-card ${unlocked ? "is-unlocked" : "is-locked"}" data-achievement-id="${achievement.id}">
-        <span class="achievement-icon">${escapeHtml(achievement.icon)}</span>
+        <span class="achievement-icon${achievement.image ? " achievement-icon-image" : ""}">${renderAchievementIcon(achievement)}</span>
         <span class="achievement-title">${escapeHtml(achievement.title)}</span>
         <span class="achievement-description">${escapeHtml(achievement.description)}</span>
       </div>
     `;
   }).join("");
+}
+
+function renderAchievementIcon(achievement) {
+  if (achievement.image) {
+    return `<img src="${achievement.image}" alt="" loading="lazy" />`;
+  }
+
+  return escapeHtml(achievement.icon ?? "");
 }
 
 function showTooltip(kind, id, anchor) {
@@ -2409,17 +2444,27 @@ function showTooltip(kind, id, anchor) {
 
 function updateTooltip(kind, id, anchor) {
   const state = handlers.state;
+  elements.tooltip.classList.toggle("tooltip-tower", kind === "tower");
 
   if (kind === "tower") {
     const tower = TOWERS.find((item) => item.id === id);
     const copy = getTowerDisplayCopy(state, tower);
     const amount = getTowerAmount(state, id);
     elements.tooltip.innerHTML = `
-      <div class="tooltip-title">${escapeHtml(copy.displayName)}</div>
-      <div class="tooltip-description">${escapeHtml(copy.description)}</div>
-      <div class="tooltip-line">Each produces <b>${formatNumber(tower.lps * getTowerMultiplierForDisplay(state, id))}</b> Likes/sec</div>
-      <div class="tooltip-line">${formatNumber(amount)} owned produce <b>${formatNumber(getTowerEffectiveLps(state, id))}</b> LPS</div>
-      <div class="tooltip-line"><b>${formatNumber(state.towers[id]?.totalProduced ?? 0)}</b> Likes produced total</div>
+      <div class="tower-tooltip-layout">
+        <div class="tower-tooltip-header">
+          <div class="tooltip-title">${escapeHtml(copy.displayName)}</div>
+          <div class="tooltip-description">${escapeHtml(copy.description)}</div>
+        </div>
+        <div class="tower-tooltip-details">
+          <img class="tower-tooltip-image" src="${tower.image}" alt="${escapeHtml(copy.displayName)}" decoding="async" />
+          <div class="tower-tooltip-stats">
+          <div class="tooltip-line">Each produces <b>${formatNumber(tower.lps * getTowerMultiplierForDisplay(state, id))}</b> Likes/sec</div>
+          <div class="tooltip-line">${formatNumber(amount)} owned produce <b>${formatNumber(getTowerEffectiveLps(state, id))}</b> LPS</div>
+          <div class="tooltip-line"><b>${formatNumber(state.towers[id]?.totalProduced ?? 0)}</b> Likes produced total</div>
+          </div>
+        </div>
+      </div>
     `;
   } else {
     const upgrade = UPGRADES.find((item) => item.id === id);
@@ -2469,7 +2514,7 @@ function showAchievementReaction(achievement) {
   card.className = `achievement-reaction achievement-reaction-${reaction.tier}`;
   card.innerHTML = `
     <span class="achievement-reaction-kicker">${escapeHtml(reaction.kicker)}</span>
-    <span class="achievement-reaction-icon">${escapeHtml(achievement.icon)}</span>
+    <span class="achievement-reaction-icon${achievement.image ? " achievement-reaction-icon-image" : ""}">${renderAchievementIcon(achievement)}</span>
     <strong>${escapeHtml(achievement.title)}</strong>
     <span>${escapeHtml(achievement.description)}</span>
     ${reaction.patchNote
@@ -2545,7 +2590,7 @@ function showPrestigeEvent(result) {
       </div>
       <strong>${escapeHtml(tier.pinName)}</strong>
       <span>${escapeHtml(tier.description)}</span>
-      <div class="prestige-reaction-reward">Permanent reward: all towers now produce x${formatNumber(result.towerLpsMultiplier)} LPS</div>
+      <div class="prestige-reaction-reward">Permanent reward: tower LPS and flat click power are now x${formatNumber(result.towerLpsMultiplier)}</div>
       <small>${escapeHtml(finalTower?.displayName ?? "The final tower")} has been converted into public reputation. The farm is reset. The leaderboard receipts remain.</small>
     </article>
   `;
@@ -2635,6 +2680,8 @@ function showGoViralConfirmation(onConfirm) {
 
   const currentLpsMultiplier = getPrestigeTowerLpsMultiplier(handlers.state);
   const nextLpsMultiplier = getPrestigeTowerLpsMultiplier(nextTier.level);
+  const currentClickMultiplier = getPrestigeClickPowerMultiplier(handlers.state);
+  const nextClickMultiplier = getPrestigeClickPowerMultiplier(nextTier.level);
 
   showModal(`
     <div class="modal-card prestige-confirm-modal">
@@ -2649,14 +2696,14 @@ function showGoViralConfirmation(onConfirm) {
       </div>
       <div class="prestige-confirm-reward">
         <span>Permanent production reward</span>
-        <strong>All tower LPS increases from x${formatNumber(currentLpsMultiplier)} to x${formatNumber(nextLpsMultiplier)}</strong>
-        <small>This multiplier remains active for every tower in all future runs.</small>
+        <strong>Tower LPS increases from x${formatNumber(currentLpsMultiplier)} to x${formatNumber(nextLpsMultiplier)}, and flat clicks from x${formatNumber(currentClickMultiplier)} to x${formatNumber(nextClickMultiplier)}</strong>
+        <small>Click Boost also gains a share of tower production, keeping manual clicks relevant as the farm grows.</small>
       </div>
       <p class="prestige-reset-warning"><b>Reset warning:</b> This resets likes, towers, upgrades, subscribers, milestones, lab effects, local stats, and the current run.</p>
-      <p>Your leaderboard records, prestige history, new pin, and permanent tower multiplier are preserved.</p>
+      <p>Your leaderboard records, prestige history, new pin, and permanent production multipliers are preserved.</p>
       <div class="modal-actions">
         <button type="button" data-modal-close>Cancel</button>
-        <button type="button" id="confirm-go-viral">Go Viral &amp; Unlock x${formatNumber(nextLpsMultiplier)} LPS</button>
+        <button type="button" id="confirm-go-viral">Go Viral &amp; Unlock x${formatNumber(nextLpsMultiplier)} Production</button>
       </div>
     </div>
   `);
@@ -2778,9 +2825,39 @@ function bindStatsViewTabs() {
   elements.overlayContent.querySelectorAll("[data-stats-view]").forEach((button) => {
     button.addEventListener("click", () => {
       activeStatsView = button.dataset.statsView ?? STATS_LIFETIME_VIEW_ID;
-      renderOverlay("stats");
+      updateStatsOverlay(handlers.state);
     });
   });
+}
+
+function updateStatsOverlay(state) {
+  const tabs = elements.overlayContent.querySelector(".stats-view-tabs");
+  const statsList = elements.overlayContent.querySelector(".stats-list");
+
+  if (!tabs || !statsList) {
+    renderOverlay("stats");
+    return;
+  }
+
+  const options = getStatsViewOptions(state);
+  const optionIds = options.map((option) => option.id);
+  const renderedButtons = [...tabs.querySelectorAll("[data-stats-view]")];
+  const renderedIds = renderedButtons.map((button) => button.dataset.statsView);
+
+  if (optionIds.length !== renderedIds.length || optionIds.some((id, index) => id !== renderedIds[index])) {
+    renderOverlay("stats");
+    return;
+  }
+
+  const snapshot = getStatsSnapshotForActiveView(state);
+
+  for (const button of renderedButtons) {
+    const active = button.dataset.statsView === activeStatsView;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-selected", String(active));
+  }
+
+  statsList.innerHTML = renderStatsList(snapshot, state);
 }
 
 function getStatsSnapshotForActiveView(state) {
@@ -2828,7 +2905,7 @@ function renderStatsList(snapshot, state) {
 function getStatsPrestigeLabel(snapshot, state) {
   if (snapshot.isLifetime) {
     const currentTier = getPrestigeTier(state);
-    return currentTier ? `${currentTier.symbol} - ${currentTier.pinName}` : "No public pin";
+    return currentTier ? `Prestige ${currentTier.level} - ${currentTier.pinName}` : "No public pin";
   }
 
   if (!snapshot.hasData) {
@@ -2836,7 +2913,7 @@ function getStatsPrestigeLabel(snapshot, state) {
   }
 
   const tier = getPrestigeTier(snapshot.level);
-  return tier ? `${tier.symbol} - ${tier.pinName}` : "No public pin";
+  return tier ? `Prestige ${tier.level} - ${tier.pinName}` : "No public pin";
 }
 
 function statLine(label, value, title = value) {
@@ -2877,7 +2954,7 @@ function formatUpgradeLevel(upgrade, level) {
 
 function describeUpgradeEffect(upgrade) {
   if (upgrade.type === "clickPower") {
-    return `Click power x${upgrade.effect.multiplier} per level`;
+    return `Flat clicks x${upgrade.effect.multiplier} and +${formatPercent(upgrade.effect.towerLpsSharePerLevel)} tower LPS per level, max ${formatPercent(upgrade.effect.maxTowerLpsShare)}`;
   }
 
   if (upgrade.type === "towerMultiplier") {

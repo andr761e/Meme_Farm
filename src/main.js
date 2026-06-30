@@ -42,6 +42,7 @@ import {
 import { createAudioController } from "./audio.js";
 import { startGameLoop } from "./gameLoop.js";
 import { initUI, showResetConfirmation } from "./ui.js";
+import { initializeSteamIntegration, queueSteamLeaderboardSync } from "./steam.js";
 import { formatDuration, formatNumber } from "./utils/format.js";
 
 const AUTOSAVE_MS = 15000;
@@ -86,6 +87,7 @@ function bootGame() {
 
     if (saveGame(gameState)) {
       dirty = false;
+      queueSteamLeaderboardSync(gameState);
       ui.setSaveStatus(`${label} ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`);
     }
   }
@@ -259,10 +261,15 @@ function bootGame() {
 
         audio.purchase();
         ui.showPrestigeEvent(result);
-        ui.showToast(`${result.tier.pinName} earned. All towers now produce x${formatNumber(result.towerLpsMultiplier)} LPS.`);
+        ui.showToast(`${result.tier.pinName} earned. Tower LPS and flat click power are now x${formatNumber(result.towerLpsMultiplier)}.`);
         markChanged({ meaningful: true, immediate: true });
       });
     }
+  });
+
+  void initializeSteamIntegration({
+    state: gameState,
+    onUpdate: () => ui.update()
   });
 
   audio.init({

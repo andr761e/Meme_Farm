@@ -86,63 +86,63 @@ const LEGACY_OVERCLOCKS = [
   {
     towerId: "shitposter_intern",
     displayName: "Intern Promoted To Lore",
-    multiplier: 720,
+    multiplier: 1000,
     tierFiveCostRatio: 0.77,
     flavor: "Somehow the unpaid labor became load-bearing."
   },
   {
     towerId: "outdated_meme_reposter",
     displayName: "Ancient Format Renaissance",
-    multiplier: 510,
+    multiplier: 1000,
     tierFiveCostRatio: 0.88,
     flavor: "The old template has discovered modern distribution."
   },
   {
     towerId: "edgy_teen",
     displayName: "Cringe Immunity Patch",
-    multiplier: 370,
+    multiplier: 1000,
     tierFiveCostRatio: 1.02,
     flavor: "The phase did not pass; it scaled."
   },
   {
     towerId: "botnet",
     displayName: "Organic Looking Button",
-    multiplier: 265,
+    multiplier: 1000,
     tierFiveCostRatio: 1.17,
     flavor: "Every account is suddenly very enthusiastic and legally distinct."
   },
   {
     towerId: "doomscroller",
     displayName: "Infinite Feed Compression",
-    multiplier: 190,
+    multiplier: 1000,
     tierFiveCostRatio: 1.35,
     flavor: "The scroll has been optimized into a straight line."
   },
   {
     towerId: "meme_subreddit",
     displayName: "Front Page Relicensing",
-    multiplier: 135,
+    multiplier: 1000,
     tierFiveCostRatio: 1.55,
     flavor: "The repost policy is now a revenue strategy."
   },
   {
     towerId: "discord_mod",
     displayName: "Permission Stack Overflow",
-    multiplier: 100,
+    multiplier: 1000,
     tierFiveCostRatio: 1.78,
     flavor: "The roles have roles now."
   },
   {
     towerId: "tiktok_zoomer",
     displayName: "Vertical Velocity Breach",
-    multiplier: 70,
+    multiplier: 1000,
     tierFiveCostRatio: 2.05,
     flavor: "The clip is faster than the explanation."
   },
   {
     towerId: "meme_lord",
     displayName: "Crown Of Old Internet",
-    multiplier: 50,
+    multiplier: 1000,
     tierFiveCostRatio: 2.36,
     flavor: "The throne is deep-fried and extremely expensive."
   }
@@ -152,11 +152,15 @@ const CORE_UPGRADES = [
   {
     id: "power_click",
     displayName: "Click Boost",
-    description: "Makes each meme button press hit harder. Still suspiciously manual.",
+    description: "Doubles flat click power and adds a growing share of tower production to every click.",
     type: "clickPower",
     baseCost: 100,
     costScale: 2.2,
-    effect: { multiplier: 2 },
+    effect: {
+      multiplier: 2,
+      towerLpsSharePerLevel: 0.005,
+      maxTowerLpsShare: 0.05
+    },
     image: iconImage("icon 1 - Tower-baserede challenges.png"),
     unlockAt: {}
   },

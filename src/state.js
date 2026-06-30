@@ -185,6 +185,10 @@ export function getPrestigeTowerLpsMultiplier(stateOrLevel) {
   return getPrestigeTier(stateOrLevel)?.towerLpsMultiplier ?? 1;
 }
 
+export function getPrestigeClickPowerMultiplier(stateOrLevel) {
+  return getPrestigeTier(stateOrLevel)?.clickPowerMultiplier ?? 1;
+}
+
 export function getNextPrestigeTier(state) {
   return PRESTIGE_TIER_BY_LEVEL[getPrestigeLevel(state) + 1] ?? null;
 }
@@ -382,6 +386,7 @@ export function goViral(state, now = Date.now()) {
     tier: nextTier,
     level: nextTier.level,
     towerLpsMultiplier: getPrestigeTowerLpsMultiplier(nextTier.level),
+    clickPowerMultiplier: getPrestigeClickPowerMultiplier(nextTier.level),
     finalTower
   };
 }
@@ -504,21 +509,34 @@ export function getTowerEffectiveLps(state, towerId) {
 }
 
 export function getLikesPerSecond(state, now = Date.now()) {
-  const baseLps = TOWERS.reduce((sum, tower) => sum + getTowerEffectiveLps(state, tower.id), 0);
+  const baseLps = getTowerLikesPerSecond(state);
   return baseLps * getLabBoostMultipliers(state, now).lps * getObscureLpsBoostMultiplier(state, now);
 }
 
+export function getTowerLikesPerSecond(state) {
+  return TOWERS.reduce((sum, tower) => sum + getTowerEffectiveLps(state, tower.id), 0);
+}
+
 export function getClickPower(state) {
-  const basePower = UPGRADES.reduce((power, upgrade) => {
+  const clickEffect = UPGRADES.reduce((effect, upgrade) => {
     if (upgrade.type !== "clickPower") {
-      return power;
+      return effect;
     }
 
     const level = getUpgradeLevel(state, upgrade.id);
-    return power * Math.pow(upgrade.effect.multiplier, level);
-  }, 1);
+    const towerLpsShare = Math.min(
+      upgrade.effect.maxTowerLpsShare ?? Infinity,
+      level * (upgrade.effect.towerLpsSharePerLevel ?? 0)
+    );
+    return {
+      flatMultiplier: effect.flatMultiplier * Math.pow(upgrade.effect.multiplier, level),
+      towerLpsShare: effect.towerLpsShare + towerLpsShare
+    };
+  }, { flatMultiplier: 1, towerLpsShare: 0 });
 
-  return basePower * getLabBoostMultipliers(state).click;
+  const flatPower = clickEffect.flatMultiplier * getPrestigeClickPowerMultiplier(state);
+  const towerPower = getTowerLikesPerSecond(state) * clickEffect.towerLpsShare;
+  return (flatPower + towerPower) * getLabBoostMultipliers(state).click;
 }
 
 export function getActiveLabBoosts(state, now = Date.now()) {

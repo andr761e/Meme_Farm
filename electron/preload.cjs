@@ -28,6 +28,23 @@ contextBridge.exposeInMainWorld("memeFarmPlatform", {
     }
   },
   steam: {
-    available: false
+    getStatus() {
+      return ipcRenderer.invoke("meme-farm-steam:status");
+    },
+    queueScores(scores) {
+      return ipcRenderer.invoke("meme-farm-steam:queue-scores", scores);
+    },
+    getLeaderboard(request) {
+      return ipcRenderer.invoke("meme-farm-steam:get-leaderboard", request);
+    },
+    onLeaderboardUpdated(callback) {
+      if (typeof callback !== "function") {
+        return () => {};
+      }
+
+      const listener = (_event, payload) => callback(payload);
+      ipcRenderer.on("meme-farm-steam:leaderboard-updated", listener);
+      return () => ipcRenderer.removeListener("meme-farm-steam:leaderboard-updated", listener);
+    }
   }
 });

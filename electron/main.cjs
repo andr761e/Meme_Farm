@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, Menu, Tray, nativeImage, screen } = require("electron");
 const fs = require("node:fs");
 const path = require("node:path");
+const { createSteamIntegration } = require("./steam.cjs");
 
 const DEFAULT_DESKTOP_COMPANION_SETTINGS = {
   enabled: true,
@@ -44,6 +45,7 @@ let desktopCompanionSettings = { ...DEFAULT_DESKTOP_COMPANION_SETTINGS };
 let desktopWindowSettings = { ...DEFAULT_DESKTOP_WINDOW_SETTINGS };
 let latestTrayStatus = { ...DEFAULT_TRAY_STATUS };
 let windowBoundsSaveTimer = null;
+let steamIntegration = null;
 
 if (process.platform === "win32") {
   app.setAppUserModelId("com.memefarm.game");
@@ -546,6 +548,18 @@ function showMainWindow() {
 }
 
 app.whenReady().then(() => {
+  steamIntegration = createSteamIntegration({
+    app,
+    ipcMain,
+    getWindows: () => BrowserWindow.getAllWindows()
+  });
+  steamIntegration.installIpc();
+  const steamStartup = steamIntegration.initialize();
+  if (steamStartup.restartRequested) {
+    app.quit();
+    return;
+  }
+
   installSaveIpc();
   installDesktopCompanionIpc();
   installDesktopWindowIpc();
@@ -556,6 +570,10 @@ app.whenReady().then(() => {
       createWindow();
     }
   });
+});
+
+app.on("before-quit", () => {
+  steamIntegration?.shutdown();
 });
 
 app.on("window-all-closed", () => {
