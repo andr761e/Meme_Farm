@@ -3,47 +3,12 @@ import { TOWERS } from "./towers.js";
 const towerImage = (fileName) => `../assets/images/Towers/${fileName}`;
 const iconImage = (fileName) => `../assets/images/icons/${fileName}`;
 
-const STANDARD_TOWER_COST_MULTIPLIERS = [
-  [22.5, 390, 7440, 161000, 3840000],
-  [22.2, 372.1, 6890, 144383, 3337600],
-  [22, 354.9, 6380, 129481, 2899200],
-  [21.6, 338.5, 5909, 116117, 2518400],
-  [21.3, 322.9, 5472, 104132, 2188800],
-  [21.1, 308.1, 5067, 93385, 1900800],
-  [20.8, 294.1, 4693, 83746, 1651200],
-  [20.5, 280.8, 4346, 75102, 1436800],
-  [20.3, 267.5, 4024, 67351, 1248000],
-  [20, 255.8, 3727, 60399, 1084800],
-  [19.7, 244.1, 3452, 54165, 940800],
-  [19.4, 232.4, 3196, 48575, 819200],
-  [19.3, 222.3, 2960, 43562, 710400],
-  [19, 211.4, 2741, 39066, 617600],
-  [18.7, 202, 2538, 35034, 537600],
-  [18.5, 192.7, 2350, 31418, 467200],
-  [18.3, 184.1, 2177, 28175, 406400],
-  [18, 175.5, 2016, 25267, 352000],
-  [17.7, 167.7, 1867, 22659, 306036],
-  [17.6, 159.9, 1729, 20321, 265914],
-  [17.3, 152.1, 1601, 18223, 231052],
-  [17.1, 145.1, 1482, 16342, 200761],
-  [16.8, 138.8, 1373, 14656, 174441],
-  [16.7, 132.6, 1272, 13143, 151571],
-  [16.5, 126.4, 1177, 11787, 131700],
-  [16.2, 120.9, 1091, 10570, 114434],
-  [16, 114.7, 1010, 9479, 99431],
-  [15.8, 110, 935, 8501, 86396],
-  [15.6, 104.5, 866, 7623, 75069],
-  [15.4, 99.8, 802, 6837, 65228],
-  [15.2, 95.2, 743, 6131, 56676],
-  [15, 91.3, 688, 5498, 49246],
-  [14.8, 86.6, 637, 4931, 42789],
-  [14.6, 82.7, 590, 4422, 37180],
-  [14.4, 78.8, 546, 3965, 32305],
-  [14.2, 75.3, 506, 3556, 28070],
-  [14, 71.8, 469, 3189, 24390],
-  [13.9, 68.6, 434, 2860, 21193],
-  [13.7, 65.4, 402, 2565, 18414],
-  [13.5, 62.4, 372, 2300, 16000]
+const STANDARD_TOWER_COST_MULTIPLIER_ENDPOINTS = [
+  [22.5, 13.5],
+  [390, 62.4],
+  [7440, 372],
+  [161000, 2300],
+  [3840000, 16000]
 ];
 const STANDARD_TOWER_UNLOCK_REQUIREMENTS = [
   { tier: 1, amount: 10, costRatio: 0.75 },
@@ -52,8 +17,8 @@ const STANDARD_TOWER_UNLOCK_REQUIREMENTS = [
   { tier: 4, amount: 40, costRatio: 2.5 },
   { tier: 5, amount: 50, costRatio: 4 }
 ];
-const CROSSFEED_FIRST_COST_MULTIPLIER = 5000;
-const CROSSFEED_LAST_COST_MULTIPLIER = 1000;
+const CROSSFEED_FIRST_COST_MULTIPLIER = 30;
+const CROSSFEED_LAST_COST_MULTIPLIER = 15;
 const SUBSCRIBER_SPAWN_UPGRADE_TIERS = [
   { tier: 1, baseCost: 250000, unlockAt: 50000, multiplier: 1.5, name: "Subscriber Bell" },
   { tier: 2, baseCost: 10000000, unlockAt: 2500000, multiplier: 1.6, name: "Notification Bait" },
@@ -79,70 +44,70 @@ const LEGACY_OVERCLOCKS = [
   {
     towerId: "swirling_like_button",
     displayName: "Like Button Legacy Overclock",
-    multiplier: 1000,
+    multiplier: 100,
     tierFiveCostRatio: 0.67,
     flavor: "The starter button refuses to become irrelevant."
   },
   {
     towerId: "shitposter_intern",
     displayName: "Intern Promoted To Lore",
-    multiplier: 1000,
+    multiplier: 100,
     tierFiveCostRatio: 0.77,
     flavor: "Somehow the unpaid labor became load-bearing."
   },
   {
     towerId: "outdated_meme_reposter",
     displayName: "Ancient Format Renaissance",
-    multiplier: 1000,
+    multiplier: 100,
     tierFiveCostRatio: 0.88,
     flavor: "The old template has discovered modern distribution."
   },
   {
     towerId: "edgy_teen",
     displayName: "Cringe Immunity Patch",
-    multiplier: 1000,
+    multiplier: 100,
     tierFiveCostRatio: 1.02,
     flavor: "The phase did not pass; it scaled."
   },
   {
     towerId: "botnet",
     displayName: "Organic Looking Button",
-    multiplier: 1000,
+    multiplier: 100,
     tierFiveCostRatio: 1.17,
     flavor: "Every account is suddenly very enthusiastic and legally distinct."
   },
   {
     towerId: "doomscroller",
     displayName: "Infinite Feed Compression",
-    multiplier: 1000,
+    multiplier: 100,
     tierFiveCostRatio: 1.35,
     flavor: "The scroll has been optimized into a straight line."
   },
   {
     towerId: "meme_subreddit",
     displayName: "Front Page Relicensing",
-    multiplier: 1000,
+    multiplier: 100,
     tierFiveCostRatio: 1.55,
     flavor: "The repost policy is now a revenue strategy."
   },
   {
     towerId: "discord_mod",
     displayName: "Permission Stack Overflow",
-    multiplier: 1000,
+    multiplier: 100,
     tierFiveCostRatio: 1.78,
     flavor: "The roles have roles now."
   },
   {
     towerId: "tiktok_zoomer",
     displayName: "Vertical Velocity Breach",
-    multiplier: 1000,
+    multiplier: 100,
     tierFiveCostRatio: 2.05,
     flavor: "The clip is faster than the explanation."
   },
   {
     towerId: "meme_lord",
     displayName: "Crown Of Old Internet",
-    multiplier: 1000,
+    multiplier: 100,
     tierFiveCostRatio: 2.36,
     flavor: "The throne is deep-fried and extremely expensive."
   }
@@ -155,7 +120,7 @@ const CORE_UPGRADES = [
     description: "Doubles flat click power and adds a growing share of tower production to every click.",
     type: "clickPower",
     baseCost: 100,
-    costScale: 2.2,
+    costScale: 2.20,
     effect: {
       multiplier: 2,
       towerLpsSharePerLevel: 0.005,
@@ -273,22 +238,25 @@ export const UPGRADE_BY_ID = Object.fromEntries(UPGRADES.map((upgrade) => [upgra
 
 function createStandardTowerUpgrades(tower, towerIndex) {
   const costMultipliers = getStandardTowerCostMultipliers(towerIndex);
+  const productionMultipliers = [2, 3, 4, 5, 6];
 
   return costMultipliers.map((costMultiplier, index) => {
     const tier = index + 1;
     const unlockRequirement = STANDARD_TOWER_UNLOCK_REQUIREMENTS[index];
     const baseCost = Math.ceil(tower.baseCost * costMultiplier);
+    const productionMultiplier = productionMultipliers[index];
 
     return {
       id: `${tower.id}_double_${tier}`,
+      legacyIds: (tower.retiredIds ?? []).map((retiredId) => `${retiredId}_double_${tier}`),
       displayName: `${getTowerUpgradeName(tower)} ${tier}`,
-      description: `A one-time upgrade that doubles ${tower.displayName} LPS.`,
+      description: `A one-time upgrade that multiplies ${tower.displayName} LPS by x${productionMultiplier}.`,
       type: "towerMultiplier",
       category: "standardTowerDouble",
       baseCost,
       costScale: 1,
       maxLevel: 1,
-      effect: { towerId: tower.id, multiplier: 2 },
+      effect: { towerId: tower.id, multiplier: productionMultiplier },
       image: tower.image,
       unlockAt: {
         towerId: tower.id,
@@ -317,6 +285,7 @@ function createTowerSynergyUpgrade(tower, index) {
 
   return {
     id: `${tower.id}_crossfeed_${sourceTower.id}`,
+    legacyIds: tower.retiredCrossfeedIds ?? [],
     displayName: `${tower.displayName} Crossfeed`,
     description: countsAllOtherTowers
       ? `${tower.displayName} gets +${formatPercent(perTowerBonus)} LPS for every other tower you own. No cap. The small button has unionized the entire shop.`
@@ -387,7 +356,13 @@ function createLegacyTowerUpgrade(config) {
 }
 
 function getStandardTowerCostMultipliers(towerIndex) {
-  return STANDARD_TOWER_COST_MULTIPLIERS[towerIndex] ?? STANDARD_TOWER_COST_MULTIPLIERS[STANDARD_TOWER_COST_MULTIPLIERS.length - 1];
+  const progress = TOWERS.length > 1
+    ? Math.max(0, Math.min(1, towerIndex / (TOWERS.length - 1)))
+    : 0;
+
+  return STANDARD_TOWER_COST_MULTIPLIER_ENDPOINTS.map(([first, last]) => (
+    first * Math.pow(last / first, progress)
+  ));
 }
 
 function createSubscriberSpawnUpgrade(tierConfig) {

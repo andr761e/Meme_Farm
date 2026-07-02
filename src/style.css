@@ -25,6 +25,9 @@
   --shadow-soft: 0 10px 28px rgba(0, 0, 0, 0.32);
   --shadow-strong: 0 22px 55px rgba(0, 0, 0, 0.52);
   --font-main: "Inter", "Aptos", "Segoe UI", "Helvetica Neue", Arial, system-ui, sans-serif;
+  --font-game-display: "Bahnschrift Condensed", "Arial Narrow", Impact, Haettenschweiler, sans-serif;
+  --font-game-ui: "Trebuchet MS", "Aptos", "Segoe UI", Arial, sans-serif;
+  --font-game-terminal: "Cascadia Mono", Consolas, "Lucida Console", monospace;
 }
 
 * {
@@ -66,6 +69,30 @@ body {
   font-family: var(--font-main);
   font-feature-settings: "kern" 1;
   text-rendering: geometricPrecision;
+}
+
+html,
+body,
+body * {
+  cursor: url("../assets/images/cursors/tower-cursor.png") 6 3, auto !important;
+}
+
+body :where(
+  button,
+  a,
+  input,
+  select,
+  textarea,
+  label,
+  [role="button"],
+  [role="tab"],
+  [role="option"],
+  .shop-card,
+  .subscriber,
+  .lab-boost-card,
+  .bad-idea-button
+):not(:disabled):not([aria-disabled="true"]) {
+  cursor: url("../assets/images/cursors/tower-cursor-interactive.png") 9 1, pointer !important;
 }
 
 .app-surface {
@@ -641,6 +668,12 @@ textarea:focus-visible {
   backdrop-filter: blur(12px);
   position: relative;
   z-index: 20;
+  -webkit-app-region: drag;
+}
+
+.nav-tabs,
+.nav-tabs button {
+  -webkit-app-region: no-drag;
 }
 
 .brand-lockup {
@@ -1647,6 +1680,462 @@ body.era-multiverse-collapse .divider {
 }
 
 .middle-tabs,
+/* Social and Meme Lab typography: loud display faces, readable copy, terminal-like data. */
+.middle-tabs .middle-tab-button {
+  font-family: var(--font-game-display);
+  font-size: 0.94rem;
+  font-stretch: condensed;
+  font-weight: 900;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+#tab-social,
+#tab-lab {
+  font-family: var(--font-game-ui);
+}
+
+.social-header .eyebrow,
+.lab-program-header .eyebrow {
+  font-family: var(--font-game-terminal);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+}
+
+.social-header h2,
+.lab-program-header h2 {
+  font-family: var(--font-game-display);
+  font-stretch: condensed;
+  font-weight: 900;
+  letter-spacing: 0.015em;
+  line-height: 0.95;
+  text-transform: uppercase;
+}
+
+.social-header h2 {
+  color: #f7fbff;
+  text-shadow: 2px 2px 0 rgba(255, 79, 216, 0.18), 0 0 18px rgba(66, 232, 255, 0.16);
+}
+
+.lab-program-header h2 {
+  color: #fff8c9;
+  text-shadow: 2px 2px 0 rgba(255, 95, 109, 0.15), 0 0 18px rgba(255, 230, 109, 0.13);
+}
+
+.social-header p,
+.lab-program-header p,
+.lab-boost-description,
+.bad-idea-result span,
+.bad-idea-outcome span {
+  font-family: var(--font-game-ui);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.social-header p,
+.lab-program-header p {
+  font-size: 0.94rem;
+}
+
+.leaderboard-scope button,
+.leaderboard-metric-toggle span,
+.leaderboard-metric-option strong,
+.lab-program-tab strong,
+.lab-boost-topline strong,
+.bad-idea-result strong,
+.bad-idea-outcomes h3,
+.bad-idea-outcome strong {
+  font-family: var(--font-game-display);
+  font-weight: 900;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.leaderboard-scope button {
+  font-size: 0.82rem;
+  letter-spacing: 0.055em;
+}
+
+.leaderboard-metric-toggle span {
+  letter-spacing: 0.025em;
+}
+
+.leaderboard-metric-toggle small,
+.leaderboard-metric-option small {
+  font-family: var(--font-game-ui);
+}
+
+.leaderboard-metric-category,
+.possessed-feed-header span,
+.possessed-feed-header strong,
+.possessed-feed-actor,
+.possessed-feed-meta,
+.leaderboard-status small,
+.leaderboard-rank,
+.leaderboard-score,
+.leaderboard-player small,
+.lab-program-tab span,
+.lab-boost-topline span,
+.lab-boost-effects span,
+.lab-boost-cost,
+.bad-idea-button-cost,
+.bad-idea-button-state,
+.bad-idea-result small,
+.bad-idea-outcome small {
+  font-family: var(--font-game-terminal);
+  font-variant-numeric: tabular-nums;
+}
+
+.leaderboard-metric-category {
+  letter-spacing: 0.13em;
+}
+
+.possessed-feed-header span {
+  letter-spacing: 0.12em;
+}
+
+.possessed-feed-text,
+.leaderboard-player strong,
+.leaderboard-status > span {
+  font-family: var(--font-game-ui);
+}
+
+.leaderboard-player strong {
+  font-weight: 900;
+  letter-spacing: 0.015em;
+}
+
+.leaderboard-player small,
+.leaderboard-status small {
+  letter-spacing: 0.055em;
+  text-transform: uppercase;
+}
+
+.leaderboard-rank {
+  letter-spacing: -0.04em;
+}
+
+.leaderboard-score {
+  letter-spacing: -0.035em;
+  text-shadow: 0 0 12px rgba(66, 232, 255, 0.18);
+}
+
+.leaderboard-status > span {
+  font-size: 0.88rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.leaderboard-status strong {
+  font-family: var(--font-game-display);
+  font-size: 1.02rem;
+  font-weight: 900;
+  letter-spacing: 0.025em;
+}
+
+.leaderboard-status small {
+  font-size: 0.7rem;
+}
+
+.lab-program-tab strong {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.lab-program-tab span {
+  letter-spacing: 0.08em;
+}
+
+.lab-boost-topline strong {
+  font-size: 1.08rem;
+  line-height: 1;
+}
+
+.lab-boost-topline span {
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.lab-boost-effects span,
+.lab-boost-cost {
+  letter-spacing: -0.025em;
+}
+
+.bad-idea-button-label {
+  font-family: var(--font-game-display);
+  font-weight: 900;
+  letter-spacing: 0.055em;
+  line-height: 0.92;
+  text-shadow: 2px 2px 0 rgba(255, 95, 109, 0.35), 0 0 18px rgba(255, 230, 109, 0.16);
+}
+
+.bad-idea-result strong {
+  font-size: 1.08rem;
+}
+
+.bad-idea-result small {
+  letter-spacing: 0.1em;
+}
+
+.bad-idea-outcomes h3 {
+  letter-spacing: 0.06em;
+}
+
+.bad-idea-outcome strong {
+  font-size: 0.96rem;
+}
+
+.bad-idea-outcome small {
+  letter-spacing: 0.035em;
+}
+
+/* Overlay and shop typography, matching the Social and Meme Lab treatment. */
+.nav-tabs button,
+.shop-tabs button {
+  font-family: var(--font-game-display);
+  font-stretch: condensed;
+  font-weight: 900;
+  letter-spacing: 0.055em;
+  text-transform: uppercase;
+}
+
+.nav-tabs button {
+  font-size: 0.78rem;
+}
+
+.shop-tabs button {
+  font-size: 0.9rem;
+  letter-spacing: 0.085em;
+}
+
+.overlay-card {
+  font-family: var(--font-game-ui);
+}
+
+.overlay-card #overlay-title {
+  margin-right: 44px;
+  font-family: var(--font-game-display);
+  font-stretch: condensed;
+  font-weight: 900;
+  letter-spacing: 0.025em;
+  line-height: 0.95;
+  text-transform: uppercase;
+  text-shadow: 2px 2px 0 rgba(255, 79, 216, 0.16), 0 0 18px rgba(66, 232, 255, 0.15);
+}
+
+.overlay-card .overlay-subtitle,
+.nav-overlay[data-overlay="info"] #overlay-content > p,
+.options-section p,
+.takeover-option small,
+.owned-core-card small,
+.owned-crossfeed-item span,
+.empty-upgrade-state,
+.upgrade-dashboard-note,
+.achievement-description {
+  font-family: var(--font-game-ui);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.stats-view-tab,
+.options-section button {
+  font-family: var(--font-game-display);
+  font-weight: 900;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+}
+
+.stat-line span {
+  font-family: var(--font-game-ui);
+  font-weight: 800;
+  letter-spacing: 0.015em;
+}
+
+.stat-line strong {
+  font-family: var(--font-game-terminal);
+  font-variant-numeric: tabular-nums;
+  font-weight: 900;
+  letter-spacing: -0.025em;
+  text-shadow: 0 0 12px rgba(255, 230, 109, 0.12);
+}
+
+.milestone-summary strong,
+.upgrade-summary-card strong,
+.owned-core-card b,
+.upgrade-tier-row span,
+.crossfeed-web-header b,
+.crossfeed-web-header em {
+  font-family: var(--font-game-terminal);
+  font-variant-numeric: tabular-nums;
+}
+
+.milestone-summary strong {
+  letter-spacing: -0.035em;
+}
+
+.milestone-summary span {
+  font-family: var(--font-game-ui);
+  font-weight: 700;
+}
+
+.achievement-title,
+.upgrade-dashboard-section h3,
+.owned-core-card strong,
+.owned-crossfeed-item strong,
+.tower-upgrade-heading strong,
+.tower-crossfeed-status strong,
+.crossfeed-web-header strong,
+.crossfeed-node strong {
+  font-family: var(--font-game-display);
+  font-stretch: condensed;
+  font-weight: 900;
+  letter-spacing: 0.025em;
+  text-transform: uppercase;
+}
+
+.achievement-title {
+  line-height: 1.05;
+}
+
+.achievement-icon {
+  font-family: var(--font-game-terminal);
+  font-variant-numeric: tabular-nums;
+}
+
+.upgrade-summary-card > span,
+.upgrade-summary-card > small,
+.tower-upgrade-heading span,
+.tower-crossfeed-status span {
+  font-family: var(--font-game-ui);
+}
+
+.upgrade-summary-card > span,
+.upgrade-dashboard-section h3,
+.options-section h3 {
+  text-transform: uppercase;
+}
+
+.upgrade-summary-card > span {
+  font-family: var(--font-game-display);
+  font-weight: 900;
+  letter-spacing: 0.04em;
+}
+
+.upgrade-summary-card > strong {
+  letter-spacing: -0.04em;
+}
+
+.upgrade-dashboard-section h3,
+.options-section h3 {
+  font-family: var(--font-game-display);
+  font-stretch: condensed;
+  font-weight: 900;
+  letter-spacing: 0.07em;
+}
+
+.crossfeed-web-header small,
+.crossfeed-wire-label,
+.crossfeed-node small,
+.crossfeed-node b,
+.crossfeed-warning {
+  font-family: var(--font-game-terminal);
+  font-variant-numeric: tabular-nums;
+}
+
+.options-section strong,
+.takeover-option strong,
+.volume-control strong,
+.screen-size-control strong {
+  font-family: var(--font-game-ui);
+  font-weight: 900;
+}
+
+.options-section small,
+.volume-control small,
+.screen-size-control small,
+.options-section select {
+  font-family: var(--font-game-terminal);
+  font-variant-numeric: tabular-nums;
+}
+
+.nav-overlay[data-overlay="info"] #overlay-content > p {
+  max-width: 64ch;
+  font-size: 0.96rem;
+  line-height: 1.55;
+}
+
+.shop-content {
+  font-family: var(--font-game-ui);
+}
+
+.tower-card .shop-name,
+.upgrade-card .shop-name {
+  font-family: var(--font-game-display);
+  font-size: 1.02rem;
+  font-stretch: condensed;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.tower-card .shop-meta-label,
+.upgrade-card .shop-meta-label {
+  font-family: var(--font-game-display);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.tower-card .shop-meta-value,
+.upgrade-card .shop-meta-value,
+.shop-count,
+.shop-state,
+.next-unlock {
+  font-family: var(--font-game-terminal);
+  font-variant-numeric: tabular-nums;
+}
+
+.tower-card .shop-meta-value,
+.upgrade-card .shop-meta-value {
+  font-size: 0.75rem;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+}
+
+.shop-count,
+.shop-state {
+  letter-spacing: -0.025em;
+}
+
+.next-unlock {
+  font-size: 0.78rem;
+  letter-spacing: 0.015em;
+  text-transform: uppercase;
+}
+
+.tooltip {
+  font-family: var(--font-game-ui);
+}
+
+.tooltip strong,
+.tooltip-title,
+.tower-tooltip-header strong {
+  font-family: var(--font-game-display);
+  font-weight: 900;
+  letter-spacing: 0.025em;
+  text-transform: uppercase;
+}
+
+.tooltip-line,
+.tower-tooltip-stats {
+  font-family: var(--font-game-terminal);
+  font-variant-numeric: tabular-nums;
+}
+
 .shop-tabs {
   display: grid;
   gap: 6px;
@@ -1977,8 +2466,7 @@ body.era-multiverse-collapse .divider {
 .possessed-feed {
   display: grid;
   gap: 8px;
-  max-height: 172px;
-  overflow: hidden;
+  overflow: visible;
   padding: 10px;
   border: 1px solid rgba(66, 232, 255, 0.24);
   border-radius: 10px;
@@ -3864,6 +4352,11 @@ body.takeover-meme-lord.takeover-cursed-tiktok .tower-card .shop-name-letter {
   font-size: 0.88rem;
   font-weight: 950;
   text-align: center;
+}
+
+.escape-menu-modal .danger {
+  min-height: 46px;
+  font-weight: 900;
 }
 
 .achievement-reaction-icon-image {

@@ -11,7 +11,8 @@
     "check": "node scripts/smoke-check.cjs",
     "build": "npm run check",
     "electron": "electron .",
-    "package:electron": "electron-builder"
+    "package:electron": "electron-builder",
+    "steam:upload": "powershell -ExecutionPolicy Bypass -File scripts/upload-steam.ps1"
   },
   "build": {
     "appId": "com.memefarm.game",
@@ -34,6 +35,9 @@
     ],
     "directories": {
       "output": "dist"
+    },
+    "win": {
+      "icon": "assets/images/app icon/meme-button.png"
     }
   },
   "devDependencies": {

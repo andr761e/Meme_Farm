@@ -58,14 +58,14 @@ export const MEME_LAB_PROGRAMS = [
     type: "bad_idea_button",
     title: "Bad Idea Button",
     eyebrow: "Questionable research",
-    description: "Spend subscribers to press one large button that should not be pressed. No tower LPS doubling, just immediate consequences.",
+    description: "Spend subscribers to press one large button that should not be pressed. No tower LPS multipliers, just immediate consequences.",
     subscriberCost: 80,
     outcomes: [
       {
         id: "random_tower_shipment",
         name: "Random Tower Shipment",
         description: "Gain 5 of one currently unlocked tower.",
-        weight: 1,
+        weight: 15,
         type: "awardRandomTower",
         amount: 5,
         towerPool: "unlocked"
@@ -74,7 +74,7 @@ export const MEME_LAB_PROGRAMS = [
         id: "starter_pack_misdelivery",
         name: "Starter Pack Misdelivery",
         description: "Gain 12 of a random starter tower.",
-        weight: 1,
+        weight: 10,
         type: "awardRandomTower",
         amount: 12,
         towerPool: "starter"
@@ -83,7 +83,7 @@ export const MEME_LAB_PROGRAMS = [
         id: "emergency_repost",
         name: "Emergency Repost",
         description: "Gain 1,200 seconds of your current LPS as Likes, with a small minimum payout.",
-        weight: 28,
+        weight: 24,
         type: "addLikesFromLps",
         seconds: 1200,
         minimumLikes: 250
@@ -92,17 +92,17 @@ export const MEME_LAB_PROGRAMS = [
         id: "clickbait_sprint",
         name: "Clickbait Sprint",
         description: "Gain 10,000 clicks worth of Likes instantly.",
-        weight: 24,
+        weight: 20,
         type: "addLikesFromClicks",
         clicks: 10000
       },
       {
         id: "audience_confusion",
         name: "Audience Confusion",
-        description: "Gain 40 subscribers because nobody can tell if this is ironic.",
-        weight: 18,
+        description: "Gain 120 subscribers because nobody can tell if this is ironic.",
+        weight: 11,
         type: "addSubscribers",
-        amount: 40,
+        amount: 120,
         consequence: {
           id: "comment_section_riot",
           title: "Comment Section Riot",
@@ -114,7 +114,7 @@ export const MEME_LAB_PROGRAMS = [
         id: "brand_deal_invoice",
         name: "Brand Deal Invoice",
         description: "Lose up to 30 seconds of current LPS from your Likes.",
-        weight: 14,
+        weight: 10,
         type: "loseLikesFromLps",
         seconds: 30,
         consequence: {
@@ -128,7 +128,7 @@ export const MEME_LAB_PROGRAMS = [
         id: "awkward_apology_video",
         name: "Awkward Apology Video",
         description: "Lose 3 extra subscribers after paying the button cost.",
-        weight: 8,
+        weight: 5,
         type: "loseSubscribers",
         amount: 3,
         consequence: {
@@ -142,7 +142,7 @@ export const MEME_LAB_PROGRAMS = [
         id: "nothing_happens_loudly",
         name: "Nothing Happens, Loudly",
         description: "No reward. The button makes a confident noise.",
-        weight: 6,
+        weight: 5,
         type: "nothing",
         consequence: {
           id: "algorithm_denial_letter",

@@ -42,7 +42,12 @@ import {
 import { createAudioController } from "./audio.js";
 import { startGameLoop } from "./gameLoop.js";
 import { initUI, showResetConfirmation } from "./ui.js";
-import { initializeSteamIntegration, queueSteamLeaderboardSync } from "./steam.js";
+import {
+  initializeSteamIntegration,
+  queueSteamLeaderboardSync,
+  queueSteamStatSync,
+  syncSteamAchievements
+} from "./steam.js";
 import { formatDuration, formatNumber } from "./utils/format.js";
 
 const AUTOSAVE_MS = 15000;
@@ -63,7 +68,10 @@ function bootGame() {
   function markChanged({ meaningful = false, immediate = false } = {}) {
     dirty = true;
     updateLeaderboardRecords(gameState);
-    checkAchievements({ ui });
+    const achievementsChanged = checkAchievements({ ui });
+    if (achievementsChanged) {
+      void syncSteamAchievements(gameState);
+    }
     ui.update();
 
     if (immediate) {
@@ -88,6 +96,7 @@ function bootGame() {
     if (saveGame(gameState)) {
       dirty = false;
       queueSteamLeaderboardSync(gameState);
+      queueSteamStatSync(gameState);
       ui.setSaveStatus(`${label} ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`);
     }
   }
@@ -227,14 +236,6 @@ function bootGame() {
       gameState.settings.visualTakeovers[takeoverId] = Boolean(enabled);
       markChanged({ meaningful: true });
     },
-    onSetDesktopCompanion: (settingId, enabled) => {
-      gameState.settings.desktopCompanion = {
-        ...getDesktopCompanionSettings(gameState),
-        [settingId]: Boolean(enabled)
-      };
-      syncDesktopCompanion({ configure: true });
-      markChanged({ meaningful: true });
-    },
     onSetDesktopWindowSize: (sizePreset) => {
       gameState.settings.desktopWindow = {
         ...getDesktopWindowSettings(gameState),
@@ -242,6 +243,10 @@ function bootGame() {
       };
       syncDesktopWindow();
       markChanged({ meaningful: true });
+    },
+    onExitGame: () => {
+      flushSave("Saved");
+      getDesktopPlatform()?.closeWindow?.();
     },
     onGoViralRequest: () => {
       if (!canGoViral(gameState)) {
@@ -293,7 +298,7 @@ function bootGame() {
   const offlineReportLines = createOfflineCompanionReport(gameState, offlineProgress);
   ui.showOfflineModal({
     ...offlineProgress,
-    companionLines: getDesktopCompanionSettings(gameState).offlineReports ? offlineReportLines : []
+    companionLines: offlineReportLines
   });
   notifyOfflineReport(offlineProgress, offlineReportLines);
 
@@ -557,7 +562,7 @@ function createTowerOfflineLine(tower, amount) {
     meme_lord: `${formatNumber(amount)} Meme Lords issued royal decrees in Impact font.`,
     eternal_rickroll_loop: `${formatNumber(amount)} Rickroll Loops kept user trust at historically unsafe levels.`,
     reality_glitcher: `${formatNumber(amount)} Reality Glitchers moved three pixels of the desktop somewhere legally unclear.`,
-    cursed_tiktok_cultist: `${formatNumber(amount)} Cursed TikTok Cultists posted rituals disguised as productivity tips.`,
+    tiktok_zoomer: `${formatNumber(amount)} TikTok Zoomers posted vertical edits disguised as productivity tips.`,
     the_algorithm: `${formatNumber(amount)} Algorithms denied involvement while signing every report.`
   };
 

@@ -3,7 +3,18 @@ import {
   getLeaderboardMetric,
   getLeaderboardMetricValue
 } from "./leaderboards.js";
-import { getPrestigeLevel } from "./state.js";
+import { ACHIEVEMENTS } from "./data/achievements.js";
+import { TOWERS } from "./data/towers.js";
+import { UPGRADES } from "./data/upgrades.js";
+import { MEME_LAB_BOOSTS } from "./data/memeLab.js";
+import {
+  getLikesPerSecond,
+  getPrestigeLevel,
+  getTotalTowersOwned,
+  getTowerAmount,
+  getUnlockedAchievementCount,
+  getUpgradeLevel
+} from "./state.js";
 
 const LEADERBOARD_CACHE_MS = 60000;
 const SCORE_DETAIL_SCHEMA_VERSION = 1;
@@ -12,6 +23,62 @@ const SCORE_SIGNIFICAND_SCALE = 100000000;
 const SCORE_BUCKET_SIZE = 6000000;
 const SCORE_BUCKET_MAX = SCORE_BUCKET_SIZE - 1;
 const SCORE_SYNC_DELAY_MS = 1500;
+const STAT_SYNC_DELAY_MS = 60000;
+const LEGACY_OVERCLOCK_COUNT = UPGRADES.filter((upgrade) => upgrade.category === "legacyOverclock").length;
+const ALL_MILESTONES_COUNT = ACHIEVEMENTS.length;
+
+export const STEAM_ACHIEVEMENTS = Object.freeze([
+  { milestoneId: "first_click", apiName: "MF_ACH_FIRST_CLICK" },
+  { milestoneId: "first_tower", apiName: "MF_ACH_FIRST_TOWER" },
+  { milestoneId: "first_subscriber", apiName: "MF_ACH_FIRST_SUBSCRIBER" },
+  { milestoneId: "likes_10000", apiName: "MF_ACH_LIKES_10K" },
+  { milestoneId: "first_five_towers", apiName: "MF_ACH_FIRST_FIVE_TOWERS" },
+  { milestoneId: "likes_1000000", apiName: "MF_ACH_LIKES_1M" },
+  { milestoneId: "towers_100", apiName: "MF_ACH_TOWERS_100" },
+  { milestoneId: "lps_1000", apiName: "MF_ACH_LPS_1K" },
+  { milestoneId: "subscribers_1000", apiName: "MF_ACH_SUBSCRIBERS_1K" },
+  { milestoneId: "upgrade_levels_25", apiName: "MF_ACH_UPGRADE_LEVELS_25" },
+  { milestoneId: "tower_level_5_first", apiName: "MF_ACH_TOWER_LEVEL_5_FIRST" },
+  { milestoneId: "meme_lab_first_bribe", apiName: "MF_ACH_FIRST_ALGORITHM_BRIBE" },
+  { milestoneId: "bad_idea_first_press", apiName: "MF_ACH_FIRST_BAD_IDEA" },
+  { milestoneId: "crossfeed_first", apiName: "MF_ACH_FIRST_CROSSFEED" },
+  { milestoneId: "legacy_overclock_first", apiName: "MF_ACH_FIRST_LEGACY_OVERCLOCK" },
+  { milestoneId: "likes_100000000", apiName: "MF_ACH_LIKES_100M" },
+  { milestoneId: "towers_500", apiName: "MF_ACH_TOWERS_500" },
+  { milestoneId: "lps_1000000", apiName: "MF_ACH_LPS_1M" },
+  { milestoneId: "upgrade_levels_100", apiName: "MF_ACH_UPGRADE_LEVELS_100" },
+  { milestoneId: "meme_lab_all_bribes", apiName: "MF_ACH_ALL_ALGORITHM_BRIBES" },
+  { milestoneId: "prestige_1", apiName: "MF_ACH_PRESTIGE_1" },
+  { milestoneId: "likes_1000000000", apiName: "MF_ACH_LIKES_1B" },
+  { milestoneId: "all_towers_first", apiName: "MF_ACH_ALL_TOWERS" },
+  { milestoneId: "crossfeed_10", apiName: "MF_ACH_CROSSFEEDS_10" },
+  { milestoneId: "legacy_overclock_5", apiName: "MF_ACH_LEGACY_OVERCLOCKS_5" },
+  { milestoneId: "prestige_2", apiName: "MF_ACH_PRESTIGE_2" },
+  { milestoneId: "tower_level_5_all", apiName: "MF_ACH_ALL_TOWERS_LEVEL_5" },
+  { milestoneId: "crossfeed_all", apiName: "MF_ACH_ALL_CROSSFEEDS" },
+  { milestoneId: "legacy_overclock_all", apiName: "MF_ACH_ALL_LEGACY_OVERCLOCKS" },
+  { milestoneId: "prestige_3", apiName: "MF_ACH_PRESTIGE_3" },
+  {
+    apiName: "MF_ACH_ALL_MILESTONES",
+    isEarned: (state) => getUnlockedAchievementCount(state) >= ALL_MILESTONES_COUNT
+  }
+]);
+
+export const STEAM_STATS = Object.freeze([
+  { apiName: "MF_STAT_TOTAL_LIKES", max: 1000000000 },
+  { apiName: "MF_STAT_TOTAL_TOWERS", max: 500 },
+  { apiName: "MF_STAT_PEAK_LPS", max: 1000000 },
+  { apiName: "MF_STAT_SUBSCRIBERS", max: 1000 },
+  { apiName: "MF_STAT_UPGRADE_LEVELS", max: 100 },
+  { apiName: "MF_STAT_STARTER_TOWERS", max: 5 },
+  { apiName: "MF_STAT_DISTINCT_TOWERS", max: TOWERS.length },
+  { apiName: "MF_STAT_LEVEL_5_TOWERS", max: TOWERS.length },
+  { apiName: "MF_STAT_BRIBE_TYPES", max: MEME_LAB_BOOSTS.length },
+  { apiName: "MF_STAT_CROSSFEEDS", max: TOWERS.length },
+  { apiName: "MF_STAT_LEGACY_OVERCLOCKS", max: LEGACY_OVERCLOCK_COUNT },
+  { apiName: "MF_STAT_PRESTIGE_LEVEL", max: 3 },
+  { apiName: "MF_STAT_MILESTONES_UNLOCKED", max: ALL_MILESTONES_COUNT }
+]);
 
 let steamStatus = {
   checked: false,
@@ -24,6 +91,7 @@ let steamStatus = {
 let updateHandler = null;
 let latestSyncState = null;
 let syncTimer = null;
+let statSyncTimer = null;
 let removeLeaderboardListener = null;
 const leaderboardCache = new Map();
 const leaderboardRequests = new Map();
@@ -61,6 +129,7 @@ export async function initializeSteamIntegration({ state, onUpdate } = {}) {
 
     if (steamStatus.available && latestSyncState) {
       queueSteamLeaderboardSync(latestSyncState, { immediate: true });
+      void syncSteamStartupProgress(latestSyncState);
     }
   } catch (error) {
     steamStatus = {
@@ -92,6 +161,131 @@ export function queueSteamLeaderboardSync(state, { immediate = false } = {}) {
     syncTimer = null;
     void submitLeaderboardScores();
   }, SCORE_SYNC_DELAY_MS);
+}
+
+export function queueSteamStatSync(state, { immediate = false } = {}) {
+  latestSyncState = state;
+  if (!steamStatus.available || !state) {
+    return;
+  }
+
+  if (immediate) {
+    window.clearTimeout(statSyncTimer);
+    statSyncTimer = null;
+    void submitSteamStats();
+    return;
+  }
+
+  if (statSyncTimer) {
+    return;
+  }
+  statSyncTimer = window.setTimeout(() => {
+    statSyncTimer = null;
+    void submitSteamStats();
+  }, STAT_SYNC_DELAY_MS);
+}
+
+export function getSteamStatValues(state) {
+  const achievements = state?.achievements ?? {};
+  const records = state?.leaderboardRecords ?? {};
+  const totalUpgradeLevels = Object.values(state?.upgrades ?? {})
+    .reduce((sum, upgrade) => sum + Math.max(0, Number(upgrade?.level) || 0), 0);
+  const starterTowers = TOWERS.slice(0, 5)
+    .filter((tower) => getTowerAmount(state, tower.id) >= 1).length;
+  const distinctTowers = TOWERS
+    .filter((tower) => getTowerAmount(state, tower.id) >= 1).length;
+  const levelFiveTowers = TOWERS
+    .filter((tower) => getUpgradeLevel(state, `${tower.id}_double_5`) >= 1).length;
+  const bribeTypes = MEME_LAB_BOOSTS
+    .filter((boost) => (state?.lab?.boostPurchaseCounts?.[boost.id] ?? 0) >= 1).length;
+  const crossfeeds = UPGRADES
+    .filter((upgrade) => upgrade.type === "towerAmountSynergy" && getUpgradeLevel(state, upgrade.id) >= 1).length;
+  const legacyOverclocks = UPGRADES
+    .filter((upgrade) => upgrade.category === "legacyOverclock" && getUpgradeLevel(state, upgrade.id) >= 1).length;
+
+  const values = {
+    MF_STAT_TOTAL_LIKES: Math.max(Number(state?.totalLikesEver) || 0, Number(records.totalLikesEver) || 0, achievementFloor(achievements, [["likes_1000000000", 1000000000], ["likes_100000000", 100000000], ["likes_1000000", 1000000], ["likes_10000", 10000]])),
+    MF_STAT_TOTAL_TOWERS: Math.max(getTotalTowersOwned(state), Number(records.totalTowersOwned) || 0, achievementFloor(achievements, [["towers_500", 500], ["towers_100", 100]])),
+    MF_STAT_PEAK_LPS: Math.max(getLikesPerSecond(state), Number(records.highestLps) || 0, achievementFloor(achievements, [["lps_1000000", 1000000], ["lps_1000", 1000]])),
+    MF_STAT_SUBSCRIBERS: Math.max(Number(state?.totalSubscribersEver) || 0, Number(records.subscribersCollected) || 0, achievementFloor(achievements, [["subscribers_1000", 1000]])),
+    MF_STAT_UPGRADE_LEVELS: Math.max(totalUpgradeLevels, achievementFloor(achievements, [["upgrade_levels_100", 100], ["upgrade_levels_25", 25]])),
+    MF_STAT_STARTER_TOWERS: Math.max(starterTowers, achievementFloor(achievements, [["first_five_towers", 5]])),
+    MF_STAT_DISTINCT_TOWERS: Math.max(distinctTowers, achievementFloor(achievements, [["all_towers_first", TOWERS.length]])),
+    MF_STAT_LEVEL_5_TOWERS: Math.max(levelFiveTowers, achievementFloor(achievements, [["tower_level_5_all", TOWERS.length], ["tower_level_5_10", 10], ["tower_level_5_first", 1]])),
+    MF_STAT_BRIBE_TYPES: Math.max(bribeTypes, achievementFloor(achievements, [["meme_lab_all_bribes", MEME_LAB_BOOSTS.length], ["meme_lab_first_bribe", 1]])),
+    MF_STAT_CROSSFEEDS: Math.max(crossfeeds, achievementFloor(achievements, [["crossfeed_all", TOWERS.length], ["crossfeed_10", 10], ["crossfeed_first", 1]])),
+    MF_STAT_LEGACY_OVERCLOCKS: Math.max(legacyOverclocks, achievementFloor(achievements, [["legacy_overclock_all", LEGACY_OVERCLOCK_COUNT], ["legacy_overclock_5", 5], ["legacy_overclock_first", 1]])),
+    MF_STAT_PRESTIGE_LEVEL: Math.max(getPrestigeLevel(state), Number(records.prestigeLevel) || 0, achievementFloor(achievements, [["prestige_3", 3], ["prestige_2", 2], ["prestige_1", 1]])),
+    MF_STAT_MILESTONES_UNLOCKED: Math.max(getUnlockedAchievementCount(state), Number(records.milestonesUnlocked) || 0)
+  };
+
+  return STEAM_STATS.map(({ apiName, max }) => ({
+    apiName,
+    value: Math.min(max, Math.max(0, Math.floor(Number(values[apiName]) || 0)))
+  }));
+}
+
+async function submitSteamStats() {
+  const bridge = getSteamBridge();
+  if (!bridge?.syncStats || !latestSyncState || !steamStatus.available) {
+    return;
+  }
+
+  try {
+    const result = await bridge.syncStats(getSteamStatValues(latestSyncState));
+    if (result?.missing?.length > 0) {
+      console.warn(`Steam stat definitions are missing: ${result.missing.join(", ")}`);
+    }
+  } catch (error) {
+    console.warn("Steam progress-stat sync failed.", error);
+  }
+}
+
+async function syncSteamStartupProgress(state) {
+  await syncSteamAchievements(state);
+  await submitSteamStats();
+}
+
+function achievementFloor(achievements, thresholds) {
+  for (const [milestoneId, value] of thresholds) {
+    if (achievements?.[milestoneId]) {
+      return value;
+    }
+  }
+  return 0;
+}
+
+export async function syncSteamAchievements(state) {
+  const bridge = getSteamBridge();
+  if (!steamStatus.available || !bridge?.syncAchievements || !state) {
+    return { available: false, synced: 0 };
+  }
+
+  const apiNames = getEarnedSteamAchievementApiNames(state);
+  if (apiNames.length === 0) {
+    return { available: true, synced: 0 };
+  }
+
+  try {
+    const result = await bridge.syncAchievements(apiNames);
+    if (result?.missing?.length > 0) {
+      console.warn(`Steam achievement definitions are missing: ${result.missing.join(", ")}`);
+    }
+    return result;
+  } catch (error) {
+    console.warn("Steam achievement sync failed.", error);
+    return { available: false, synced: 0 };
+  }
+}
+
+export function getEarnedSteamAchievementApiNames(state) {
+  return STEAM_ACHIEVEMENTS
+    .filter(({ milestoneId, isEarned }) => (
+      typeof isEarned === "function"
+        ? isEarned(state)
+        : Boolean(state?.achievements?.[milestoneId])
+    ))
+    .map(({ apiName }) => apiName);
 }
 
 export function getSteamLeaderboardView(state, { metricId, scope } = {}) {

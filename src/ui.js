@@ -147,11 +147,11 @@ const POSSESSED_FEED_TOWER_LINES = [
     meta: "machine humor"
   },
   {
-    towerId: "viral_singularity",
+    towerId: "cursed_content_forge",
     tone: "viral",
-    actor: "Viral Singularity",
-    text: "Every For You Page briefly became a mirror pointed at your meme.",
-    meta: "feed event"
+    actor: "Cursed Content Forge",
+    text: "The forge exported one forbidden format and every feed began rendering it.",
+    meta: "format breach"
   },
   {
     towerId: "eternal_rickroll_loop",
@@ -175,18 +175,18 @@ const POSSESSED_FEED_TOWER_LINES = [
     meta: "market open"
   },
   {
-    towerId: "forbidden_archivist",
+    towerId: "internet_historian",
     tone: "archive",
-    actor: "Archivist",
+    actor: "Internet Historian",
     text: "Recovered a deleted post from a timeline where this was briefly tasteful.",
-    meta: "forbidden cache"
+    meta: "lore cache"
   },
   {
-    towerId: "cursed_tiktok_cultist",
+    towerId: "tiktok_zoomer",
     tone: "ritual",
-    actor: "TikTok Ritual",
+    actor: "TikTok Zoomer",
     text: "The captions synced perfectly and the comments began chanting the metric.",
-    meta: "3 AM format"
+    meta: "vertical format"
   },
   {
     towerId: "meme_pope",
@@ -367,9 +367,9 @@ const TAKEOVER_OPTIONS = [
   },
   {
     id: "cursedTikTok",
-    towerId: "cursed_tiktok_cultist",
-    label: "Cursed TikTok text ritual",
-    description: "Tower names physically wave from Cursed TikTok Cultist."
+    towerId: "tiktok_zoomer",
+    label: "TikTok text wave",
+    description: "Tower names physically wave from TikTok Zoomer."
   },
   {
     id: "algorithm",
@@ -414,6 +414,7 @@ export function initUI(options) {
   bindPrestigeControls();
   bindShopTabs();
   bindSocialControls();
+  bindKeyboardShortcuts();
 
   return {
     update: () => updateUI(options.state),
@@ -606,12 +607,6 @@ function bindSocialControls() {
     }
   });
 
-  document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") {
-      setMetricListOpen(false);
-    }
-  });
-
   for (const button of [elements.leaderboardGlobal, elements.leaderboardFriends]) {
     button.addEventListener("click", () => {
       activeLeaderboardScope = button.dataset.leaderboardScope;
@@ -619,6 +614,33 @@ function bindSocialControls() {
     });
   }
 
+}
+
+function bindKeyboardShortcuts() {
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape" || event.repeat) {
+      return;
+    }
+
+    if (!elements.leaderboardMetricList.hidden) {
+      setMetricListOpen(false);
+      return;
+    }
+
+    if (activeOverlay) {
+      closeOverlay();
+      return;
+    }
+
+    if (!elements.modalRoot.hidden) {
+      if (elements.modalRoot.querySelector(".escape-menu-modal")) {
+        closeModal();
+      }
+      return;
+    }
+
+    showEscapeMenu();
+  });
 }
 
 function setMetricListOpen(open) {
@@ -1347,8 +1369,8 @@ function getPossessedFeedStatus(state) {
     return "Papal commentary live";
   }
 
-  if (getTowerAmount(state, "cursed_tiktok_cultist") > 0) {
-    return "Ritual comments detected";
+  if (getTowerAmount(state, "tiktok_zoomer") > 0) {
+    return "Vertical comments detected";
   }
 
   if (getTowerAmount(state, "discord_mod") > 0) {
@@ -1527,7 +1549,7 @@ function getTowerTakeoverConfig(state) {
   const memeLords = settings.memeLord ? getTowerAmount(state, "meme_lord") : 0;
   const rickrollLoops = settings.rickrollLoop ? getTowerAmount(state, "eternal_rickroll_loop") : 0;
   const realityGlitchers = settings.realityGlitcher ? getTowerAmount(state, "reality_glitcher") : 0;
-  const cursedTikTokCultists = settings.cursedTikTok ? getTowerAmount(state, "cursed_tiktok_cultist") : 0;
+  const cursedTikTokCultists = settings.cursedTikTok ? getTowerAmount(state, "tiktok_zoomer") : 0;
   const algorithms = settings.algorithm ? getTowerAmount(state, "the_algorithm") : 0;
 
   return {
@@ -2022,7 +2044,7 @@ function renderOverlay(type) {
       <p class="overlay-subtitle">Track your owned upgrades, tower chains, Crossfeed synergies, and late-game Legacy Overclocks in one place.</p>
       <div class="upgrade-summary-grid">
         ${upgradeSummaryCard("Core Levels", formatNumber(getCoreUpgradeLevelCount(state)), "Click Boost and 48h offline capacity levels")}
-        ${upgradeSummaryCard("One-Time Owned", `${formatNumber(ownedOneTimeCount)} / ${formatNumber(totalOneTimeCount)}`, "Tower doubles, Crossfeeds, and overclocks")}
+        ${upgradeSummaryCard("One-Time Owned", `${formatNumber(ownedOneTimeCount)} / ${formatNumber(totalOneTimeCount)}`, "Tower multipliers, Crossfeeds, and overclocks")}
         ${upgradeSummaryCard("Active Towers", `${formatNumber(activeTowerChains.length)} / ${formatNumber(TOWERS.length)}`, "Towers with at least one owned upgrade")}
         ${upgradeSummaryCard("Legacy Overclocks", `${formatNumber(ownedLegacyOverclocks.length)} / ${formatNumber(getLegacyOverclockUpgradeCount())}`, "Declining late-game revival boosts")}
       </div>
@@ -2088,16 +2110,8 @@ function renderOverlay(type) {
     const volumePercent = Math.round((state.settings.volume ?? 1) * 100);
     const visualTakeoverSettings = getVisualTakeoverSettings(state);
     const availableTakeoverOptions = getAvailableTakeoverOptions(state);
-    const desktopCompanionSettings = getDesktopCompanionSettings(state);
     const desktopWindowSettings = getDesktopWindowSettings(state);
     const desktopWindowControlsAvailable = hasDesktopWindowControls();
-    const desktopCompanionOptions = [
-      ["enabled", "Enable desktop companion", "Master switch for every desktop-adjacent behavior."],
-      ["trayStatus", "Tray status", "Keep a tiny tray/status menu with current progress."],
-      ["taskbarFlash", "Taskbar attention flash", "Let big moments request attention from the taskbar."],
-      ["offlineReports", "Absurd offline reports", "Add tower-specific nonsense to the away report."],
-      ["titleMischief", "Unhinged window title", "Let the title bar rotate through cursed status lines."]
-    ];
     elements.overlayContent.innerHTML = `
       <h2 id="overlay-title">Options</h2>
       <div class="options-panel">
@@ -2131,21 +2145,6 @@ function renderOverlay(type) {
             </select>
           </label>
         </section>
-        <section class="options-section" aria-labelledby="desktop-companion-options-title">
-          <h3 id="desktop-companion-options-title">Desktop Companion</h3>
-          <p>Control how much Meme Farm is allowed to behave like a cursed desktop side-game.</p>
-          <div class="takeover-option-list">
-            ${desktopCompanionOptions.map(([id, label, description]) => `
-              <label class="takeover-option" for="desktop-companion-${id}">
-                <input id="desktop-companion-${id}" type="checkbox" data-desktop-companion="${id}" ${desktopCompanionSettings[id] ? "checked" : ""} />
-                <span>
-                  <strong>${escapeHtml(label)}</strong>
-                  <small>${escapeHtml(description)}</small>
-                </span>
-              </label>
-            `).join("")}
-          </div>
-        </section>
         ${availableTakeoverOptions.length > 0
           ? `<section class="options-section" aria-labelledby="visual-options-title">
           <h3 id="visual-options-title">Visuals</h3>
@@ -2163,11 +2162,6 @@ function renderOverlay(type) {
           </div>
         </section>`
           : ""}
-        <section class="options-section" aria-labelledby="save-options-title">
-          <h3 id="save-options-title">Progress</h3>
-          <p>Your progress saves automatically.</p>
-          <button type="button" id="reset-game" class="danger">Reset Save</button>
-        </section>
       </div>
     `;
     const volumeSlider = document.getElementById("volume-slider");
@@ -2193,12 +2187,6 @@ function renderOverlay(type) {
         handlers.onSetVisualTakeover(event.currentTarget.dataset.visualTakeover, event.currentTarget.checked);
       });
     });
-    document.querySelectorAll("[data-desktop-companion]").forEach((input) => {
-      input.addEventListener("change", (event) => {
-        handlers.onSetDesktopCompanion(event.currentTarget.dataset.desktopCompanion, event.currentTarget.checked);
-      });
-    });
-    document.getElementById("reset-game").addEventListener("click", handlers.onResetRequest);
     return;
   }
 
@@ -2711,6 +2699,29 @@ function showGoViralConfirmation(onConfirm) {
   document.getElementById("confirm-go-viral").addEventListener("click", () => {
     closeModal();
     onConfirm?.();
+  });
+}
+
+function showEscapeMenu() {
+  const desktopExitAvailable = Boolean(globalThis.window?.memeFarmPlatform?.desktop?.closeWindow);
+
+  showModal(`
+    <div class="modal-card escape-menu-modal">
+      <span class="eyebrow">Meme Farm paused</span>
+      <h2>Step Away From The Feed?</h2>
+      <p>Your progress saves automatically. You can also close the game safely from here.</p>
+      <div class="modal-actions">
+        <button type="button" data-modal-close>Resume Posting</button>
+        ${desktopExitAvailable
+          ? `<button type="button" id="confirm-exit-game" class="danger">Save &amp; Exit Game</button>`
+          : ""}
+      </div>
+    </div>
+  `);
+
+  document.getElementById("confirm-exit-game")?.addEventListener("click", () => {
+    closeModal();
+    handlers.onExitGame?.();
   });
 }
 

@@ -1,0 +1,15 @@
+"AppBuild"
+{
+	"AppID" "4906780"
+	"Desc" "Meme Farm Windows build"
+	"Preview" "0"
+	"SetLive" ""
+	"ContentRoot" "..\dist\win-unpacked\"
+	"BuildOutput" "..\steamworks_sdk\tools\ContentBuilder\output\meme-farm\"
+	"Verbose" "0"
+
+	"Depots"
+	{
+		"4906781" "depot_build_4906781.vdf"
+	}
+}

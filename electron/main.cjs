@@ -46,6 +46,8 @@ let desktopWindowSettings = { ...DEFAULT_DESKTOP_WINDOW_SETTINGS };
 let latestTrayStatus = { ...DEFAULT_TRAY_STATUS };
 let windowBoundsSaveTimer = null;
 let steamIntegration = null;
+let pendingLeaveFullScreenHandler = null;
+let windowModeTransitionId = 0;
 
 if (process.platform === "win32") {
   app.setAppUserModelId("com.memefarm.game");
@@ -54,11 +56,15 @@ if (process.platform === "win32") {
 function createWindow() {
   desktopWindowSettings = readDesktopWindowSettings();
   const windowBounds = readWindowBounds(desktopWindowSettings);
+  const appIconPath = path.join(__dirname, "..", "assets", "images", "app icon", "meme-button.png");
   mainWindow = new BrowserWindow({
     ...windowBounds,
     minWidth: MIN_WINDOW_SIZE.width,
     minHeight: MIN_WINDOW_SIZE.height,
     useContentSize: true,
+    frame: false,
+    autoHideMenuBar: true,
+    icon: appIconPath,
     resizable: false,
     maximizable: false,
     fullscreen: isFullscreenPreset(desktopWindowSettings.sizePreset),
@@ -299,48 +305,136 @@ function applyDesktopWindowSettings(settings) {
     return;
   }
 
-  mainWindow.setResizable(false);
-  mainWindow.setMaximizable(false);
+  const transitionId = windowModeTransitionId + 1;
+  windowModeTransitionId = transitionId;
+  clearPendingLeaveFullScreenHandler();
 
   if (isFullscreenPreset(settings.sizePreset)) {
     saveWindowBoundsNow();
-    const display = screen.getDisplayMatching(mainWindow.getBounds());
     mainWindow.setResizable(true);
-    mainWindow.setBounds(display.bounds);
+    mainWindow.setMaximizable(true);
     mainWindow.setFullScreen(true);
-    mainWindow.setResizable(false);
     scheduleDesktopWindowZoom();
     return;
   }
+
+  const dimensions = getWindowDimensions(settings.sizePreset);
 
   const applyFixedBounds = () => {
     if (!mainWindow || mainWindow.isDestroyed()) {
       return;
     }
 
+    if (pendingLeaveFullScreenHandler === applyFixedBounds) {
+      pendingLeaveFullScreenHandler = null;
+    }
+
     const currentBounds = mainWindow.getNormalBounds();
-    const dimensions = getWindowDimensions(settings.sizePreset);
     const nextBounds = ensureWindowBoundsVisible({
       ...currentBounds,
       width: dimensions.width,
       height: dimensions.height
     });
 
-    mainWindow.setResizable(false);
-    mainWindow.setMaximizable(false);
-    applyDesktopWindowZoom(settings);
-    mainWindow.setContentSize(dimensions.width, dimensions.height);
-    mainWindow.setPosition(nextBounds.x, nextBounds.y);
-    saveWindowBoundsNow();
+    forceFixedWindowBounds(settings, nextBounds, transitionId);
   };
 
   if (mainWindow.isFullScreen()) {
-    mainWindow.once("leave-full-screen", applyFixedBounds);
+    pendingLeaveFullScreenHandler = applyFixedBounds;
+    mainWindow.once("leave-full-screen", pendingLeaveFullScreenHandler);
+    mainWindow.setResizable(true);
     mainWindow.setFullScreen(false);
+
+    setTimeout(() => {
+      if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.isFullScreen() && pendingLeaveFullScreenHandler === applyFixedBounds) {
+        clearPendingLeaveFullScreenHandler();
+        applyFixedBounds();
+      }
+    }, 150);
+
+    setTimeout(() => {
+      if (!mainWindow || mainWindow.isDestroyed() || windowModeTransitionId !== transitionId) {
+        return;
+      }
+
+      if (mainWindow.isFullScreen()) {
+        mainWindow.setFullScreen(false);
+        return;
+      }
+
+      if (pendingLeaveFullScreenHandler === applyFixedBounds) {
+        clearPendingLeaveFullScreenHandler();
+        applyFixedBounds();
+      }
+    }, 500);
     return;
   }
 
   applyFixedBounds();
+}
+
+function clearPendingLeaveFullScreenHandler() {
+  if (!mainWindow || mainWindow.isDestroyed() || !pendingLeaveFullScreenHandler) {
+    pendingLeaveFullScreenHandler = null;
+    return;
+  }
+
+  mainWindow.removeListener("leave-full-screen", pendingLeaveFullScreenHandler);
+  pendingLeaveFullScreenHandler = null;
+}
+
+function forceFixedWindowBounds(settings, bounds, transitionId, attemptsRemaining = 5) {
+  if (!mainWindow || mainWindow.isDestroyed() || windowModeTransitionId !== transitionId) {
+    return;
+  }
+
+  if (mainWindow.isFullScreen()) {
+    mainWindow.setResizable(true);
+    mainWindow.setFullScreen(false);
+    setTimeout(() => forceFixedWindowBounds(settings, bounds, transitionId, attemptsRemaining), 140);
+    return;
+  }
+
+  mainWindow.setResizable(true);
+  mainWindow.setMaximizable(false);
+
+  if (mainWindow.isMaximized()) {
+    mainWindow.unmaximize();
+  }
+
+  mainWindow.restore();
+  applyDesktopWindowZoom(settings);
+  mainWindow.setBounds(bounds, false);
+  mainWindow.setContentSize(bounds.width, bounds.height);
+  mainWindow.setPosition(bounds.x, bounds.y);
+
+  const contentBounds = mainWindow.getContentBounds();
+  const landed = Math.abs(contentBounds.width - bounds.width) <= 2 &&
+    Math.abs(contentBounds.height - bounds.height) <= 2;
+
+  if (!landed && attemptsRemaining > 0) {
+    setTimeout(() => forceFixedWindowBounds(settings, bounds, transitionId, attemptsRemaining - 1), 140);
+    return;
+  }
+
+  finishFixedWindowResize(settings, transitionId);
+}
+
+function finishFixedWindowResize(settings, transitionId) {
+  setTimeout(() => {
+    if (!mainWindow || mainWindow.isDestroyed() || mainWindow.isFullScreen()) {
+      return;
+    }
+
+    if (desktopWindowSettings.sizePreset !== settings.sizePreset || windowModeTransitionId !== transitionId) {
+      return;
+    }
+
+    mainWindow.setResizable(false);
+    mainWindow.setMaximizable(false);
+    applyDesktopWindowZoom(settings);
+    saveWindowBoundsNow();
+  }, 80);
 }
 
 function installDesktopCompanionIpc() {
@@ -364,6 +458,12 @@ function installDesktopWindowIpc() {
     desktopWindowSettings = normalizeDesktopWindowSettings(settings);
     saveDesktopWindowSettingsNow();
     applyDesktopWindowSettings(desktopWindowSettings);
+  });
+
+  ipcMain.on("meme-farm-window:close", () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.close();
+    }
   });
 }
 
@@ -516,7 +616,7 @@ function destroyTray() {
 }
 
 function getTrayIcon() {
-  const iconPath = path.join(__dirname, "..", "assets", "images", "meme-button", "meme-button.png");
+  const iconPath = path.join(__dirname, "..", "assets", "images", "app icon", "meme-button.png");
   const icon = nativeImage.createFromPath(iconPath);
   return icon.isEmpty() ? nativeImage.createEmpty() : icon.resize({ width: 16, height: 16 });
 }
@@ -548,6 +648,7 @@ function showMainWindow() {
 }
 
 app.whenReady().then(() => {
+  Menu.setApplicationMenu(null);
   steamIntegration = createSteamIntegration({
     app,
     ipcMain,

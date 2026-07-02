@@ -65,6 +65,126 @@ async function main() {
     throw new Error("Electron and renderer Steam leaderboard names must stay in sync.");
   }
 
+  const expectedSteamAchievementMilestones = new Set([
+    "first_click",
+    "first_tower",
+    "first_subscriber",
+    "likes_10000",
+    "first_five_towers",
+    "likes_1000000",
+    "towers_100",
+    "lps_1000",
+    "subscribers_1000",
+    "upgrade_levels_25",
+    "tower_level_5_first",
+    "meme_lab_first_bribe",
+    "bad_idea_first_press",
+    "crossfeed_first",
+    "legacy_overclock_first",
+    "likes_100000000",
+    "towers_500",
+    "lps_1000000",
+    "upgrade_levels_100",
+    "meme_lab_all_bribes",
+    "prestige_1",
+    "likes_1000000000",
+    "all_towers_first",
+    "crossfeed_10",
+    "legacy_overclock_5",
+    "prestige_2",
+    "tower_level_5_all",
+    "crossfeed_all",
+    "legacy_overclock_all",
+    "prestige_3"
+  ]);
+  const expectedSteamOnlyAchievements = new Set([
+    "MF_ACH_ALL_MILESTONES"
+  ]);
+  const rendererAchievementNames = new Set(steamModule.STEAM_ACHIEVEMENTS.map(({ apiName }) => apiName));
+  const rendererAchievementMilestones = new Set(
+    steamModule.STEAM_ACHIEVEMENTS
+      .map(({ milestoneId }) => milestoneId)
+      .filter(Boolean)
+  );
+  if (
+    rendererAchievementNames.size !== steamElectronModule.STEAM_ACHIEVEMENT_API_NAMES.size ||
+    [...rendererAchievementNames].some((name) => !steamElectronModule.STEAM_ACHIEVEMENT_API_NAMES.has(name))
+  ) {
+    throw new Error("Electron and renderer Steam achievement names must stay in sync.");
+  }
+  if (
+    rendererAchievementMilestones.size !== expectedSteamAchievementMilestones.size ||
+    [...expectedSteamAchievementMilestones].some((id) => !rendererAchievementMilestones.has(id))
+  ) {
+    throw new Error("The published Steam achievement set must map all selected milestones.");
+  }
+  if ([...expectedSteamOnlyAchievements].some((apiName) => !rendererAchievementNames.has(apiName))) {
+    throw new Error("The published Steam achievement set must include the Steam-only capstone achievements.");
+  }
+  const catalogAchievementIds = new Set(achievementsModule.ACHIEVEMENTS.map(({ id }) => id));
+  if (
+    steamModule.STEAM_ACHIEVEMENTS.some(({ milestoneId, apiName }) => (
+      (milestoneId && !catalogAchievementIds.has(milestoneId)) || !/^MF_ACH_[A-Z0-9_]+$/.test(apiName)
+    ))
+  ) {
+    throw new Error("Every Steam achievement must map a real milestone to a Steam-ready API name.");
+  }
+
+  const rendererStatNames = new Set(steamModule.STEAM_STATS.map(({ apiName }) => apiName));
+  if (
+    steamModule.STEAM_STATS.length !== 13 ||
+    rendererStatNames.size !== 13 ||
+    rendererStatNames.size !== steamElectronModule.STEAM_STAT_API_NAMES.size ||
+    [...rendererStatNames].some((name) => !steamElectronModule.STEAM_STAT_API_NAMES.has(name))
+  ) {
+    throw new Error("Electron and renderer Steam progress-stat names must stay in sync.");
+  }
+
+  const progressState = stateModule.createDefaultState();
+  progressState.leaderboardRecords.totalLikesEver = 1e20;
+  progressState.leaderboardRecords.totalTowersOwned = 999;
+  progressState.leaderboardRecords.highestLps = 2e6;
+  progressState.leaderboardRecords.subscribersCollected = 5000;
+  progressState.achievements.upgrade_levels_100 = { unlockedAt: Date.now() };
+  progressState.achievements.first_five_towers = { unlockedAt: Date.now() };
+  progressState.achievements.all_towers_first = { unlockedAt: Date.now() };
+  progressState.achievements.tower_level_5_all = { unlockedAt: Date.now() };
+  progressState.achievements.meme_lab_all_bribes = { unlockedAt: Date.now() };
+  progressState.achievements.crossfeed_all = { unlockedAt: Date.now() };
+  progressState.achievements.legacy_overclock_all = { unlockedAt: Date.now() };
+  progressState.achievements.prestige_3 = { unlockedAt: Date.now() };
+  progressState.leaderboardRecords.milestonesUnlocked = achievementsModule.ACHIEVEMENTS.length + 20;
+  const progressValues = Object.fromEntries(
+    steamModule.getSteamStatValues(progressState).map(({ apiName, value }) => [apiName, value])
+  );
+  const expectedProgressValues = {
+    MF_STAT_TOTAL_LIKES: 1000000000,
+    MF_STAT_TOTAL_TOWERS: 500,
+    MF_STAT_PEAK_LPS: 1000000,
+    MF_STAT_SUBSCRIBERS: 1000,
+    MF_STAT_UPGRADE_LEVELS: 100,
+    MF_STAT_STARTER_TOWERS: 5,
+    MF_STAT_DISTINCT_TOWERS: towersModule.TOWERS.length,
+    MF_STAT_LEVEL_5_TOWERS: towersModule.TOWERS.length,
+    MF_STAT_BRIBE_TYPES: memeLabModule.MEME_LAB_BOOSTS.length,
+    MF_STAT_CROSSFEEDS: towersModule.TOWERS.length,
+    MF_STAT_LEGACY_OVERCLOCKS: upgradesModule.UPGRADES.filter((upgrade) => upgrade.category === "legacyOverclock").length,
+    MF_STAT_PRESTIGE_LEVEL: 3,
+    MF_STAT_MILESTONES_UNLOCKED: achievementsModule.ACHIEVEMENTS.length
+  };
+  if (Object.entries(expectedProgressValues).some(([apiName, value]) => progressValues[apiName] !== value)) {
+    throw new Error("Steam progress stats should preserve milestone floors and clamp to published maxima.");
+  }
+
+  const capstoneState = stateModule.createDefaultState();
+  for (const achievement of achievementsModule.ACHIEVEMENTS) {
+    capstoneState.achievements[achievement.id] = { unlockedAt: Date.now() };
+  }
+  const earnedCapstoneApiNames = new Set(steamModule.getEarnedSteamAchievementApiNames(capstoneState));
+  if (!earnedCapstoneApiNames.has("MF_ACH_ALL_MILESTONES")) {
+    throw new Error("The all-milestones Steam capstone should unlock when every in-game milestone is earned.");
+  }
+
   let previousSteamScore = -1;
   for (const value of [0, 1, 10, 999, 1e6, 2147483647, 1e18, 1e45, 1e306, Number.MAX_VALUE]) {
     const encoded = steamElectronModule.encodeLeaderboardValue(value, 3);
@@ -273,14 +393,89 @@ async function main() {
     throw new Error("Expected upgrade milestones to unlock from their matching upgrade purchases.");
   }
 
-  const firstFive = towersModule.TOWERS.slice(0, 5);
-  if (firstFive.some((tower) => tower.unlockAt?.totalLikesEver !== 0)) {
-    throw new Error("The first five towers should be visible at the start.");
+  const expectedTowerEconomy = [
+    ["swirling_like_button", 0.25, 10],
+    ["shitposter_intern", 2.5, 116],
+    ["outdated_meme_reposter", 25, 1340],
+    ["edgy_teen", 125, 7730],
+    ["botnet", 625, 44700],
+    ["doomscroller", 3125, 258000],
+    ["meme_subreddit", 15625, 1490000],
+    ["discord_mod", 78125, 8630000],
+    ["tiktok_zoomer", 390625, 49900000],
+    ["meme_lord", 1953125, 289000000],
+    ["ai_meme_generator", 9765625, 1.67e9],
+    ["internet_historian", 48828125, 9.64e9],
+    ["cursed_content_forge", 244140625, 5.57e10],
+    ["elons_meme_brainchip", 1220703125, 3.22e11],
+    ["meme_multiverse_server", 6103515625, 1.86e12],
+    ["boomer_facebook_group", 30517578125, 1.08e13],
+    ["irony_engine", 152587890625, 6.23e13],
+    ["fourchan_core_reactor", 762939453125, 3.6e14],
+    ["eternal_rickroll_loop", 3814697265625, 2.08e15],
+    ["wojak_factory", 19073486328125, 1.2e16],
+    ["copium_refinery", 95367431640625, 6.95e16],
+    ["nft_cemetery", 476837158203125, 4.02e17],
+    ["cringe_singularity", 2384185791015625, 2.32e18],
+    ["ceo_of_memes", 11920928955078125, 1.34e19],
+    ["reality_glitcher", 59604644775390625, 7.77e19],
+    ["sigma_godfather", 298023223876953125, 4.49e20],
+    ["chrono_poster", 1490116119384765625, 2.6e21],
+    ["memeconomist", 7450580596923828125, 1.5e22],
+    ["zuckerbot_9000", 37252902984619140625, 8.68e22],
+    ["meme_pope", 186264514923095703125, 5.02e23],
+    ["ai_thinks_its_funny", 9.313225746154785e20, 2.9e24],
+    ["the_algorithm", 4.656612873077393e21, 1.68e25]
+  ];
+  if (
+    towersModule.TOWERS.length !== expectedTowerEconomy.length ||
+    towersModule.TOWERS.some((tower, index) => (
+      tower.id !== expectedTowerEconomy[index][0] ||
+      tower.lps !== expectedTowerEconomy[index][1] ||
+      tower.baseCost !== expectedTowerEconomy[index][2] ||
+      tower.unlockAt?.totalLikesEver !== 0
+    ))
+  ) {
+    throw new Error("Expected the recommended 32-tower LPS and base-cost progression.");
+  }
+
+  const migratedRosterSave = saveModule.mergeSaveData({
+    saveVersion: 1,
+    towers: {
+      cursed_content_forge: { amount: 2, totalProduced: 10 },
+      viral_singularity: { amount: 3, totalProduced: 20 },
+      meme_pope: { amount: 1, totalProduced: 5 },
+      forbidden_archivist: { amount: 2, totalProduced: 15 },
+      cursed_tiktok_cultist: { amount: 3, totalProduced: 25 }
+    },
+    upgrades: {
+      viral_singularity_double_5: { level: 1 },
+      viral_singularity_crossfeed_internet_historian: { level: 1 }
+    },
+    achievements: {
+      tower_viral_singularity_first: { unlockedAt: 1 },
+      upgrade_viral_singularity_double_5: { unlockedAt: 2 },
+      upgrade_viral_singularity_crossfeed: { unlockedAt: 3 }
+    }
+  });
+  if (
+    stateModule.SAVE_VERSION !== 2 ||
+    migratedRosterSave.towers.cursed_content_forge.amount !== 5 ||
+    migratedRosterSave.towers.cursed_content_forge.totalProduced !== 30 ||
+    migratedRosterSave.towers.meme_pope.amount !== 6 ||
+    migratedRosterSave.towers.meme_pope.totalProduced !== 45 ||
+    migratedRosterSave.upgrades.cursed_content_forge_double_5.level !== 1 ||
+    migratedRosterSave.upgrades.cursed_content_forge_crossfeed_internet_historian.level !== 1 ||
+    !migratedRosterSave.achievements.tower_cursed_content_forge_first ||
+    !migratedRosterSave.achievements.upgrade_cursed_content_forge_double_5 ||
+    !migratedRosterSave.achievements.upgrade_cursed_content_forge_crossfeed
+  ) {
+    throw new Error("Expected retired towers, upgrades, and milestones to migrate into the 32-tower roster.");
   }
 
   if (
     towersModule.TOWERS[0].baseCost !== 10 ||
-    towersModule.TOWERS[1].baseCost !== 100 ||
+    towersModule.TOWERS[1].baseCost !== 116 ||
     towersModule.TOWERS.some((tower) => tower.costScale !== towersModule.TOWER_COST_SCALE)
   ) {
     throw new Error("Expected tower starting costs to match data and all towers to use the shared cost scale.");
@@ -362,7 +557,7 @@ async function main() {
   const towerUpgradeCounts = new Map();
   const towerSynergyCounts = new Map();
   const legacyOverclockCounts = new Map();
-  const expectedLegacyMultiplier = 1000;
+  const expectedLegacyMultiplier = 100;
   const expectedLegacyCostRatios = new Map([
     ["swirling_like_button", 0.67],
     ["shitposter_intern", 0.77],
@@ -378,7 +573,7 @@ async function main() {
   for (const upgrade of upgradesModule.UPGRADES) {
     if (upgrade.category === "standardTowerDouble") {
       if (upgrade.type !== "towerMultiplier") {
-        throw new Error(`Expected standard tower double to be a tower multiplier: ${upgrade.id}`);
+        throw new Error(`Expected standard tower upgrade to be a tower multiplier: ${upgrade.id}`);
       }
 
       towerUpgradeCounts.set(upgrade.effect.towerId, (towerUpgradeCounts.get(upgrade.effect.towerId) ?? 0) + 1);
@@ -415,7 +610,7 @@ async function main() {
       const towerIndex = towersModule.TOWERS.findIndex((item) => item.id === upgrade.effect.towerId);
       const tower = towersModule.TOWERS[towerIndex];
       const progress = towersModule.TOWERS.length > 1 ? towerIndex / (towersModule.TOWERS.length - 1) : 0;
-      const expectedCostMultiplier = 5000 * Math.pow(1000 / 5000, progress);
+      const expectedCostMultiplier = 30 * Math.pow(15 / 30, progress);
       const expectedBaseCost = Math.ceil(tower.baseCost * expectedCostMultiplier);
       const expectedUnlock = Math.ceil(Math.max(tower.unlockAt?.totalLikesEver ?? 0, expectedBaseCost * 2));
       const targetRequirement = upgrade.unlockAt?.towerRequirements?.find((requirement) => requirement.towerId === upgrade.effect.towerId);
@@ -437,48 +632,6 @@ async function main() {
     }
   }
 
-  const expectedStandardTowerMultipliers = [
-    [22.5, 390, 7440, 161000, 3840000],
-    [22.2, 372.1, 6890, 144383, 3337600],
-    [22, 354.9, 6380, 129481, 2899200],
-    [21.6, 338.5, 5909, 116117, 2518400],
-    [21.3, 322.9, 5472, 104132, 2188800],
-    [21.1, 308.1, 5067, 93385, 1900800],
-    [20.8, 294.1, 4693, 83746, 1651200],
-    [20.5, 280.8, 4346, 75102, 1436800],
-    [20.3, 267.5, 4024, 67351, 1248000],
-    [20, 255.8, 3727, 60399, 1084800],
-    [19.7, 244.1, 3452, 54165, 940800],
-    [19.4, 232.4, 3196, 48575, 819200],
-    [19.3, 222.3, 2960, 43562, 710400],
-    [19, 211.4, 2741, 39066, 617600],
-    [18.7, 202, 2538, 35034, 537600],
-    [18.5, 192.7, 2350, 31418, 467200],
-    [18.3, 184.1, 2177, 28175, 406400],
-    [18, 175.5, 2016, 25267, 352000],
-    [17.7, 167.7, 1867, 22659, 306036],
-    [17.6, 159.9, 1729, 20321, 265914],
-    [17.3, 152.1, 1601, 18223, 231052],
-    [17.1, 145.1, 1482, 16342, 200761],
-    [16.8, 138.8, 1373, 14656, 174441],
-    [16.7, 132.6, 1272, 13143, 151571],
-    [16.5, 126.4, 1177, 11787, 131700],
-    [16.2, 120.9, 1091, 10570, 114434],
-    [16, 114.7, 1010, 9479, 99431],
-    [15.8, 110, 935, 8501, 86396],
-    [15.6, 104.5, 866, 7623, 75069],
-    [15.4, 99.8, 802, 6837, 65228],
-    [15.2, 95.2, 743, 6131, 56676],
-    [15, 91.3, 688, 5498, 49246],
-    [14.8, 86.6, 637, 4931, 42789],
-    [14.6, 82.7, 590, 4422, 37180],
-    [14.4, 78.8, 546, 3965, 32305],
-    [14.2, 75.3, 506, 3556, 28070],
-    [14, 71.8, 469, 3189, 24390],
-    [13.9, 68.6, 434, 2860, 21193],
-    [13.7, 65.4, 402, 2565, 18414],
-    [13.5, 62.4, 372, 2300, 16000]
-  ];
   const expectedStandardTowerUnlocks = [
     { amount: 10, costRatio: 0.75 },
     { amount: 20, costRatio: 1 },
@@ -489,22 +642,31 @@ async function main() {
 
   for (const [towerIndex, tower] of towersModule.TOWERS.entries()) {
     if (towerUpgradeCounts.get(tower.id) !== 5) {
-      throw new Error(`Expected five one-time double LPS upgrades for tower: ${tower.id}`);
+      throw new Error(`Expected five one-time LPS multiplier upgrades for tower: ${tower.id}`);
     }
 
     const towerDoubleUpgrades = upgradesModule.UPGRADES
       .filter((upgrade) => upgrade.category === "standardTowerDouble" && upgrade.effect.towerId === tower.id)
       .sort((first, second) => Number(first.id.match(/_double_(\d+)$/)?.[1] ?? 0) - Number(second.id.match(/_double_(\d+)$/)?.[1] ?? 0));
-    const expectedMultipliers = expectedStandardTowerMultipliers[towerIndex];
+    const progress = towersModule.TOWERS.length > 1 ? towerIndex / (towersModule.TOWERS.length - 1) : 0;
+    const expectedMultipliers = [
+      [22.5, 13.5],
+      [390, 62.4],
+      [7440, 372],
+      [161000, 2300],
+      [3840000, 16000]
+    ].map(([first, last]) => first * Math.pow(last / first, progress));
 
     for (const [tierIndex, expectedMultiplier] of expectedMultipliers.entries()) {
       const upgrade = towerDoubleUpgrades[tierIndex];
+      const expectedProductionMultiplier = [2, 3, 4, 5, 6][tierIndex];
       const expectedUnlockRequirement = expectedStandardTowerUnlocks[tierIndex];
       const expectedBaseCost = Math.ceil(tower.baseCost * expectedMultiplier);
       const expectedUnlock = Math.ceil(Math.max(tower.unlockAt?.totalLikesEver ?? 0, expectedBaseCost * expectedUnlockRequirement.costRatio));
 
       if (
         upgrade.baseCost !== expectedBaseCost ||
+        upgrade.effect.multiplier !== expectedProductionMultiplier ||
         upgrade.unlockAt.amount !== expectedUnlockRequirement.amount ||
         upgrade.unlockAt.totalLikesEver !== expectedUnlock
       ) {
@@ -634,7 +796,7 @@ async function main() {
   const baseSwirlLps = stateModule.getTowerEffectiveLps(doubleState, "swirling_like_button");
   const doublePurchase = stateModule.purchaseUpgrade(doubleState, firstDoubleUpgrade.id);
   if (!doublePurchase.ok || stateModule.getTowerEffectiveLps(doubleState, "swirling_like_button") !== baseSwirlLps * 2) {
-    throw new Error("Expected one-time tower double upgrade to double that tower's LPS.");
+    throw new Error("Expected the first standard tower upgrade to double that tower's LPS.");
   }
 
   if (stateModule.shouldShowUpgradeInShop(doubleState, firstDoubleUpgrade)) {
@@ -709,9 +871,9 @@ async function main() {
     !legacyPurchase.ok ||
     legacyPurchase.upgrade?.id !== legacyUpgrade.id ||
     legacyPurchase.upgrade?.category !== "legacyOverclock" ||
-    stateModule.getTowerEffectiveLps(legacyState, "shitposter_intern") !== baseLegacyLps * 1000
+    stateModule.getTowerEffectiveLps(legacyState, "shitposter_intern") !== baseLegacyLps * 100
   ) {
-    throw new Error("Expected every Legacy Overclock to multiply its tower's LPS by 1000.");
+    throw new Error("Expected every Legacy Overclock to multiply its tower's LPS by 100.");
   }
 
   if (!stateModule.updateLeaderboardRecords(state)) {
@@ -899,13 +1061,25 @@ async function main() {
   const randomTowerShipment = memeLabModule.BAD_IDEA_BUTTON.outcomes.find((outcome) => outcome.id === "random_tower_shipment");
   const starterPackMisdelivery = memeLabModule.BAD_IDEA_BUTTON.outcomes.find((outcome) => outcome.id === "starter_pack_misdelivery");
   const clickbaitSprint = memeLabModule.BAD_IDEA_BUTTON.outcomes.find((outcome) => outcome.id === "clickbait_sprint");
+  const expectedBadIdeaOutcomes = new Map([
+    ["random_tower_shipment", { weight: 15, amount: 5 }],
+    ["starter_pack_misdelivery", { weight: 10, amount: 12 }],
+    ["emergency_repost", { weight: 24, seconds: 1200 }],
+    ["clickbait_sprint", { weight: 20, clicks: 10000 }],
+    ["audience_confusion", { weight: 11, amount: 120 }],
+    ["brand_deal_invoice", { weight: 10, seconds: 30 }],
+    ["awkward_apology_video", { weight: 5, amount: 3 }],
+    ["nothing_happens_loudly", { weight: 5 }]
+  ]);
   if (
     badIdeaWeightsTotal !== 100 ||
-    randomTowerShipment?.weight !== 1 ||
-    starterPackMisdelivery?.weight !== 1 ||
-    clickbaitSprint?.clicks !== 10000
+    memeLabModule.BAD_IDEA_BUTTON.outcomes.length !== expectedBadIdeaOutcomes.size ||
+    memeLabModule.BAD_IDEA_BUTTON.outcomes.some((outcome) => {
+      const expected = expectedBadIdeaOutcomes.get(outcome.id);
+      return !expected || Object.entries(expected).some(([key, value]) => outcome[key] !== value);
+    })
   ) {
-    throw new Error("Expected rare Bad Idea tower outcomes and a 10,000-click Clickbait Sprint.");
+    throw new Error("Expected the recommended eight-outcome Bad Idea reward table.");
   }
 
   const badIdeaState = stateModule.createDefaultState();
@@ -940,7 +1114,7 @@ async function main() {
   clickbaitState.subscribers = 100;
   clickbaitState.upgrades.power_click.level = 2;
   const clickbaitPower = stateModule.getClickPower(clickbaitState);
-  const clickbaitResult = stateModule.pressBadIdeaButton(clickbaitState, Date.now(), () => 0.31);
+  const clickbaitResult = stateModule.pressBadIdeaButton(clickbaitState, Date.now(), () => 0.55);
   const expectedClickbaitLikes = clickbaitPower * clickbaitSprint.clicks;
   if (
     !clickbaitResult.ok ||
@@ -950,21 +1124,21 @@ async function main() {
     clickbaitState.totalClicks !== 0 ||
     clickbaitState.totalLikesFromClicks !== 0
   ) {
-    throw new Error("Expected Clickbait Sprint to pay 1,000 clicks worth of Likes without increasing manual click stats.");
+    throw new Error("Expected Clickbait Sprint to pay 10,000 clicks worth of Likes without increasing manual click stats.");
   }
 
   const brandDealState = stateModule.createDefaultState();
   brandDealState.subscribers = 100;
   brandDealState.likes = 3;
   brandDealState.towers.swirling_like_button.amount = 1000;
-  const brandDealResult = stateModule.pressBadIdeaButton(brandDealState, Date.now(), () => 0.75);
+  const brandDealResult = stateModule.pressBadIdeaButton(brandDealState, Date.now(), () => 0.85);
   if (!brandDealResult.ok || brandDealResult.outcome.id !== "brand_deal_invoice" || brandDealState.likes < 0) {
     throw new Error("Expected Brand Deal Invoice to never make Likes negative.");
   }
 
   const apologyState = stateModule.createDefaultState();
   apologyState.subscribers = 80;
-  const apologyResult = stateModule.pressBadIdeaButton(apologyState, Date.now(), () => 0.9);
+  const apologyResult = stateModule.pressBadIdeaButton(apologyState, Date.now(), () => 0.92);
   if (!apologyResult.ok || apologyResult.outcome.id !== "awkward_apology_video" || apologyState.subscribers < 0) {
     throw new Error("Expected Awkward Apology Video to never make Subscribers negative.");
   }

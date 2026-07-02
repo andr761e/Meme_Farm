@@ -7,7 +7,7 @@ import { formatNumber } from "./utils/format.js";
 
 export { PRESTIGE_MAX_LEVEL, PRESTIGE_TIERS };
 
-export const SAVE_VERSION = 1;
+export const SAVE_VERSION = 2;
 export const PRESTIGE_STAT_LEVELS = [0, ...PRESTIGE_TIERS.map((tier) => tier.level)];
 export const VISUAL_TAKEOVER_DEFAULTS = {
   botnet: true,
@@ -1170,7 +1170,7 @@ export const APOCALYPSE_ERAS = [
     description: "The feed is no longer recommending your memes. It is negotiating with them.",
     clickVerb: "fed",
     popupSuffix: "feed breach",
-    unlockHint: "Viral Singularity era"
+    unlockHint: "AI Meme Generator era"
   },
   {
     id: "reality_corruption",
@@ -1199,11 +1199,11 @@ export function getApocalypseEra(state) {
     return APOCALYPSE_ERAS[4];
   }
 
-  if (isMajorTowerOnline(state, "reality_glitcher") || isMajorTowerOnline(state, "based_reality_distorter")) {
+  if (isMajorTowerOnline(state, "reality_glitcher")) {
     return APOCALYPSE_ERAS[3];
   }
 
-  if (isMajorTowerOnline(state, "viral_singularity") || isMajorTowerOnline(state, "ai_meme_generator")) {
+  if (isMajorTowerOnline(state, "ai_meme_generator")) {
     return APOCALYPSE_ERAS[2];
   }
 

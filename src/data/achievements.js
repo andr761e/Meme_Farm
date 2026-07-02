@@ -60,10 +60,6 @@ const TOWER_MILESTONE_COPY = {
     title: "Lore Accurate",
     description: "Recruit an Internet Historian. The meme now has a three-hour backstory."
   },
-  viral_singularity: {
-    title: "Event Horizon Posted",
-    description: "Create a Viral Singularity. The algorithm can no longer look away."
-  },
   cursed_content_forge: {
     title: "Do Not Open The PNG",
     description: "Buy a Cursed Content Forge. The file extension is more of a warning."
@@ -72,17 +68,9 @@ const TOWER_MILESTONE_COPY = {
     title: "Neural Tweet Installed",
     description: "Install Elon's Meme Brainchip. Thoughts now arrive with engagement metrics."
   },
-  based_reality_distorter: {
-    title: "Cringe Outlawed",
-    description: "Buy a Based Reality Distorter. Reality has been ratioed into compliance."
-  },
   meme_multiverse_server: {
     title: "Crosspost Cosmology",
     description: "Build a Meme Multiverse Server. Every timeline has seen the same joke now."
-  },
-  clout_god: {
-    title: "Worship The Ratio",
-    description: "Summon a Clout God. The like button has become devotional architecture."
   },
   boomer_facebook_group: {
     title: "Minion Market Fit",
@@ -104,17 +92,9 @@ const TOWER_MILESTONE_COPY = {
     title: "Feels Assembly Line",
     description: "Open a Wojak Factory. Every emotion now has a production quota."
   },
-  quantum_shitpost_array: {
-    title: "All Timelines Posting",
-    description: "Buy a Quantum Shitpost Array. The joke both landed and did not land."
-  },
   copium_refinery: {
     title: "Industrial Cope",
     description: "Build a Copium Refinery. The tanks are full and the replies are glowing."
-  },
-  npc_overpopulation_center: {
-    title: "Dialogue Tree Exhausted",
-    description: "Buy an NPC Overpopulation Center. The replies are identical, but profitable."
   },
   nft_cemetery: {
     title: "Right Click Funeral",
@@ -136,10 +116,6 @@ const TOWER_MILESTONE_COPY = {
     title: "Grindset Patriarch",
     description: "Recruit the Sigma Godfather. Breakfast is now leverage."
   },
-  multiversal_mod_team: {
-    title: "Ban Hammer Across Space",
-    description: "Hire a Multiversal Mod Team. Rule 1 applies in every dimension."
-  },
   chrono_poster: {
     title: "Premature Posting",
     description: "Buy a Chrono-Poster. You posted the meme before the event happened."
@@ -151,14 +127,6 @@ const TOWER_MILESTONE_COPY = {
   zuckerbot_9000: {
     title: "Human Enough",
     description: "Buy Zuckerbot 9000. It blinked once, probably on purpose."
-  },
-  forbidden_archivist: {
-    title: "Do Not Cite This Scroll",
-    description: "Recruit The Forbidden Archivist. Some memes were deleted for a reason."
-  },
-  cursed_tiktok_cultist: {
-    title: "3 AM Engagement Ritual",
-    description: "Buy a Cursed TikTok Cultist. The comments are chanting in portrait mode."
   },
   meme_pope: {
     title: "Canonized Dankness",

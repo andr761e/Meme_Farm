@@ -312,28 +312,34 @@ function sanitizeBadIdeaOutcome(outcome) {
 function mergeTowerState(next, savedTowers) {
   for (const tower of TOWERS) {
     const saved = findSavedEntry(savedTowers, [tower.id, ...(tower.legacyIds ?? [])]);
+    const retired = (tower.retiredIds ?? [])
+      .map((id) => savedTowers?.[id])
+      .filter(Boolean);
 
-    if (!saved) {
+    if (!saved && retired.length === 0) {
       continue;
     }
 
     next.towers[tower.id] = {
-      amount: Math.floor(safeNumber(saved.amount)),
-      totalProduced: safeNumber(saved.totalProduced)
+      amount: Math.floor(safeNumber(saved?.amount) + retired.reduce((sum, entry) => sum + safeNumber(entry.amount), 0)),
+      totalProduced: safeNumber(saved?.totalProduced) + retired.reduce((sum, entry) => sum + safeNumber(entry.totalProduced), 0)
     };
   }
 }
 
 function mergeUpgradeState(next, savedUpgrades) {
   for (const upgrade of UPGRADES) {
-    const saved = findSavedEntry(savedUpgrades, [upgrade.id]);
+    const savedEntries = [upgrade.id, ...(upgrade.legacyIds ?? [])]
+      .map((id) => savedUpgrades?.[id])
+      .filter(Boolean);
 
-    if (!saved) {
+    if (savedEntries.length === 0) {
       continue;
     }
 
-    const level = saved.level ?? saved.currentLevel ?? saved.baseLevel;
-    const sanitizedLevel = Math.floor(safeNumber(level));
+    const sanitizedLevel = Math.max(...savedEntries.map((saved) => (
+      Math.floor(safeNumber(saved.level ?? saved.currentLevel ?? saved.baseLevel))
+    )));
     next.upgrades[upgrade.id] = {
       level: Number.isFinite(upgrade.maxLevel)
         ? Math.min(upgrade.maxLevel, sanitizedLevel)
@@ -348,9 +354,28 @@ function sanitizeAchievements(achievements) {
   }
 
   const validIds = new Set(ACHIEVEMENTS.map((achievement) => achievement.id));
-  return Object.fromEntries(
+  const sanitized = Object.fromEntries(
     Object.entries(achievements).filter(([id, value]) => validIds.has(id) && Boolean(value))
   );
+
+  for (const tower of TOWERS) {
+    for (const retiredId of tower.retiredIds ?? []) {
+      migrateAchievement(achievements, sanitized, validIds, `tower_${retiredId}_first`, `tower_${tower.id}_first`);
+      for (const amount of [10, 25, 50, 100]) {
+        migrateAchievement(achievements, sanitized, validIds, `tower_${retiredId}_${amount}`, `tower_${tower.id}_${amount}`);
+      }
+      migrateAchievement(achievements, sanitized, validIds, `upgrade_${retiredId}_double_5`, `upgrade_${tower.id}_double_5`);
+      migrateAchievement(achievements, sanitized, validIds, `upgrade_${retiredId}_crossfeed`, `upgrade_${tower.id}_crossfeed`);
+    }
+  }
+
+  return sanitized;
+}
+
+function migrateAchievement(source, target, validIds, oldId, newId) {
+  if (source[oldId] && validIds.has(newId) && !target[newId]) {
+    target[newId] = source[oldId];
+  }
 }
 
 function findSavedEntry(collection, ids) {

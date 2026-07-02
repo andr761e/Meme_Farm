@@ -20,6 +20,9 @@ contextBridge.exposeInMainWorld("memeFarmPlatform", {
     configureWindow(settings) {
       ipcRenderer.send("meme-farm-window:configure", settings);
     },
+    closeWindow() {
+      ipcRenderer.send("meme-farm-window:close");
+    },
     updateStatus(status) {
       ipcRenderer.send("meme-farm-desktop:status", status);
     },
@@ -33,6 +36,12 @@ contextBridge.exposeInMainWorld("memeFarmPlatform", {
     },
     queueScores(scores) {
       return ipcRenderer.invoke("meme-farm-steam:queue-scores", scores);
+    },
+    syncAchievements(apiNames) {
+      return ipcRenderer.invoke("meme-farm-steam:sync-achievements", apiNames);
+    },
+    syncStats(stats) {
+      return ipcRenderer.invoke("meme-farm-steam:sync-stats", stats);
     },
     getLeaderboard(request) {
       return ipcRenderer.invoke("meme-farm-steam:get-leaderboard", request);
