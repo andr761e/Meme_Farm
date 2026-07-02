@@ -244,12 +244,20 @@ function bootGame() {
         ui.showToast("Fresh meme farm, clean slate.");
       });
     },
-    onToggleMute: () => {
-      gameState.settings.muted = audio.toggleMuted();
+    onToggleMusicMute: () => {
+      gameState.settings.musicMuted = audio.toggleMusicMuted();
       markChanged({ meaningful: true });
     },
-    onSetVolume: (volume) => {
-      gameState.settings.volume = audio.setVolume(volume);
+    onToggleSfxMute: () => {
+      gameState.settings.sfxMuted = audio.toggleSfxMuted();
+      markChanged({ meaningful: true });
+    },
+    onSetMusicVolume: (volume) => {
+      gameState.settings.musicVolume = audio.setMusicVolume(volume);
+      markChanged({ meaningful: true });
+    },
+    onSetSfxVolume: (volume) => {
+      gameState.settings.sfxVolume = audio.setSfxVolume(volume);
       markChanged({ meaningful: true });
     },
     onSetVisualTakeover: (takeoverId, enabled) => {
@@ -299,8 +307,10 @@ function bootGame() {
   });
 
   audio.init({
-    muted: gameState.settings.muted,
-    volume: gameState.settings.volume
+    musicMuted: gameState.settings.musicMuted,
+    sfxMuted: gameState.settings.sfxMuted,
+    musicVolume: gameState.settings.musicVolume,
+    sfxVolume: gameState.settings.sfxVolume
   });
 
   const recordsChanged = updateLeaderboardRecords(gameState);

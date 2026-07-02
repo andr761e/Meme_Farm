@@ -9,23 +9,32 @@ export function createAudioController() {
   const music = new Audio(MUSIC_PATH);
   const popPool = createAudioPool(POP_PATH, 6, POP_BASE_VOLUME);
   const powerPool = createAudioPool(POWERUP_PATH, 4, POWERUP_BASE_VOLUME);
-  let muted = false;
-  let volume = 1;
+  let musicMuted = false;
+  let sfxMuted = false;
+  let musicVolume = 1;
+  let sfxVolume = 1;
   let musicStarted = false;
 
   music.loop = true;
   music.volume = MUSIC_BASE_VOLUME;
 
-  function init({ muted: startMuted = false, volume: startVolume = 1 } = {}) {
-    setVolume(startVolume);
-    setMuted(startMuted);
+  function init({
+    musicMuted: startMusicMuted = false,
+    sfxMuted: startSfxMuted = false,
+    musicVolume: startMusicVolume = 1,
+    sfxVolume: startSfxVolume = 1
+  } = {}) {
+    setMusicVolume(startMusicVolume);
+    setSfxVolume(startSfxVolume);
+    setMusicMuted(startMusicMuted);
+    setSfxMuted(startSfxMuted);
     tryStartMusic();
     document.addEventListener("pointerdown", tryStartMusic, { once: true });
     document.addEventListener("keydown", tryStartMusic, { once: true });
   }
 
   function tryStartMusic() {
-    if (musicStarted || muted) {
+    if (musicStarted || musicMuted) {
       return;
     }
 
@@ -38,59 +47,83 @@ export function createAudioController() {
       });
   }
 
-  function setMuted(value) {
-    muted = Boolean(value);
-    music.muted = muted;
-    for (const audio of [...popPool.items, ...powerPool.items]) {
-      audio.muted = muted;
-    }
+  function setMusicMuted(value) {
+    musicMuted = Boolean(value);
+    music.muted = musicMuted;
 
-    if (!muted) {
+    if (!musicMuted) {
       tryStartMusic();
     }
+
+    return musicMuted;
   }
 
-  function toggleMuted() {
-    setMuted(!muted);
-    return muted;
+  function setSfxMuted(value) {
+    sfxMuted = Boolean(value);
+    for (const audio of [...popPool.items, ...powerPool.items]) {
+      audio.muted = sfxMuted;
+    }
+    return sfxMuted;
   }
 
-  function setVolume(value) {
-    volume = clamp01(value);
-    music.volume = MUSIC_BASE_VOLUME * volume;
-    popPool.setVolume(volume);
-    powerPool.setVolume(volume);
-    return volume;
+  function toggleMusicMuted() {
+    return setMusicMuted(!musicMuted);
+  }
+
+  function toggleSfxMuted() {
+    return setSfxMuted(!sfxMuted);
+  }
+
+  function setMusicVolume(value) {
+    musicVolume = clamp01(value);
+    music.volume = MUSIC_BASE_VOLUME * musicVolume;
+    return musicVolume;
+  }
+
+  function setSfxVolume(value) {
+    sfxVolume = clamp01(value);
+    popPool.setVolume(sfxVolume);
+    powerPool.setVolume(sfxVolume);
+    return sfxVolume;
   }
 
   return {
     init,
-    setMuted,
-    setVolume,
-    toggleMuted,
-    get muted() {
-      return muted;
+    setMusicMuted,
+    setSfxMuted,
+    setMusicVolume,
+    setSfxVolume,
+    toggleMusicMuted,
+    toggleSfxMuted,
+    get musicMuted() {
+      return musicMuted;
     },
-    get volume() {
-      return volume;
+    get sfxMuted() {
+      return sfxMuted;
+    },
+    get musicVolume() {
+      return musicVolume;
+    },
+    get sfxVolume() {
+      return sfxVolume;
     },
     pop() {
-      if (!muted) popPool.play();
+      if (!sfxMuted) popPool.play();
     },
     purchase() {
-      if (!muted) powerPool.play();
+      if (!sfxMuted) powerPool.play();
     },
     confidentNoise() {
-      if (muted) {
+      if (sfxMuted) {
         return;
       }
 
       powerPool.play(POWERUP_BASE_VOLUME * 1.35);
       globalThis.setTimeout(() => {
-        if (!muted) popPool.play(POP_BASE_VOLUME * 1.2);
+        if (!sfxMuted) popPool.play(POP_BASE_VOLUME * 1.2);
       }, 90);
       globalThis.setTimeout(() => {
-        if (!muted) powerPool.play(POWERUP_BASE_VOLUME * 1.1);
+        if (!sfxMuted) powerPool.play(POWERUP_BASE_VOLUME * 1.1);
       }, 180);
     }
   };

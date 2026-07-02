@@ -385,6 +385,8 @@ const TAKEOVER_OPTIONS = [
 ];
 const STATS_LIFETIME_VIEW_ID = "lifetime";
 const MILESTONE_NEARLY_COMPLETE_RATIO = 0.5;
+const VISUAL_ANIMATION_INTERVAL_SECONDS = 1 / 30;
+const TAKEOVER_REDUCED_LOAD_THRESHOLD = 4;
 
 let elements;
 let handlers;
@@ -396,6 +398,12 @@ let activeMilestoneCategory = "all";
 let milestoneSearchQuery = "";
 let lastOrbiterCount = -1;
 let lastTakeoverSignature = "";
+let lastTakeoverSourceSignature = "";
+let cachedTakeoverConfig = null;
+let takeoverCursorElements = [];
+let lastTakeoverAnimationAt = -Infinity;
+let lastOrbiterAnimationAt = -Infinity;
+let towerVisibilityObserver = null;
 let lastCommentRiotBurstAt = 0;
 let activeLeaderboardScope = "global";
 let activeLeaderboardMetric = LEADERBOARD_METRICS[0].id;
@@ -416,6 +424,7 @@ export function initUI(options) {
   elements = collectElements();
 
   renderTowerShop();
+  initializeTowerCardVisibility();
   renderUpgradeShop();
   renderMemeLab();
   bindTopNav();
@@ -455,6 +464,7 @@ export function updateUI(state) {
   updateSocial(state);
   updateMemeLab(state);
   updateNextUnlock(state);
+  syncTowerTakeoverConfig(state);
   updateTopTicker(state);
   updateDocumentTitle(state);
 
@@ -735,6 +745,30 @@ function renderTowerShop() {
     card.addEventListener("mouseleave", hideTooltip);
     card.addEventListener("blur", hideTooltip);
   });
+}
+
+function initializeTowerCardVisibility() {
+  const cards = [...elements.shopTowers.querySelectorAll(".tower-card")];
+  const Observer = globalThis.IntersectionObserver;
+
+  towerVisibilityObserver?.disconnect();
+
+  if (typeof Observer !== "function") {
+    cards.forEach((card) => card.classList.add("is-takeover-visible"));
+    return;
+  }
+
+  towerVisibilityObserver = new Observer((entries) => {
+    for (const entry of entries) {
+      entry.target.classList.toggle("is-takeover-visible", entry.isIntersecting);
+    }
+  }, {
+    root: elements.rightPanel,
+    rootMargin: "160px 0px",
+    threshold: 0
+  });
+
+  cards.forEach((card) => towerVisibilityObserver.observe(card));
 }
 
 function renderUpgradeShop() {
@@ -1220,14 +1254,8 @@ function updateUpgradeCards(state) {
 }
 
 function renderShopNameText(displayName) {
-  const letters = Array.from(displayName).map((char, index) => {
-    const content = char === " " ? "&nbsp;" : escapeHtml(char);
-    const delay = (index * 0.055).toFixed(3);
-    const hue = (190 + index * 18) % 360;
-    return `<span class="shop-name-letter" style="--letter-delay:${delay}s; --letter-hue:${hue}deg;">${content}</span>`;
-  }).join("");
-
-  return `<span class="shop-name-plain">${escapeHtml(displayName)}</span><span class="shop-name-wave" aria-hidden="true">${letters}</span>`;
+  const text = escapeHtml(displayName);
+  return `<span class="shop-name-plain">${text}</span><span class="shop-name-wave" aria-hidden="true">${text}</span>`;
 }
 
 function getTowerDisplayCopy(state, tower, index = TOWERS.findIndex((item) => item.id === tower.id)) {
@@ -1642,8 +1670,11 @@ function updateDocumentTitle(state) {
 }
 
 function updateVisuals(state, elapsedSeconds) {
-  updateOrbiters(getTowerAmount(state, "swirling_like_button"), elapsedSeconds);
-  updateTowerTakeovers(state, elapsedSeconds);
+  if (elapsedSeconds - lastOrbiterAnimationAt >= VISUAL_ANIMATION_INTERVAL_SECONDS) {
+    lastOrbiterAnimationAt = elapsedSeconds;
+    updateOrbiters(getTowerAmount(state, "swirling_like_button"), elapsedSeconds);
+  }
+  animateTowerTakeovers(elapsedSeconds);
   updateBadIdeaConsequenceVisuals(state, elapsedSeconds);
 }
 
@@ -1677,25 +1708,35 @@ function createCommentRiotBubble() {
   setTimeout(() => bubble.remove(), 2600);
 }
 
-function updateTowerTakeovers(state, elapsedSeconds) {
-  const config = getTowerTakeoverConfig(state);
+function syncTowerTakeoverConfig(state) {
+  const sourceSignature = getTowerTakeoverSourceSignature(state);
+
+  if (sourceSignature === lastTakeoverSourceSignature) {
+    return;
+  }
+
+  lastTakeoverSourceSignature = sourceSignature;
+  cachedTakeoverConfig = getTowerTakeoverConfig(state);
+  const config = cachedTakeoverConfig;
   const signature = [
     config.cursorCount,
     config.stampCount,
     config.hasMemeLord ? 1 : 0,
     config.bannerCount,
-    config.hasRealityGlitcher ? 1 : 0,
+    config.glitchSliceCount,
     config.hasCursedTikTok ? 1 : 0,
-    config.algorithmLabelCount
+    config.algorithmLabelCount,
+    config.reducedLoad ? 1 : 0
   ].join("|");
 
   elements.body.classList.toggle("takeover-botnet", config.cursorCount > 0);
   elements.body.classList.toggle("takeover-discord-mod", config.stampCount > 0);
   elements.body.classList.toggle("takeover-meme-lord", config.hasMemeLord);
   elements.body.classList.toggle("takeover-rickroll-loop", config.bannerCount > 0);
-  elements.body.classList.toggle("takeover-reality-glitcher", config.hasRealityGlitcher);
+  elements.body.classList.toggle("takeover-reality-glitcher", config.glitchSliceCount > 0);
   elements.body.classList.toggle("takeover-cursed-tiktok", config.hasCursedTikTok);
   elements.body.classList.toggle("takeover-algorithm", config.algorithmLabelCount > 0);
+  elements.body.classList.toggle("takeover-reduced-load", config.reducedLoad);
 
   if (!hasActiveTowerTakeover(config)) {
     clearTowerTakeovers();
@@ -1706,8 +1747,30 @@ function updateTowerTakeovers(state, elapsedSeconds) {
     renderTowerTakeovers(config);
     lastTakeoverSignature = signature;
   }
+}
 
-  animateTakeoverCursors(elapsedSeconds);
+function animateTowerTakeovers(elapsedSeconds) {
+  if (!cachedTakeoverConfig || !hasActiveTowerTakeover(cachedTakeoverConfig)) {
+    return;
+  }
+
+  if (elapsedSeconds - lastTakeoverAnimationAt >= VISUAL_ANIMATION_INTERVAL_SECONDS) {
+    lastTakeoverAnimationAt = elapsedSeconds;
+    animateTakeoverCursors(elapsedSeconds);
+  }
+}
+
+function getTowerTakeoverSourceSignature(state) {
+  const settings = getVisualTakeoverSettings(state);
+  return [
+    settings.botnet ? getTowerAmount(state, "botnet") : -1,
+    settings.discordMod ? getTowerAmount(state, "discord_mod") : -1,
+    settings.memeLord ? getTowerAmount(state, "meme_lord") : -1,
+    settings.rickrollLoop ? getTowerAmount(state, "eternal_rickroll_loop") : -1,
+    settings.realityGlitcher ? getTowerAmount(state, "reality_glitcher") : -1,
+    settings.cursedTikTok ? getTowerAmount(state, "tiktok_zoomer") : -1,
+    settings.algorithm ? getTowerAmount(state, "the_algorithm") : -1
+  ].join("|");
 }
 
 function getTowerTakeoverConfig(state) {
@@ -1719,15 +1782,26 @@ function getTowerTakeoverConfig(state) {
   const realityGlitchers = settings.realityGlitcher ? getTowerAmount(state, "reality_glitcher") : 0;
   const cursedTikTokCultists = settings.cursedTikTok ? getTowerAmount(state, "tiktok_zoomer") : 0;
   const algorithms = settings.algorithm ? getTowerAmount(state, "the_algorithm") : 0;
+  const activeTakeoverCount = [
+    botnets,
+    discordMods,
+    memeLords,
+    rickrollLoops,
+    realityGlitchers,
+    cursedTikTokCultists,
+    algorithms
+  ].filter((amount) => amount > 0).length;
+  const reducedLoad = activeTakeoverCount >= TAKEOVER_REDUCED_LOAD_THRESHOLD;
 
   return {
-    cursorCount: botnets > 0 ? Math.min(14, 3 + Math.floor(Math.sqrt(botnets) * 1.25)) : 0,
-    stampCount: discordMods > 0 ? Math.min(10, 3 + Math.floor(Math.sqrt(discordMods))) : 0,
+    cursorCount: botnets > 0 ? Math.min(reducedLoad ? 6 : 14, 3 + Math.floor(Math.sqrt(botnets) * 1.25)) : 0,
+    stampCount: discordMods > 0 ? Math.min(reducedLoad ? 4 : 10, 3 + Math.floor(Math.sqrt(discordMods))) : 0,
     hasMemeLord: memeLords > 0,
-    bannerCount: rickrollLoops > 0 ? Math.min(4, 1 + Math.floor(Math.sqrt(rickrollLoops) / 3)) : 0,
-    hasRealityGlitcher: realityGlitchers > 0,
+    bannerCount: rickrollLoops > 0 ? Math.min(reducedLoad ? 1 : 4, 1 + Math.floor(Math.sqrt(rickrollLoops) / 3)) : 0,
+    glitchSliceCount: realityGlitchers > 0 ? (reducedLoad ? 2 : 5) : 0,
     hasCursedTikTok: cursedTikTokCultists > 0,
-    algorithmLabelCount: algorithms > 0 ? Math.min(10, 5 + Math.floor(Math.sqrt(algorithms))) : 0
+    algorithmLabelCount: algorithms > 0 ? Math.min(reducedLoad ? 4 : 10, 5 + Math.floor(Math.sqrt(algorithms))) : 0,
+    reducedLoad
   };
 }
 
@@ -1736,7 +1810,7 @@ function hasActiveTowerTakeover(config) {
     config.stampCount > 0 ||
     config.hasMemeLord ||
     config.bannerCount > 0 ||
-    config.hasRealityGlitcher ||
+    config.glitchSliceCount > 0 ||
     config.hasCursedTikTok ||
     config.algorithmLabelCount > 0;
 }
@@ -1802,11 +1876,13 @@ function clearTowerTakeovers() {
     "takeover-rickroll-loop",
     "takeover-reality-glitcher",
     "takeover-cursed-tiktok",
-    "takeover-algorithm"
+    "takeover-algorithm",
+    "takeover-reduced-load"
   );
 
   if (lastTakeoverSignature !== "off") {
     elements.takeoverLayer.innerHTML = "";
+    takeoverCursorElements = [];
     lastTakeoverSignature = "off";
   }
 }
@@ -1844,8 +1920,8 @@ function renderTowerTakeovers(config) {
     `);
   }
 
-  if (config.hasRealityGlitcher) {
-    for (let index = 0; index < 5; index += 1) {
+  if (config.glitchSliceCount > 0) {
+    for (let index = 0; index < config.glitchSliceCount; index += 1) {
       pieces.push(`<span class="takeover-glitch-slice" style="--y:${18 + index * 15}%; --d:${index * 0.22}s;"></span>`);
     }
   }
@@ -1862,20 +1938,19 @@ function renderTowerTakeovers(config) {
   }
 
   elements.takeoverLayer.innerHTML = pieces.join("");
+  takeoverCursorElements = [...elements.takeoverLayer.querySelectorAll("[data-takeover-cursor]")];
 }
 
 function animateTakeoverCursors(elapsedSeconds) {
-  const cursors = elements.takeoverLayer.querySelectorAll("[data-takeover-cursor]");
-
-  cursors.forEach((cursor, index) => {
+  takeoverCursorElements.forEach((cursor, index) => {
     const speed = 0.42 + (index % 5) * 0.045;
     const phase = index * 1.71;
     const x = 10 + (Math.sin(elapsedSeconds * speed + phase) * 0.5 + 0.5) * 80;
     const y = 12 + (Math.cos(elapsedSeconds * (speed * 1.37) + phase * 0.8) * 0.5 + 0.5) * 74;
     const rotation = -18 + Math.sin(elapsedSeconds * 1.1 + phase) * 20;
-    cursor.style.left = `${x}%`;
-    cursor.style.top = `${y}%`;
-    cursor.style.transform = `rotate(${rotation}deg)`;
+    const xPixels = (globalThis.innerWidth || 1920) * x / 100;
+    const yPixels = Math.max(0, (globalThis.innerHeight || 1080) - 64) * y / 100;
+    cursor.style.transform = `translate3d(${xPixels}px, ${yPixels}px, 0) rotate(${rotation}deg)`;
   });
 }
 
@@ -1907,9 +1982,7 @@ function updateOrbiters(amount, elapsedSeconds) {
     const radius = baseRadius + ring * ringStep + Math.sin(time * 2 + index) * 3;
     const x = 150 + Math.cos(angle) * radius;
     const y = 150 + Math.sin(angle) * radius;
-    orbiters[index].style.left = `${x}px`;
-    orbiters[index].style.top = `${y}px`;
-    orbiters[index].style.transform = `translate(-50%, -50%) rotate(${angle}rad)`;
+    orbiters[index].style.transform = `translate3d(${x}px, ${y}px, 0) translate(-50%, -50%) rotate(${angle}rad)`;
   }
 
   elements.orbitContainer.classList.toggle("is-capped", amount > ORBITER_VISUAL_CAP);
@@ -2320,24 +2393,40 @@ function renderOverlay(type) {
   }
 
   if (type === "options") {
-    const volumePercent = Math.round((state.settings.volume ?? 1) * 100);
+    const musicVolumePercent = Math.round((state.settings.musicVolume ?? 1) * 100);
+    const sfxVolumePercent = Math.round((state.settings.sfxVolume ?? 1) * 100);
     const visualTakeoverSettings = getVisualTakeoverSettings(state);
     const availableTakeoverOptions = getAvailableTakeoverOptions(state);
     const desktopWindowSettings = getDesktopWindowSettings(state);
     const desktopWindowControlsAvailable = hasDesktopWindowControls();
     elements.overlayContent.innerHTML = `
-      <h2 id="overlay-title">Options</h2>
+      <h2 id="overlay-title">Settings</h2>
       <div class="options-panel">
         <section class="options-section" aria-labelledby="audio-options-title">
           <h3 id="audio-options-title">Audio</h3>
-          <label class="volume-control" for="volume-slider">
-            <span>
-              <strong>Master Volume</strong>
-              <small id="volume-value">${volumePercent}%${state.settings.muted ? " (muted)" : ""}</small>
-            </span>
-            <input id="volume-slider" type="range" min="0" max="100" step="1" value="${volumePercent}" />
-          </label>
-          <button type="button" id="toggle-mute">${state.settings.muted ? "Unmute Audio" : "Mute Audio"}</button>
+          <p>Control the background music and clicking effects independently.</p>
+          <div class="audio-channel-grid">
+            <div class="audio-channel-card">
+              <label class="volume-control" for="music-volume-slider">
+                <span>
+                  <strong>Background Music</strong>
+                  <small id="music-volume-value">${musicVolumePercent}%${state.settings.musicMuted ? " (muted)" : ""}</small>
+                </span>
+                <input id="music-volume-slider" type="range" min="0" max="100" step="1" value="${musicVolumePercent}" />
+              </label>
+              <button type="button" id="toggle-music-mute">${state.settings.musicMuted ? "Unmute Music" : "Mute Music"}</button>
+            </div>
+            <div class="audio-channel-card">
+              <label class="volume-control" for="sfx-volume-slider">
+                <span>
+                  <strong>Sound Effects</strong>
+                  <small id="sfx-volume-value">${sfxVolumePercent}%${state.settings.sfxMuted ? " (muted)" : ""}</small>
+                </span>
+                <input id="sfx-volume-slider" type="range" min="0" max="100" step="1" value="${sfxVolumePercent}" />
+              </label>
+              <button type="button" id="toggle-sfx-mute">${state.settings.sfxMuted ? "Unmute Effects" : "Mute Effects"}</button>
+            </div>
+          </div>
         </section>
         <section class="options-section" aria-labelledby="desktop-window-options-title">
           <h3 id="desktop-window-options-title">Screen Size</h3>
@@ -2361,7 +2450,7 @@ function renderOverlay(type) {
         ${availableTakeoverOptions.length > 0
           ? `<section class="options-section" aria-labelledby="visual-options-title">
           <h3 id="visual-options-title">Visuals</h3>
-          <p>Choose which owned tower screen-invasion effects are allowed to appear.</p>
+          <p>Choose which owned tower screen-invasion effects are allowed to appear. When four or more run together, Meme Farm automatically reduces duplicate particles and offscreen animation work.</p>
           <div class="takeover-option-list">
             ${availableTakeoverOptions.map((option) => `
               <label class="takeover-option" for="visual-takeover-${option.id}">
@@ -2377,20 +2466,35 @@ function renderOverlay(type) {
           : ""}
       </div>
     `;
-    const volumeSlider = document.getElementById("volume-slider");
-    const volumeValue = document.getElementById("volume-value");
+    const musicVolumeSlider = document.getElementById("music-volume-slider");
+    const musicVolumeValue = document.getElementById("music-volume-value");
+    const sfxVolumeSlider = document.getElementById("sfx-volume-slider");
+    const sfxVolumeValue = document.getElementById("sfx-volume-value");
 
-    volumeSlider.addEventListener("input", (event) => {
+    musicVolumeSlider.addEventListener("input", (event) => {
       const nextVolume = Number(event.currentTarget.value) / 100;
-      handlers.onSetVolume(nextVolume);
-      const nextPercent = Math.round((state.settings.volume ?? nextVolume) * 100);
-      volumeValue.textContent = `${nextPercent}%${state.settings.muted ? " (muted)" : ""}`;
+      handlers.onSetMusicVolume(nextVolume);
+      const nextPercent = Math.round((state.settings.musicVolume ?? nextVolume) * 100);
+      musicVolumeValue.textContent = `${nextPercent}%${state.settings.musicMuted ? " (muted)" : ""}`;
     });
 
-    document.getElementById("toggle-mute").addEventListener("click", (event) => {
-      handlers.onToggleMute();
-      event.currentTarget.textContent = state.settings.muted ? "Unmute Audio" : "Mute Audio";
-      volumeValue.textContent = `${Math.round((state.settings.volume ?? 1) * 100)}%${state.settings.muted ? " (muted)" : ""}`;
+    sfxVolumeSlider.addEventListener("input", (event) => {
+      const nextVolume = Number(event.currentTarget.value) / 100;
+      handlers.onSetSfxVolume(nextVolume);
+      const nextPercent = Math.round((state.settings.sfxVolume ?? nextVolume) * 100);
+      sfxVolumeValue.textContent = `${nextPercent}%${state.settings.sfxMuted ? " (muted)" : ""}`;
+    });
+
+    document.getElementById("toggle-music-mute").addEventListener("click", (event) => {
+      handlers.onToggleMusicMute();
+      event.currentTarget.textContent = state.settings.musicMuted ? "Unmute Music" : "Mute Music";
+      musicVolumeValue.textContent = `${Math.round((state.settings.musicVolume ?? 1) * 100)}%${state.settings.musicMuted ? " (muted)" : ""}`;
+    });
+
+    document.getElementById("toggle-sfx-mute").addEventListener("click", (event) => {
+      handlers.onToggleSfxMute();
+      event.currentTarget.textContent = state.settings.sfxMuted ? "Unmute Effects" : "Mute Effects";
+      sfxVolumeValue.textContent = `${Math.round((state.settings.sfxVolume ?? 1) * 100)}%${state.settings.sfxMuted ? " (muted)" : ""}`;
     });
     document.getElementById("desktop-window-size").addEventListener("change", (event) => {
       handlers.onSetDesktopWindowSize?.(event.currentTarget.value);

@@ -20,7 +20,7 @@ Useful scripts:
 
 ## Saves
 
-Use `Options -> Reset Save` in-game for a confirmation modal.
+Use `Settings -> Reset Save` in-game for a confirmation modal.
 
 Browser/dev saves use localStorage under `memeFarmSave`.
 

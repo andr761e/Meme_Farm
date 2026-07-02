@@ -11,6 +11,22 @@ main().catch((error) => {
 
 async function main() {
   JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
+  const uiSource = fs.readFileSync(path.join(root, "src", "ui.js"), "utf8");
+  const styleSource = fs.readFileSync(path.join(root, "src", "style.css"), "utf8");
+
+  if (!uiSource.includes("const ORBITER_VISUAL_CAP = 180")) {
+    throw new Error("Expected the takeover performance pass to preserve all 180 orbiters.");
+  }
+  if (
+    uiSource.includes("shop-name-letter") ||
+    uiSource.includes("cursor.style.left") ||
+    uiSource.includes("orbiters[index].style.left") ||
+    !uiSource.includes("VISUAL_ANIMATION_INTERVAL_SECONDS = 1 / 30") ||
+    !uiSource.includes("TAKEOVER_REDUCED_LOAD_THRESHOLD = 4") ||
+    !styleSource.includes(".tower-card.is-takeover-visible")
+  ) {
+    throw new Error("Expected takeover visuals to use the reduced animation workload.");
+  }
 
   const towersModule = await importModule("src/data/towers.js");
   const upgradesModule = await importModule("src/data/upgrades.js");
@@ -20,6 +36,7 @@ async function main() {
   const steamModule = await importModule("src/steam.js");
   const stateModule = await importModule("src/state.js");
   const saveModule = await importModule("src/save.js");
+  const audioModule = await importModule("src/audio.js");
   const formatModule = await importModule("src/utils/format.js");
   const steamElectronModule = require(path.join(root, "electron", "steam.cjs"));
 
@@ -1420,6 +1437,69 @@ async function main() {
     invalidDesktopWindowSave.settings.desktopWindow.sizePreset !== stateModule.DESKTOP_WINDOW_DEFAULTS.sizePreset
   ) {
     throw new Error("Expected desktop window size presets to save only known fixed sizes.");
+  }
+
+  const legacyAudioSettings = saveModule.mergeSaveData({
+    settings: { muted: true, volume: 0.35 }
+  });
+  if (
+    !legacyAudioSettings.settings.musicMuted ||
+    !legacyAudioSettings.settings.sfxMuted ||
+    legacyAudioSettings.settings.musicVolume !== 0.35 ||
+    legacyAudioSettings.settings.sfxVolume !== 0.35
+  ) {
+    throw new Error("Expected legacy master audio settings to migrate to both audio channels.");
+  }
+
+  const separateAudioState = stateModule.createDefaultState();
+  separateAudioState.settings.musicMuted = true;
+  separateAudioState.settings.sfxMuted = false;
+  separateAudioState.settings.musicVolume = 0.2;
+  separateAudioState.settings.sfxVolume = 0.8;
+  const separateAudioSave = saveModule.mergeSaveData(saveModule.serializeState(separateAudioState));
+  if (
+    !separateAudioSave.settings.musicMuted ||
+    separateAudioSave.settings.sfxMuted ||
+    separateAudioSave.settings.musicVolume !== 0.2 ||
+    separateAudioSave.settings.sfxVolume !== 0.8
+  ) {
+    throw new Error("Expected independent music and sound-effect settings to survive save serialization.");
+  }
+
+  const originalAudio = globalThis.Audio;
+  const originalDocument = globalThis.document;
+  const audioInstances = [];
+  try {
+    globalThis.Audio = class MockAudio {
+      constructor(src) {
+        this.src = src;
+        this.muted = false;
+        this.volume = 1;
+        this.currentTime = 0;
+        this.playCount = 0;
+        audioInstances.push(this);
+      }
+
+      play() {
+        this.playCount += 1;
+        return Promise.resolve();
+      }
+    };
+    globalThis.document = { addEventListener() {} };
+    const audioController = audioModule.createAudioController();
+    audioController.init({ musicMuted: true, sfxMuted: false, musicVolume: 0.25, sfxVolume: 0.75 });
+    audioController.pop();
+    if (
+      !audioInstances[0].muted ||
+      audioInstances[0].playCount !== 0 ||
+      audioInstances.slice(1, 7).every((item) => item.playCount === 0) ||
+      audioController.sfxMuted
+    ) {
+      throw new Error("Expected muted background music to leave clicking sound effects enabled.");
+    }
+  } finally {
+    globalThis.Audio = originalAudio;
+    globalThis.document = originalDocument;
   }
 
   const uncapped = stateModule.createDefaultState();

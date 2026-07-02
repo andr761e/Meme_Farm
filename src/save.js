@@ -117,8 +117,10 @@ export function serializeState(state) {
       acceptedTerms: sanitizeAcceptedTerms(state.stats?.acceptedTerms)
     },
     settings: {
-      muted: Boolean(state.settings?.muted),
-      volume: clamp01(state.settings?.volume, 1),
+      musicMuted: Boolean(state.settings?.musicMuted),
+      sfxMuted: Boolean(state.settings?.sfxMuted),
+      musicVolume: clamp01(state.settings?.musicVolume, 1),
+      sfxVolume: clamp01(state.settings?.sfxVolume, 1),
       visualTakeovers: sanitizeVisualTakeovers(state.settings?.visualTakeovers),
       desktopCompanion: sanitizeDesktopCompanionSettings(state.settings?.desktopCompanion),
       desktopWindow: sanitizeDesktopWindowSettings(state.settings?.desktopWindow)
@@ -152,9 +154,13 @@ export function mergeSaveData(data) {
     superSubscribersCollected: safeNumber(source.stats?.superSubscribersCollected),
     acceptedTerms: sanitizeAcceptedTerms(source.stats?.acceptedTerms)
   };
+  const legacyMuted = Boolean(source.settings?.muted);
+  const legacyVolume = clamp01(source.settings?.volume, 1);
   next.settings = {
-    muted: Boolean(source.settings?.muted),
-    volume: clamp01(source.settings?.volume, 1),
+    musicMuted: Boolean(source.settings?.musicMuted ?? legacyMuted),
+    sfxMuted: Boolean(source.settings?.sfxMuted ?? legacyMuted),
+    musicVolume: clamp01(source.settings?.musicVolume, legacyVolume),
+    sfxVolume: clamp01(source.settings?.sfxVolume, legacyVolume),
     visualTakeovers: sanitizeVisualTakeovers(source.settings?.visualTakeovers),
     desktopCompanion: sanitizeDesktopCompanionSettings(source.settings?.desktopCompanion),
     desktopWindow: sanitizeDesktopWindowSettings(source.settings?.desktopWindow)

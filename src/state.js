@@ -89,8 +89,10 @@ export function createDefaultState() {
       acceptedTerms: {}
     },
     settings: {
-      muted: false,
-      volume: 1,
+      musicMuted: false,
+      sfxMuted: false,
+      musicVolume: 1,
+      sfxVolume: 1,
       visualTakeovers: { ...VISUAL_TAKEOVER_DEFAULTS },
       desktopCompanion: { ...DESKTOP_COMPANION_DEFAULTS },
       desktopWindow: { ...DESKTOP_WINDOW_DEFAULTS }

@@ -211,6 +211,8 @@ body.era-multiverse-collapse {
   z-index: 12;
   overflow: hidden;
   pointer-events: none;
+  contain: layout paint style;
+  isolation: isolate;
 }
 
 .consequence-layer {
@@ -329,11 +331,14 @@ body.consequence-algorithm-denial::after {
 }
 
 .takeover-cursor {
+  left: 0;
+  top: 0;
   width: 16px;
   height: 24px;
   filter: drop-shadow(0 0 8px rgba(118, 255, 122, 0.45));
   opacity: 0.62;
-  transition: left 180ms linear, top 180ms linear;
+  transition: transform 80ms linear;
+  will-change: transform;
 }
 
 .takeover-cursor::before {
@@ -377,6 +382,31 @@ body.consequence-algorithm-denial::after {
   opacity: 0;
   animation: modStampFlicker 4.8s ease-in-out infinite;
   animation-delay: var(--d);
+}
+
+body.takeover-reduced-load .takeover-cursor {
+  filter: none;
+}
+
+body.takeover-reduced-load .takeover-mod-stamp {
+  text-shadow: none;
+}
+
+body.takeover-reduced-load .takeover-rickroll-banner {
+  left: -30vw;
+  width: 140vw;
+}
+
+body.takeover-reduced-load .takeover-glitch-slice {
+  mix-blend-mode: normal;
+}
+
+body.takeover-reduced-load .takeover-algorithm-label {
+  box-shadow: none;
+}
+
+body.takeover-reduced-load .orbit-item-core {
+  animation: none;
 }
 
 .takeover-rickroll-banner {
@@ -615,19 +645,15 @@ body.takeover-algorithm .resource-panel::after {
   66%,
   100% {
     translate: 0 0;
-    filter: none;
   }
   58% {
     translate: -2px 1px;
-    filter: hue-rotate(45deg);
   }
   60% {
     translate: 2px -1px;
-    filter: hue-rotate(150deg) contrast(1.06);
   }
   62% {
     translate: -1px -2px;
-    filter: saturate(1.35);
   }
 }
 
@@ -1348,6 +1374,8 @@ body.era-multiverse-collapse .divider {
 
 .orbit-item {
   position: absolute;
+  left: 0;
+  top: 0;
   width: 30px;
   height: 30px;
 }
@@ -1362,18 +1390,15 @@ body.era-multiverse-collapse .divider {
   animation: orbitWave 2.9s ease-in-out infinite;
   animation-delay: calc(var(--i) * 80ms);
   transform-origin: center;
-  will-change: transform, filter;
 }
 
 @keyframes orbitWave {
   0%,
   72%,
   100% {
-    filter: drop-shadow(0 0 5px var(--era-accent));
     transform: translateY(0) scale(1);
   }
   82% {
-    filter: drop-shadow(0 0 9px var(--era-warning)) drop-shadow(0 0 8px var(--era-accent));
     transform: translateY(-5px) scale(1.13);
   }
 }
@@ -3407,7 +3432,7 @@ body.takeover-meme-lord .shop-towers .tower-card {
     0 0 18px hsla(var(--rainbow-hue, 190deg), 95%, 64%, 0.12);
 }
 
-body.takeover-meme-lord .shop-towers .tower-card::before {
+body.takeover-meme-lord .shop-towers .tower-card.is-takeover-visible::before {
   background:
     linear-gradient(100deg, transparent 12%, rgba(255, 255, 255, 0.22) 28%, transparent 44%),
     linear-gradient(90deg, rgba(255, 69, 214, 0.12), rgba(66, 232, 255, 0.14), rgba(118, 255, 122, 0.12), rgba(255, 230, 109, 0.12));
@@ -3465,10 +3490,6 @@ body.takeover-meme-lord .shop-towers .tower-card::before {
 
 .shop-name-wave {
   display: none;
-}
-
-.shop-name-letter {
-  display: inline-block;
   transform-origin: 50% 72%;
   transform: translate3d(0, 0, 0);
   backface-visibility: hidden;
@@ -3479,7 +3500,7 @@ body.takeover-meme-lord .tower-card .shop-name {
 }
 
 body.takeover-meme-lord .tower-card .shop-name-plain,
-body.takeover-meme-lord.takeover-cursed-tiktok .tower-card .shop-name-letter {
+body.takeover-meme-lord.takeover-cursed-tiktok .tower-card .shop-name-wave {
   background-image: linear-gradient(
     90deg,
     #ff4fd8 0%,
@@ -3495,6 +3516,9 @@ body.takeover-meme-lord.takeover-cursed-tiktok .tower-card .shop-name-letter {
   color: transparent;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
+}
+
+body.takeover-meme-lord:not(.takeover-cursed-tiktok) .tower-card.is-takeover-visible .shop-name-plain {
   animation: memeLordRainbowName 2.7s linear infinite;
   animation-delay: var(--rainbow-delay, 0s);
 }
@@ -3504,22 +3528,13 @@ body.takeover-cursed-tiktok .tower-card .shop-name-plain {
 }
 
 body.takeover-cursed-tiktok .tower-card .shop-name-wave {
-  display: inline;
+  display: inline-block;
 }
 
-body.takeover-cursed-tiktok .tower-card .shop-name-letter {
-  color: hsl(var(--letter-hue, 190deg), 100%, 76%);
+body.takeover-cursed-tiktok .tower-card.is-takeover-visible .shop-name-wave {
+  color: hsl(190deg, 100%, 76%);
   animation: cursedTikTokTextWave 2.25s cubic-bezier(0.42, 0, 0.24, 1) infinite;
-  animation-delay: calc(var(--rainbow-delay, 0s) + var(--letter-delay, 0s));
-  will-change: transform, text-shadow;
-}
-
-body.takeover-meme-lord.takeover-cursed-tiktok .tower-card .shop-name-letter {
-  animation-name: cursedTikTokTextWave, memeLordRainbowName;
-  animation-duration: 2.25s, 2.7s;
-  animation-timing-function: cubic-bezier(0.42, 0, 0.24, 1), linear;
-  animation-iteration-count: infinite, infinite;
-  animation-delay: calc(var(--rainbow-delay, 0s) + var(--letter-delay, 0s)), var(--rainbow-delay, 0s);
+  animation-delay: var(--rainbow-delay, 0s);
 }
 
 .shop-desc {
@@ -4441,6 +4456,25 @@ body.takeover-meme-lord.takeover-cursed-tiktok .tower-card .shop-name-letter {
 .volume-control {
   display: grid;
   gap: 10px;
+}
+
+.audio-channel-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.audio-channel-card {
+  display: grid;
+  gap: 11px;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 9px;
+  background: rgba(5, 7, 14, 0.48);
+}
+
+.audio-channel-card button {
+  align-self: end;
 }
 
 .volume-control span,
@@ -5647,7 +5681,8 @@ body.prestige-screen-hit .top-bar {
   }
 
   .research-branch-grid,
-  .bad-idea-risk-summary {
+  .bad-idea-risk-summary,
+  .audio-channel-grid {
     grid-template-columns: 1fr;
   }
 
