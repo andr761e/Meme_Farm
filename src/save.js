@@ -1,7 +1,12 @@
 import { TOWERS } from "./data/towers.js";
 import { UPGRADES } from "./data/upgrades.js";
 import { ACHIEVEMENTS } from "./data/achievements.js";
-import { BAD_IDEA_CONSEQUENCE_BY_ID, BAD_IDEA_OUTCOME_BY_ID, MEME_LAB_BOOST_BY_ID } from "./data/memeLab.js";
+import {
+  ALGORITHM_RESEARCH_PROJECT_BY_ID,
+  BAD_IDEA_CONSEQUENCE_BY_ID,
+  BAD_IDEA_OUTCOME_BY_ID,
+  MEME_LAB_BOOST_BY_ID
+} from "./data/memeLab.js";
 import { TERMS_OF_SERVICE_EVENT_BY_ID } from "./data/termsOfService.js";
 import {
   DESKTOP_COMPANION_DEFAULTS,
@@ -264,8 +269,24 @@ function sanitizeLabState(lab) {
     boostPurchaseCounts: sanitizeIdCounts(lab?.boostPurchaseCounts, MEME_LAB_BOOST_BY_ID),
     badIdeaPresses: safeNumber(lab?.badIdeaPresses),
     badIdeaOutcomeCounts: sanitizeIdCounts(lab?.badIdeaOutcomeCounts, BAD_IDEA_OUTCOME_BY_ID),
-    subscribersSpent: safeNumber(lab?.subscribersSpent)
+    badIdeaDryStreak: safeNumber(lab?.badIdeaDryStreak),
+    queuedBoostId: MEME_LAB_BOOST_BY_ID[lab?.queuedBoostId] ? lab.queuedBoostId : null,
+    subscribersSpent: safeNumber(lab?.subscribersSpent),
+    research: sanitizeAlgorithmResearch(lab?.research),
+    researchSubscribersSpent: safeNumber(lab?.researchSubscribersSpent)
   };
+}
+
+function sanitizeAlgorithmResearch(research) {
+  if (!research || typeof research !== "object") {
+    return {};
+  }
+
+  return Object.fromEntries(
+    Object.entries(research)
+      .filter(([id, value]) => ALGORITHM_RESEARCH_PROJECT_BY_ID[id] && value)
+      .map(([id, value]) => [id, { purchasedAt: safeNumber(value?.purchasedAt) }])
+  );
 }
 
 function sanitizeIdCounts(counts, validIdsByKey) {

@@ -1,5 +1,5 @@
-import { ACHIEVEMENTS } from "./data/achievements.js";
-import { MEME_LAB_PROGRAMS } from "./data/memeLab.js";
+import { ACHIEVEMENTS, getAchievementProgress } from "./data/achievements.js";
+import { ALGORITHM_RESEARCH_PROJECT_BY_ID, MEME_LAB_PROGRAMS } from "./data/memeLab.js";
 import { TERMS_OF_SERVICE_EVENTS } from "./data/termsOfService.js";
 import { TOWERS } from "./data/towers.js";
 import { UPGRADES } from "./data/upgrades.js";
@@ -19,9 +19,13 @@ import {
   getApocalypseEra,
   hasActiveBadIdeaConsequence,
   hasActiveLabProgramBoost,
+  hasAlgorithmResearch,
+  getLabBoostDuration,
   getLabBoostMultipliers,
+  getLabBoostSubscriberCost,
   getLikesPerSecond,
   getFakeSubscriberConversion,
+  getMissedSubscriberRecoveryChance,
   getLifetimePrestigeStats,
   getSubscriberAutoCollector,
   getNextLockedTower,
@@ -35,6 +39,7 @@ import {
   getPrestigeTowerLpsMultiplier,
   getTowerAmount,
   getTowerCost,
+  getTowerPurchaseQuote,
   getTowerEffectiveLps,
   getTotalTowersOwned,
   getUpgradeCost,
@@ -379,12 +384,16 @@ const TAKEOVER_OPTIONS = [
   }
 ];
 const STATS_LIFETIME_VIEW_ID = "lifetime";
+const MILESTONE_NEARLY_COMPLETE_RATIO = 0.5;
 
 let elements;
 let handlers;
 let activeOverlay = null;
 let activeTooltip = null;
 let activeStatsView = STATS_LIFETIME_VIEW_ID;
+let activeMilestoneStatus = "all";
+let activeMilestoneCategory = "all";
+let milestoneSearchQuery = "";
 let lastOrbiterCount = -1;
 let lastTakeoverSignature = "";
 let lastCommentRiotBurstAt = 0;
@@ -392,6 +401,7 @@ let activeLeaderboardScope = "global";
 let activeLeaderboardMetric = LEADERBOARD_METRICS[0].id;
 let activeLabProgramId = MEME_LAB_PROGRAMS[0]?.id ?? null;
 let activeShopTab = "towers";
+let activeTowerPurchaseAmount = 1;
 const shopScrollPositions = {
   towers: 0,
   upgrades: 0
@@ -413,6 +423,7 @@ export function initUI(options) {
   bindMemeButton();
   bindPrestigeControls();
   bindShopTabs();
+  bindTowerBuyControls();
   bindSocialControls();
   bindKeyboardShortcuts();
 
@@ -449,7 +460,9 @@ export function updateUI(state) {
 
   if (activeOverlay === "stats") {
     updateStatsOverlay(state);
-  } else if (activeOverlay === "milestones" || activeOverlay === "upgrades") {
+  } else if (activeOverlay === "milestones") {
+    updateMilestoneOverlay(state);
+  } else if (activeOverlay === "upgrades") {
     renderOverlay(activeOverlay);
   }
 
@@ -486,6 +499,7 @@ function collectElements() {
     shopUpgrades: document.getElementById("shop-upgrades"),
     tabTowers: document.getElementById("tab-towers"),
     tabUpgrades: document.getElementById("tab-upgrades"),
+    towerBuyControls: document.getElementById("tower-buy-controls"),
     nextUnlock: document.getElementById("next-unlock"),
     leaderboardGlobal: document.getElementById("leaderboard-global"),
     leaderboardFriends: document.getElementById("leaderboard-friends"),
@@ -616,6 +630,23 @@ function bindSocialControls() {
 
 }
 
+function bindTowerBuyControls() {
+  elements.towerBuyControls.querySelectorAll("[data-tower-buy-amount]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const value = button.dataset.towerBuyAmount;
+      activeTowerPurchaseAmount = value === "max" ? "max" : Number(value);
+
+      elements.towerBuyControls.querySelectorAll("[data-tower-buy-amount]").forEach((item) => {
+        const active = item === button;
+        item.classList.toggle("active", active);
+        item.setAttribute("aria-pressed", String(active));
+      });
+
+      updateTowerCards(handlers.state);
+    });
+  });
+}
+
 function bindKeyboardShortcuts() {
   document.addEventListener("keydown", (event) => {
     if (event.key !== "Escape" || event.repeat) {
@@ -661,6 +692,7 @@ function switchShopTab(tab) {
   elements.tabUpgrades.setAttribute("aria-selected", String(!towersActive));
   elements.shopTowers.hidden = !towersActive;
   elements.shopUpgrades.hidden = towersActive;
+  elements.towerBuyControls.hidden = !towersActive;
   elements.nextUnlock.hidden = !towersActive;
   elements.shopTowers.classList.toggle("active", towersActive);
   elements.shopUpgrades.classList.toggle("active", !towersActive);
@@ -697,7 +729,7 @@ function renderTowerShop() {
 
   elements.shopTowers.querySelectorAll("[data-tower-id]").forEach((card) => {
     const id = card.dataset.towerId;
-    card.addEventListener("click", () => handlers.onBuyTower(id));
+    card.addEventListener("click", () => handlers.onBuyTower(id, activeTowerPurchaseAmount));
     card.addEventListener("mouseenter", () => showTooltip("tower", id, card));
     card.addEventListener("focus", () => showTooltip("tower", id, card));
     card.addEventListener("mouseleave", hideTooltip);
@@ -766,6 +798,10 @@ function renderMemeLab() {
     card.addEventListener("click", () => handlers.onBuyLabBoost(card.dataset.labBoostId));
   });
 
+  elements.labPrograms.querySelectorAll("[data-research-project-id]").forEach((card) => {
+    card.addEventListener("click", () => handlers.onBuyAlgorithmResearch(card.dataset.researchProjectId));
+  });
+
   const badIdeaButton = elements.labPrograms.querySelector("[data-lab-action='bad-idea']");
   badIdeaButton?.addEventListener("click", handlers.onPressBadIdeaButton);
 }
@@ -773,6 +809,10 @@ function renderMemeLab() {
 function renderLabProgram(program) {
   if (program.type === "bad_idea_button") {
     return renderBadIdeaProgram(program);
+  }
+
+  if (program.type === "research_tree") {
+    return renderResearchProgram(program);
   }
 
   return renderBoostProgram(program);
@@ -803,10 +843,47 @@ function renderBoostProgram(program) {
             <span class="lab-boost-effects">
               ${formatBoostMultiplier("LPS", boost.lpsMultiplier)}
               ${formatBoostMultiplier("Click", boost.clickMultiplier)}
-              <span>${formatDuration(boost.durationSeconds)}</span>
+              <span data-role="duration">${formatDuration(boost.durationSeconds)}</span>
             </span>
             <span class="lab-boost-cost" data-role="cost">${formatNumber(boost.subscriberCost)} Subscribers</span>
           </button>
+        `).join("")}
+      </div>
+    </article>
+  `;
+}
+
+function renderResearchProgram(program) {
+  return `
+    <article class="lab-program research-program" data-lab-program="${program.id}">
+      <div class="lab-program-header">
+        <span class="eyebrow">${escapeHtml(program.eyebrow)}</span>
+        <h2>${escapeHtml(program.title)}</h2>
+        <p>${escapeHtml(program.description)}</p>
+      </div>
+      <div class="research-permanence-note">
+        <strong>Permanent research</strong>
+        <span>Purchased projects survive every Go Viral reset.</span>
+      </div>
+      <div class="research-branch-grid">
+        ${program.branches.map((branch) => `
+          <section class="research-branch" data-research-branch="${branch.id}">
+            <div class="research-branch-heading">
+              <span>${escapeHtml(branch.title)}</span>
+              <small>${escapeHtml(branch.description)}</small>
+            </div>
+            <div class="research-project-list">
+              ${branch.projects.map((project, index) => `
+                <button class="research-project-card" type="button" data-research-project-id="${project.id}">
+                  <span class="research-project-tier">Research ${index + 1}</span>
+                  <strong>${escapeHtml(project.name)}</strong>
+                  <span class="research-project-description">${escapeHtml(project.description)}</span>
+                  <span class="research-project-cost" data-role="cost">${formatNumber(project.subscriberCost)} Subscribers</span>
+                  <span class="research-project-state" data-role="state">Available</span>
+                </button>
+              `).join("")}
+            </div>
+          </section>
         `).join("")}
       </div>
     </article>
@@ -832,6 +909,7 @@ function renderBadIdeaProgram(program) {
           <span>No bad idea committed yet.</span>
         </div>
       </div>
+      <div class="bad-idea-risk-summary" data-role="bad-idea-risk-summary" hidden></div>
       <div class="bad-idea-outcomes">
         <h3>Possible outcomes</h3>
         <div class="bad-idea-outcome-list">
@@ -1084,14 +1162,17 @@ function updateTowerCards(state) {
     const card = elements.shopTowers.querySelector(`[data-tower-id="${tower.id}"]`);
     const unlocked = isTowerUnlocked(state, tower);
     const amount = getTowerAmount(state, tower.id);
-    const cost = getTowerCost(state, tower.id);
-    const canAfford = state.likes >= cost;
+    const singleCost = getTowerCost(state, tower.id);
+    const quote = getTowerPurchaseQuote(state, tower.id, activeTowerPurchaseAmount);
+    const cost = quote.cost;
+    const canAfford = quote.amount > 0 && state.likes >= cost;
     const copy = getTowerDisplayCopy(state, tower, index);
 
     card.hidden = !unlocked;
     card.classList.toggle("is-affordable", unlocked && canAfford);
     card.classList.toggle("is-unaffordable", unlocked && !canAfford);
     card.setAttribute("aria-disabled", String(!unlocked || !canAfford));
+    card.setAttribute("aria-label", `Buy ${activeTowerPurchaseAmount === "max" ? "maximum" : activeTowerPurchaseAmount} ${copy.displayName}`);
     const nameElement = card.querySelector(".shop-name");
     if (nameElement.dataset.displayName !== copy.displayName) {
       nameElement.dataset.displayName = copy.displayName;
@@ -1099,10 +1180,19 @@ function updateTowerCards(state) {
       nameElement.innerHTML = renderShopNameText(copy.displayName);
     }
     card.querySelector('[data-role="count"]').textContent = `x${formatNumber(amount)}`;
-    card.querySelector('[data-role="cost"]').textContent = `${formatNumber(cost)} Likes`;
+    card.querySelector('[data-role="cost"]').textContent = activeTowerPurchaseAmount === "max"
+      ? quote.amount > 0
+        ? `${formatNumber(cost)} Likes (${formatNumber(quote.amount)}x)`
+        : `${formatNumber(singleCost)} Likes (next)`
+      : `${formatNumber(cost)} Likes`;
     card.querySelector('[data-role="production"]').textContent = `${formatNumber(tower.lps * getTowerMultiplierForDisplay(state, tower.id))} LPS`;
     const stateElement = card.querySelector('[data-role="state"]');
-    const stateText = canAfford ? "Can afford" : `Need ${formatNumber(cost - state.likes)}`;
+    const missing = activeTowerPurchaseAmount === "max"
+      ? Math.max(0, singleCost - state.likes)
+      : Math.max(0, cost - state.likes);
+    const stateText = canAfford
+      ? activeTowerPurchaseAmount === "max" ? `Buy ${formatNumber(quote.amount)}` : "Can afford"
+      : `Need ${formatNumber(missing)}`;
     stateElement.textContent = stateText;
     stateElement.title = stateText;
   }
@@ -1399,33 +1489,90 @@ function updateMemeLab(state) {
     return;
   }
 
+  if (activeProgram.type === "research_tree") {
+    updateResearchProgram(state, activeProgram);
+    return;
+  }
+
   const activeBoosts = getActiveLabBoosts(state);
   const activeById = new Map(activeBoosts.map((boost) => [boost.id, boost]));
   const hasActiveProgramBoost = hasActiveLabProgramBoost(state, activeProgram.id);
+  const queuedBoostId = state.lab?.queuedBoostId ?? null;
+  const canQueueBoost = hasAlgorithmResearch(state, "scheduled_bribe");
 
   for (const boost of activeProgram.boosts) {
     const card = elements.labPrograms.querySelector(`[data-lab-boost-id="${boost.id}"]`);
     const active = activeById.get(boost.id);
-    const canAfford = state.subscribers >= boost.subscriberCost;
-    const blockedByProgramBoost = hasActiveProgramBoost && !active;
+    const queued = queuedBoostId === boost.id;
+    const cost = getLabBoostSubscriberCost(state, boost);
+    const duration = getLabBoostDuration(state, boost);
+    const canAfford = state.subscribers >= cost;
+    const queueFull = hasActiveProgramBoost && Boolean(queuedBoostId) && !queued;
+    const blockedByProgramBoost = hasActiveProgramBoost && !active && !canQueueBoost;
+    const canQueueActiveAgain = Boolean(active) && canQueueBoost && !queuedBoostId && canAfford;
+    const canPurchase = canQueueActiveAgain || (!active && !queued && !queueFull && !blockedByProgramBoost && canAfford);
 
     card.classList.toggle("is-active", Boolean(active));
-    card.classList.toggle("is-affordable", !active && !blockedByProgramBoost && canAfford);
-    card.classList.toggle("is-unaffordable", !active && !blockedByProgramBoost && !canAfford);
+    card.classList.toggle("is-queued", queued);
+    card.classList.toggle("is-affordable", canPurchase);
+    card.classList.toggle("is-unaffordable", !active && !queued && !queueFull && !blockedByProgramBoost && !canAfford);
     card.classList.toggle("is-program-blocked", blockedByProgramBoost);
-    card.disabled = Boolean(active) || blockedByProgramBoost || !canAfford;
+    card.disabled = !canPurchase;
     card.querySelector('[data-role="status"]').textContent = active
-      ? "Active"
+      ? queued
+        ? "Active + queued"
+        : canQueueBoost && !queuedBoostId
+          ? canAfford ? "Active - queue again" : `Active - need ${formatNumber(cost - state.subscribers)}`
+          : "Active"
+      : queued
+        ? "Queued"
+        : queueFull
+          ? "Queue full"
       : blockedByProgramBoost
         ? "Wait for current bribe"
         : canAfford
-        ? "Ready"
-        : `Need ${formatNumber(boost.subscriberCost - state.subscribers)}`;
+        ? hasActiveProgramBoost ? "Queue next" : "Ready"
+        : `Need ${formatNumber(cost - state.subscribers)}`;
     card.querySelector('[data-role="cost"]').textContent = active
-      ? "Timer in resource box"
+      ? canQueueBoost && !queuedBoostId
+        ? `${formatNumber(cost)} to queue again`
+        : "Timer in resource box"
+      : queued
+        ? "Paid and queued"
       : blockedByProgramBoost
         ? "Bribe already active"
-      : `${formatNumber(boost.subscriberCost)} Subscribers`;
+      : queueFull
+        ? "One Bribe already queued"
+        : `${formatNumber(cost)} Subscribers`;
+    card.querySelector('[data-role="duration"]').textContent = formatDuration(duration);
+  }
+}
+
+function updateResearchProgram(state, program) {
+  for (const branch of program.branches) {
+    for (const project of branch.projects) {
+      const card = elements.labPrograms.querySelector(`[data-research-project-id="${project.id}"]`);
+      const owned = hasAlgorithmResearch(state, project.id);
+      const prerequisite = project.requires ? ALGORITHM_RESEARCH_PROJECT_BY_ID[project.requires] : null;
+      const prerequisiteMet = !project.requires || hasAlgorithmResearch(state, project.requires);
+      const canAfford = state.subscribers >= project.subscriberCost;
+
+      card.classList.toggle("is-owned", owned);
+      card.classList.toggle("is-affordable", !owned && prerequisiteMet && canAfford);
+      card.classList.toggle("is-unaffordable", !owned && prerequisiteMet && !canAfford);
+      card.classList.toggle("is-locked", !owned && !prerequisiteMet);
+      card.disabled = owned || !prerequisiteMet || !canAfford;
+      card.querySelector('[data-role="cost"]').textContent = owned
+        ? "Permanent"
+        : `${formatNumber(project.subscriberCost)} Subscribers`;
+      card.querySelector('[data-role="state"]').textContent = owned
+        ? "Researched"
+        : !prerequisiteMet
+          ? `Requires ${prerequisite?.name ?? "previous research"}`
+          : canAfford
+            ? "Fund research"
+            : `Need ${formatNumber(project.subscriberCost - state.subscribers)}`;
+    }
   }
 }
 
@@ -1434,6 +1581,7 @@ function updateBadIdeaProgram(state, program) {
   const stateLabel = elements.labPrograms.querySelector("[data-role='bad-idea-state']");
   const costLabel = elements.labPrograms.querySelector("[data-role='bad-idea-cost']");
   const resultPanel = elements.labPrograms.querySelector("[data-role='bad-idea-result']");
+  const riskSummary = elements.labPrograms.querySelector("[data-role='bad-idea-risk-summary']");
   const canAfford = state.subscribers >= program.subscriberCost;
   const lastOutcome = state.lab?.lastBadIdeaOutcome;
 
@@ -1444,6 +1592,26 @@ function updateBadIdeaProgram(state, program) {
   stateLabel.textContent = canAfford
     ? "Ready to regret"
     : `Need ${formatNumber(program.subscriberCost - state.subscribers)}`;
+
+  if (riskSummary) {
+    const researched = hasAlgorithmResearch(state, "risk_assessment");
+    riskSummary.hidden = !researched;
+    if (researched) {
+      const totalWeight = program.outcomes.reduce((sum, outcome) => sum + (outcome.weight ?? 0), 0);
+      const positiveWeight = program.outcomes
+        .filter((outcome) => ["awardRandomTower", "addLikesFromLps", "addLikesFromClicks", "addSubscribers"].includes(outcome.type))
+        .reduce((sum, outcome) => sum + (outcome.weight ?? 0), 0);
+      const negativeWeight = program.outcomes
+        .filter((outcome) => ["loseLikesFromLps", "loseSubscribers"].includes(outcome.type))
+        .reduce((sum, outcome) => sum + (outcome.weight ?? 0), 0);
+      const emptyWeight = Math.max(0, totalWeight - positiveWeight - negativeWeight);
+      riskSummary.innerHTML = `
+        <span><b>Positive</b>${formatPercent(positiveWeight / totalWeight)}</span>
+        <span><b>Negative</b>${formatPercent(negativeWeight / totalWeight)}</span>
+        <span><b>Empty</b>${formatPercent(emptyWeight / totalWeight)}</span>
+      `;
+    }
+  }
 
   if (!lastOutcome) {
     resultPanel.innerHTML = `
@@ -1781,6 +1949,7 @@ function spawnSubscriberRaid(onCollect, state) {
   const baseLeft = 14 + Math.random() * 72;
   const members = createSubscriberRaidMembers(count, bribeActive);
   const fakeConversion = getFakeSubscriberConversion(state);
+  const missedRecoveryChance = getMissedSubscriberRecoveryChance(state);
   const autoCollector = getSubscriberAutoCollector(state);
   let autoCollectCount = 0;
 
@@ -1803,6 +1972,7 @@ function spawnSubscriberRaid(onCollect, state) {
       drift,
       delayMs: index * 130,
       fakeConversion,
+      missedRecoveryChance,
       autoCollect,
       autoCollector,
       onCollect
@@ -1848,7 +2018,7 @@ function createFakeSubscriberMember() {
     : { kind: "bot", amount: 0 };
 }
 
-function createSubscriberRaidMember({ kind, amount, left, rowOffset, drift, delayMs, fakeConversion = { chance: 0, amount: 1 }, autoCollect = false, autoCollector = { delayMinMs: 900, delayMaxMs: 2500 }, onCollect }) {
+function createSubscriberRaidMember({ kind, amount, left, rowOffset, drift, delayMs, fakeConversion = { chance: 0, amount: 1 }, missedRecoveryChance = 0, autoCollect = false, autoCollector = { delayMinMs: 900, delayMaxMs: 2500 }, onCollect }) {
   const subscriber = document.createElement("button");
   const fake = kind === "bot";
   const golden = kind === "golden";
@@ -1873,6 +2043,12 @@ function createSubscriberRaidMember({ kind, amount, left, rowOffset, drift, dela
     }
 
     if (!fake) {
+      if (!superSubscriber && Math.random() < missedRecoveryChance) {
+        showSubscriberSnark("recovered by Audience Research", subscriber);
+        subscriber.remove();
+        onCollect({ amount, golden, superSubscriber });
+        return;
+      }
       showSubscriberSnark(randomItem(SUBSCRIBER_MISSED_LINES), subscriber);
     }
 
@@ -2016,18 +2192,55 @@ function renderOverlay(type) {
   }
 
   if (type === "milestones") {
-    const unlockedCount = ACHIEVEMENTS.filter((achievement) => state.achievements[achievement.id]).length;
     elements.overlayContent.innerHTML = `
       <h2 id="overlay-title">Milestones</h2>
-      <p class="overlay-subtitle">Steam achievement goals for Meme Farm: tower purchases, viral thresholds, bad decisions, and a few deeply specific internet crimes.</p>
-      <div class="milestone-summary">
-        <strong>${formatNumber(unlockedCount)} / ${formatNumber(ACHIEVEMENTS.length)} unlocked</strong>
-        <span>${formatNumber(ACHIEVEMENTS.length - unlockedCount)} still hiding in the content mines</span>
-      </div>
-      <div class="achievement-grid achievement-grid-overlay">
-        ${renderAchievementCards(state)}
-      </div>
+      <p class="overlay-subtitle">Find your next target, inspect live progress, or search the entire content mine without scrolling through hundreds of cards.</p>
+      <div class="milestone-summary" data-role="milestone-summary"></div>
+      <section class="milestone-next-section" aria-labelledby="milestone-next-title">
+        <div class="milestone-section-heading">
+          <div>
+            <span class="eyebrow">Pinned automatically</span>
+            <h3 id="milestone-next-title">Next Goals</h3>
+          </div>
+          <small>The three closest measurable goals update as you play.</small>
+        </div>
+        <div class="milestone-next-grid" data-role="milestone-next-goals"></div>
+      </section>
+      <section class="milestone-browser" aria-labelledby="milestone-browser-title">
+        <div class="milestone-section-heading">
+          <div>
+            <span class="eyebrow">Full archive</span>
+            <h3 id="milestone-browser-title">Browse Milestones</h3>
+          </div>
+          <span data-role="milestone-result-count"></span>
+        </div>
+        <div class="milestone-controls">
+          <label class="milestone-search">
+            <span>Search</span>
+            <input type="search" data-milestone-search placeholder="Name or description..." value="${escapeHtml(milestoneSearchQuery)}" />
+          </label>
+          <label class="milestone-category-filter">
+            <span>Category</span>
+            <select data-milestone-category>
+              <option value="all">All categories</option>
+              ${getMilestoneCategories().map((category) => `<option value="${escapeHtml(category)}" ${category === activeMilestoneCategory ? "selected" : ""}>${escapeHtml(category)}</option>`).join("")}
+            </select>
+          </label>
+        </div>
+        <div class="milestone-status-filters" role="group" aria-label="Milestone status">
+          ${[
+            ["all", "All"],
+            ["locked", "Locked"],
+            ["unlocked", "Unlocked"],
+            ["nearly", "Nearly Complete"]
+          ].map(([value, label]) => `<button type="button" class="${value === activeMilestoneStatus ? "active" : ""}" data-milestone-status="${value}" aria-pressed="${value === activeMilestoneStatus}">${label}</button>`).join("")}
+        </div>
+        <div class="achievement-grid achievement-grid-overlay" data-role="milestone-grid"></div>
+        <div class="milestone-empty" data-role="milestone-empty" hidden>No milestones match those filters. The archive is pretending not to know you.</div>
+      </section>
     `;
+    bindMilestoneControls();
+    updateMilestoneOverlay(state);
     return;
   }
 
@@ -2194,7 +2407,7 @@ function renderOverlay(type) {
     <h2 id="overlay-title">About Meme Farm</h2>
     <p>Meme Farm is a chaotic idle clicker about posting memes, farming likes, and turning internet nonsense into an increasingly ridiculous empire. Click for early likes, buy towers to automate the grind, and stack upgrades until the numbers become deeply unserious.</p>
     <p>Subscribers are your special side currency. Collect them when they appear, then spend them in the Meme Lab on temporary boosts, risky experiments, and stranger systems as the game grows.</p>
-    <p>Future updates will expand the Meme Lab with new programs, more subscriber sinks, and fresh ways to bend your meme economy in irresponsible directions.</p>
+    <p>Algorithm Research turns Subscribers into permanent utility upgrades that survive Go Viral, while Algorithm Bribes and the Bad Idea Button remain temporary and deeply questionable ways to bend the economy.</p>
   `;
 }
 
@@ -2404,17 +2617,174 @@ function getTowerUpgradeSummaries(state) {
   });
 }
 
-function renderAchievementCards(state) {
-  return ACHIEVEMENTS.map((achievement) => {
+function bindMilestoneControls() {
+  const search = elements.overlayContent.querySelector("[data-milestone-search]");
+  const category = elements.overlayContent.querySelector("[data-milestone-category]");
+
+  search?.addEventListener("input", (event) => {
+    milestoneSearchQuery = event.currentTarget.value;
+    updateMilestoneResults(handlers.state);
+  });
+
+  category?.addEventListener("change", (event) => {
+    activeMilestoneCategory = event.currentTarget.value;
+    updateMilestoneResults(handlers.state);
+  });
+
+  elements.overlayContent.querySelectorAll("[data-milestone-status]").forEach((button) => {
+    button.addEventListener("click", () => {
+      activeMilestoneStatus = button.dataset.milestoneStatus;
+      elements.overlayContent.querySelectorAll("[data-milestone-status]").forEach((item) => {
+        const active = item === button;
+        item.classList.toggle("active", active);
+        item.setAttribute("aria-pressed", String(active));
+      });
+      updateMilestoneResults(handlers.state);
+    });
+  });
+}
+
+function updateMilestoneOverlay(state) {
+  const summary = elements.overlayContent.querySelector('[data-role="milestone-summary"]');
+  const nextGoals = elements.overlayContent.querySelector('[data-role="milestone-next-goals"]');
+
+  if (!summary || !nextGoals) {
+    renderOverlay("milestones");
+    return;
+  }
+
+  const unlockedCount = ACHIEVEMENTS.filter((achievement) => state.achievements[achievement.id]).length;
+  const completionPercent = ACHIEVEMENTS.length > 0 ? (unlockedCount / ACHIEVEMENTS.length) * 100 : 0;
+  summary.innerHTML = `
+    <div class="milestone-summary-copy">
+      <strong>${formatNumber(unlockedCount)} / ${formatNumber(ACHIEVEMENTS.length)} unlocked</strong>
+      <span>${formatNumber(ACHIEVEMENTS.length - unlockedCount)} still hiding in the content mines</span>
+    </div>
+    <div class="milestone-overall-progress" aria-label="${Math.round(completionPercent)}% milestone completion">
+      <span style="width:${completionPercent.toFixed(2)}%"></span>
+    </div>
+  `;
+
+  const goals = getNextMilestoneGoals(state);
+  nextGoals.innerHTML = goals.length > 0
+    ? renderAchievementCards(state, goals, { nextGoal: true })
+    : `<div class="milestone-all-complete">Every measurable milestone is complete. The archive has run out of threats.</div>`;
+
+  updateMilestoneResults(state);
+}
+
+function updateMilestoneResults(state) {
+  const grid = elements.overlayContent.querySelector('[data-role="milestone-grid"]');
+  const count = elements.overlayContent.querySelector('[data-role="milestone-result-count"]');
+  const empty = elements.overlayContent.querySelector('[data-role="milestone-empty"]');
+
+  if (!grid || !count || !empty) {
+    return;
+  }
+
+  const query = milestoneSearchQuery.trim().toLocaleLowerCase();
+  const visibleAchievements = ACHIEVEMENTS.filter((achievement) => {
     const unlocked = Boolean(state.achievements[achievement.id]);
+    const progressData = getDisplayAchievementProgress(achievement, state, unlocked);
+    const ratio = getAchievementProgressRatio(progressData);
+    const nearlyComplete = !unlocked && progressData && progressData.current > 0 && ratio >= MILESTONE_NEARLY_COMPLETE_RATIO;
+    const matchesStatus = activeMilestoneStatus === "all"
+      || (activeMilestoneStatus === "locked" && !unlocked)
+      || (activeMilestoneStatus === "unlocked" && unlocked)
+      || (activeMilestoneStatus === "nearly" && nearlyComplete);
+    const matchesCategory = activeMilestoneCategory === "all" || achievement.category === activeMilestoneCategory;
+    const searchableText = `${achievement.title} ${achievement.description} ${achievement.category}`.toLocaleLowerCase();
+    return matchesStatus && matchesCategory && (!query || searchableText.includes(query));
+  });
+
+  count.textContent = `${formatNumber(visibleAchievements.length)} shown`;
+  grid.innerHTML = renderAchievementCards(state, visibleAchievements);
+  grid.hidden = visibleAchievements.length === 0;
+  empty.hidden = visibleAchievements.length > 0;
+}
+
+function getNextMilestoneGoals(state) {
+  const candidates = ACHIEVEMENTS
+    .map((achievement, index) => {
+      const unlocked = Boolean(state.achievements[achievement.id]);
+      const progressData = getDisplayAchievementProgress(achievement, state, unlocked);
+      return { achievement, index, unlocked, progressData, ratio: getAchievementProgressRatio(progressData) };
+    })
+    .filter((item) => !item.unlocked && item.progressData)
+    .sort((left, right) => right.ratio - left.ratio
+      || left.progressData.target - right.progressData.target
+      || left.index - right.index);
+
+  return [
+    ...candidates.filter((item) => item.progressData.target > 1),
+    ...candidates.filter((item) => item.progressData.target <= 1)
+  ]
+    .slice(0, 3)
+    .map((item) => item.achievement);
+}
+
+function getMilestoneCategories() {
+  return [...new Set(ACHIEVEMENTS.map((achievement) => achievement.category))];
+}
+
+function renderAchievementCards(state, achievements = ACHIEVEMENTS, { nextGoal = false } = {}) {
+  return achievements.map((achievement) => {
+    const unlocked = Boolean(state.achievements[achievement.id]);
+    const progressData = getDisplayAchievementProgress(achievement, state, unlocked);
     return `
-      <div class="achievement-card ${unlocked ? "is-unlocked" : "is-locked"}" data-achievement-id="${achievement.id}">
+      <div class="achievement-card ${unlocked ? "is-unlocked" : "is-locked"}${nextGoal ? " is-next-goal" : ""}" data-achievement-id="${achievement.id}">
         <span class="achievement-icon${achievement.image ? " achievement-icon-image" : ""}">${renderAchievementIcon(achievement)}</span>
+        <span class="achievement-category">${escapeHtml(achievement.category)}</span>
         <span class="achievement-title">${escapeHtml(achievement.title)}</span>
         <span class="achievement-description">${escapeHtml(achievement.description)}</span>
+        ${renderAchievementProgress(progressData)}
       </div>
     `;
   }).join("");
+}
+
+function getDisplayAchievementProgress(achievement, state, unlocked) {
+  const progressData = getAchievementProgress(achievement, state);
+
+  if (!progressData) {
+    return null;
+  }
+
+  return unlocked
+    ? { ...progressData, current: Math.max(progressData.current, progressData.target) }
+    : progressData;
+}
+
+function getAchievementProgressRatio(progressData) {
+  if (!progressData) {
+    return 0;
+  }
+
+  return Math.min(1, progressData.current / progressData.target);
+}
+
+function renderAchievementProgress(progressData) {
+  if (!progressData || progressData.target <= 1) {
+    return "";
+  }
+
+  const ratio = getAchievementProgressRatio(progressData);
+  const current = Math.min(progressData.current, progressData.target);
+  const valueLabel = progressData.unit === "duration"
+    ? `${formatDuration(current)} / ${formatDuration(progressData.target)}`
+    : `${formatNumber(current)} / ${formatNumber(progressData.target)}`;
+
+  return `
+    <div class="achievement-progress" aria-label="${escapeHtml(valueLabel)}">
+      <div class="achievement-progress-label">
+        <span>Progress</span>
+        <strong>${escapeHtml(valueLabel)}</strong>
+      </div>
+      <div class="achievement-progress-track">
+        <span style="width:${(ratio * 100).toFixed(2)}%"></span>
+      </div>
+    </div>
+  `;
 }
 
 function renderAchievementIcon(achievement) {
@@ -2670,6 +3040,7 @@ function showGoViralConfirmation(onConfirm) {
   const nextLpsMultiplier = getPrestigeTowerLpsMultiplier(nextTier.level);
   const currentClickMultiplier = getPrestigeClickPowerMultiplier(handlers.state);
   const nextClickMultiplier = getPrestigeClickPowerMultiplier(nextTier.level);
+  const retainsAudience = hasAlgorithmResearch(handlers.state, "audience_memory");
 
   showModal(`
     <div class="modal-card prestige-confirm-modal">
@@ -2687,8 +3058,8 @@ function showGoViralConfirmation(onConfirm) {
         <strong>Tower LPS increases from x${formatNumber(currentLpsMultiplier)} to x${formatNumber(nextLpsMultiplier)}, and flat clicks from x${formatNumber(currentClickMultiplier)} to x${formatNumber(nextClickMultiplier)}</strong>
         <small>Click Boost also gains a share of tower production, keeping manual clicks relevant as the farm grows.</small>
       </div>
-      <p class="prestige-reset-warning"><b>Reset warning:</b> This resets likes, towers, upgrades, subscribers, milestones, lab effects, local stats, and the current run.</p>
-      <p>Your leaderboard records, prestige history, new pin, and permanent production multipliers are preserved.</p>
+      <p class="prestige-reset-warning"><b>Reset warning:</b> This resets likes, towers, upgrades, ${retainsAudience ? "80% of current subscribers" : "subscribers"}, milestones, temporary lab effects, local stats, and the current run.</p>
+      <p>Your leaderboard records, prestige history, new pin, permanent production multipliers, and all Algorithm Research are preserved.</p>
       <div class="modal-actions">
         <button type="button" data-modal-close>Cancel</button>
         <button type="button" id="confirm-go-viral">Go Viral &amp; Unlock x${formatNumber(nextLpsMultiplier)} Production</button>

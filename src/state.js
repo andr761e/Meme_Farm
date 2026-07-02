@@ -1,6 +1,12 @@
 import { TOWERS, TOWER_BY_ID, TOWER_COST_SCALE } from "./data/towers.js";
 import { UPGRADES, UPGRADE_BY_ID } from "./data/upgrades.js";
-import { BAD_IDEA_BUTTON, BAD_IDEA_CONSEQUENCE_BY_ID, MEME_LAB_BOOST_BY_ID } from "./data/memeLab.js";
+import {
+  ALGORITHM_RESEARCH_PROJECTS,
+  ALGORITHM_RESEARCH_PROJECT_BY_ID,
+  BAD_IDEA_BUTTON,
+  BAD_IDEA_CONSEQUENCE_BY_ID,
+  MEME_LAB_BOOST_BY_ID
+} from "./data/memeLab.js";
 import { PRESTIGE_MAX_LEVEL, PRESTIGE_TIER_BY_LEVEL, PRESTIGE_TIERS } from "./data/prestige.js";
 import { TERMS_OF_SERVICE_EVENT_BY_ID } from "./data/termsOfService.js";
 import { formatNumber } from "./utils/format.js";
@@ -64,7 +70,11 @@ export function createDefaultState() {
       boostPurchaseCounts: {},
       badIdeaPresses: 0,
       badIdeaOutcomeCounts: {},
-      subscribersSpent: 0
+      badIdeaDryStreak: 0,
+      queuedBoostId: null,
+      subscribersSpent: 0,
+      research: {},
+      researchSubscribersSpent: 0
     },
     towers: Object.fromEntries(TOWERS.map((tower) => [tower.id, createDefaultTowerState()])),
     upgrades: Object.fromEntries(UPGRADES.map((upgrade) => [upgrade.id, createDefaultUpgradeState()])),
@@ -359,11 +369,19 @@ export function goViral(state, now = Date.now()) {
     ...(state.leaderboardRecords ?? {})
   };
   const previousPrestige = state.prestige ?? createDefaultPrestigeState();
+  const preservedResearch = clonePlainObject(state.lab?.research ?? {});
+  const preservedResearchSubscribersSpent = clampNumber(state.lab?.researchSubscribersSpent);
+  const subscriberRetention = getAlgorithmResearchEffectValue(state, "prestigeSubscriberRetention", 0);
+  const retainedSubscribers = Math.floor(clampNumber(state.subscribers) * subscriberRetention);
   const preservedRunStats = sanitizePrestigeRunStatsByLevel(previousPrestige.runStats);
   preservedRunStats[currentLevel] = getCurrentPrestigeRunStats(state, now);
   const nextState = createDefaultState();
 
   nextState.settings = preservedSettings;
+  nextState.subscribers = retainedSubscribers;
+  nextState.totalSubscribersEver = retainedSubscribers;
+  nextState.lab.research = preservedResearch;
+  nextState.lab.researchSubscribersSpent = preservedResearchSubscribersSpent;
   nextState.leaderboardRecords = {
     ...preservedRecords,
     prestigeLevel: Math.max(preservedRecords.prestigeLevel ?? 0, nextTier.level)
@@ -408,6 +426,37 @@ export function getTowerCost(state, towerId) {
   }
 
   return Math.floor(tower.baseCost * Math.pow(tower.costScale ?? TOWER_COST_SCALE, amount));
+}
+
+export function getTowerPurchaseQuote(state, towerId, requestedAmount = 1) {
+  const tower = TOWER_BY_ID[towerId];
+
+  if (!tower) {
+    return { amount: 0, cost: Infinity };
+  }
+
+  const currentAmount = getTowerAmount(state, towerId);
+  const costScale = tower.costScale ?? TOWER_COST_SCALE;
+  const buyMax = requestedAmount === "max";
+  const targetAmount = buyMax
+    ? Infinity
+    : Math.max(1, Math.floor(clampNumber(requestedAmount, 1)));
+  const budget = buyMax ? clampNumber(state.likes) : Infinity;
+  let amount = 0;
+  let cost = 0;
+
+  while (amount < targetAmount) {
+    const nextCost = Math.floor(tower.baseCost * Math.pow(costScale, currentAmount + amount));
+
+    if (!Number.isFinite(nextCost) || (buyMax && nextCost > budget - cost)) {
+      break;
+    }
+
+    cost += nextCost;
+    amount += 1;
+  }
+
+  return { amount, cost };
 }
 
 export function getUpgradeCost(state, upgradeId) {
@@ -647,7 +696,7 @@ export function getSubscriberSpawnMultiplier(state) {
 }
 
 export function getFakeSubscriberConversion(state) {
-  return UPGRADES.reduce(
+  const upgradeConversion = UPGRADES.reduce(
     (conversion, upgrade) => {
       if (upgrade.type !== "subscriberFakeConversion" || getUpgradeLevel(state, upgrade.id) <= 0) {
         return conversion;
@@ -660,6 +709,11 @@ export function getFakeSubscriberConversion(state) {
     },
     { chance: 0, amount: 1 }
   );
+
+  return {
+    ...upgradeConversion,
+    chance: Math.min(1, upgradeConversion.chance + getAlgorithmResearchEffectValue(state, "fakeSubscriberConversion", 0))
+  };
 }
 
 export function getSubscriberAutoCollector(state) {
@@ -782,23 +836,28 @@ export function clickMemeButton(state) {
   return gain;
 }
 
-export function purchaseTower(state, towerId) {
+export function purchaseTower(state, towerId, requestedAmount = 1) {
   const tower = TOWER_BY_ID[towerId];
 
   if (!tower || !isTowerUnlocked(state, tower)) {
     return { ok: false, reason: "locked" };
   }
 
-  const cost = getTowerCost(state, towerId);
+  const quote = getTowerPurchaseQuote(state, towerId, requestedAmount);
+  const cost = quote.cost;
 
-  if (state.likes < cost) {
-    return { ok: false, reason: "need-more", missing: cost - state.likes };
+  if (quote.amount <= 0 || state.likes < cost) {
+    const nextCost = getTowerCost(state, towerId);
+    const missing = requestedAmount === "max"
+      ? Math.max(0, nextCost - state.likes)
+      : Math.max(0, cost - state.likes);
+    return { ok: false, reason: "need-more", missing };
   }
 
   state.likes -= cost;
   state.totalLikesSpent += cost;
-  awardTower(state, towerId, 1);
-  return { ok: true, cost };
+  awardTower(state, towerId, quote.amount);
+  return { ok: true, cost, amount: quote.amount };
 }
 
 export function hasAcceptedTermsOfService(state, eventId) {
@@ -860,26 +919,98 @@ export function purchaseLabBoost(state, boostId, now = Date.now()) {
 
   pruneExpiredLabBoosts(state, now);
 
-  if (hasActiveLabProgramBoost(state, boost.programId, now)) {
-    return { ok: false, reason: "active" };
+  const hasActiveBoost = hasActiveLabProgramBoost(state, boost.programId, now);
+  const canQueue = hasAlgorithmResearch(state, "scheduled_bribe");
+
+  if (hasActiveBoost && (!canQueue || state.lab?.queuedBoostId)) {
+    return { ok: false, reason: state.lab?.queuedBoostId ? "queue-full" : "active" };
   }
 
-  if (state.subscribers < boost.subscriberCost) {
-    return { ok: false, reason: "need-more", missing: boost.subscriberCost - state.subscribers };
+  const subscriberCost = getLabBoostSubscriberCost(state, boost);
+
+  if (state.subscribers < subscriberCost) {
+    return { ok: false, reason: "need-more", missing: subscriberCost - state.subscribers };
   }
 
-  state.subscribers -= boost.subscriberCost;
+  state.subscribers -= subscriberCost;
   state.lab ??= {};
   state.lab.activeBoosts ??= {};
   state.lab.boostPurchaseCounts ??= {};
   state.lab.totalBoostsPurchased = (state.lab.totalBoostsPurchased ?? 0) + 1;
   state.lab.boostPurchaseCounts[boostId] = (state.lab.boostPurchaseCounts[boostId] ?? 0) + 1;
-  state.lab.subscribersSpent = (state.lab.subscribersSpent ?? 0) + boost.subscriberCost;
-  state.lab.activeBoosts[boostId] = {
-    expiresAt: now + boost.durationSeconds * 1000
-  };
+  state.lab.subscribersSpent = (state.lab.subscribersSpent ?? 0) + subscriberCost;
 
-  return { ok: true, cost: boost.subscriberCost, boost };
+  if (hasActiveBoost) {
+    state.lab.queuedBoostId = boostId;
+    return { ok: true, cost: subscriberCost, boost, queued: true };
+  }
+
+  activateLabBoost(state, boost, now);
+
+  return { ok: true, cost: subscriberCost, boost, queued: false };
+}
+
+export function purchaseAlgorithmResearch(state, projectId, now = Date.now()) {
+  const project = ALGORITHM_RESEARCH_PROJECT_BY_ID[projectId];
+
+  if (!project) {
+    return { ok: false, reason: "unknown" };
+  }
+
+  if (hasAlgorithmResearch(state, projectId)) {
+    return { ok: false, reason: "owned" };
+  }
+
+  if (project.requires && !hasAlgorithmResearch(state, project.requires)) {
+    return { ok: false, reason: "prerequisite", prerequisite: ALGORITHM_RESEARCH_PROJECT_BY_ID[project.requires] };
+  }
+
+  if (state.subscribers < project.subscriberCost) {
+    return { ok: false, reason: "need-more", missing: project.subscriberCost - state.subscribers };
+  }
+
+  state.subscribers -= project.subscriberCost;
+  state.lab ??= {};
+  state.lab.research ??= {};
+  state.lab.research[projectId] = { purchasedAt: now };
+  state.lab.researchSubscribersSpent = (state.lab.researchSubscribersSpent ?? 0) + project.subscriberCost;
+  state.lab.subscribersSpent = (state.lab.subscribersSpent ?? 0) + project.subscriberCost;
+
+  return { ok: true, cost: project.subscriberCost, project };
+}
+
+export function hasAlgorithmResearch(state, projectId) {
+  return Boolean(ALGORITHM_RESEARCH_PROJECT_BY_ID[projectId] && state.lab?.research?.[projectId]);
+}
+
+export function getAlgorithmResearchCount(state) {
+  return ALGORITHM_RESEARCH_PROJECTS.reduce(
+    (count, project) => count + (hasAlgorithmResearch(state, project.id) ? 1 : 0),
+    0
+  );
+}
+
+export function getAlgorithmResearchEffectValue(state, effectType, fallback = 0) {
+  const project = ALGORITHM_RESEARCH_PROJECTS.find(
+    (item) => item.effect?.type === effectType && hasAlgorithmResearch(state, item.id)
+  );
+  return project?.effect?.value ?? fallback;
+}
+
+export function getLabBoostSubscriberCost(state, boostOrId) {
+  const boost = typeof boostOrId === "string" ? MEME_LAB_BOOST_BY_ID[boostOrId] : boostOrId;
+  const multiplier = getAlgorithmResearchEffectValue(state, "bribeCostMultiplier", 1);
+  return boost ? Math.max(1, Math.ceil(boost.subscriberCost * multiplier)) : Infinity;
+}
+
+export function getLabBoostDuration(state, boostOrId) {
+  const boost = typeof boostOrId === "string" ? MEME_LAB_BOOST_BY_ID[boostOrId] : boostOrId;
+  const multiplier = getAlgorithmResearchEffectValue(state, "bribeDurationMultiplier", 1);
+  return boost ? Math.max(1, Math.round(boost.durationSeconds * multiplier)) : 0;
+}
+
+export function getMissedSubscriberRecoveryChance(state) {
+  return getAlgorithmResearchEffectValue(state, "missedSubscriberRecovery", 0);
 }
 
 export function pressBadIdeaButton(state, now = Date.now(), rng = Math.random) {
@@ -897,7 +1028,10 @@ export function pressBadIdeaButton(state, now = Date.now(), rng = Math.random) {
   state.lab.subscribersSpent = (state.lab.subscribersSpent ?? 0) + cost;
 
   const random = normalizeRandomSource(rng);
-  const outcome = chooseWeightedOutcome(BAD_IDEA_BUTTON.outcomes, random);
+  const pityThreshold = getAlgorithmResearchEffectValue(state, "badIdeaPityThreshold", Infinity);
+  const positiveOutcomes = BAD_IDEA_BUTTON.outcomes.filter(isPositiveBadIdeaOutcome);
+  const guaranteedPositive = (state.lab.badIdeaDryStreak ?? 0) >= pityThreshold;
+  const outcome = chooseWeightedOutcome(guaranteedPositive ? positiveOutcomes : BAD_IDEA_BUTTON.outcomes, random);
   const result = applyBadIdeaOutcome(state, outcome, random);
   const consequence = startBadIdeaConsequence(state, outcome.consequence, now);
   const message = consequence
@@ -913,6 +1047,9 @@ export function pressBadIdeaButton(state, now = Date.now(), rng = Math.random) {
 
   state.lab.lastBadIdeaOutcome = lastOutcome;
   state.lab.badIdeaOutcomeCounts[outcome.id] = (state.lab.badIdeaOutcomeCounts[outcome.id] ?? 0) + 1;
+  state.lab.badIdeaDryStreak = isPositiveBadIdeaOutcome(outcome)
+    ? 0
+    : (state.lab.badIdeaDryStreak ?? 0) + 1;
 
   return {
     ok: true,
@@ -964,6 +1101,15 @@ export function pruneExpiredLabBoosts(state, now = Date.now()) {
 
     if (!boost || !Number.isFinite(expiresAt) || expiresAt <= now) {
       delete activeBoosts[id];
+      changed = true;
+    }
+  }
+
+  if (Object.keys(activeBoosts).length === 0 && state.lab?.queuedBoostId) {
+    const queuedBoost = MEME_LAB_BOOST_BY_ID[state.lab.queuedBoostId];
+    state.lab.queuedBoostId = null;
+    if (queuedBoost && hasAlgorithmResearch(state, "scheduled_bribe")) {
+      activateLabBoost(state, queuedBoost, now);
       changed = true;
     }
   }
@@ -1290,7 +1436,8 @@ function applyBadIdeaOutcome(state, outcome, random) {
 
   if (outcome.type === "loseLikesFromLps") {
     const availableLikes = Math.max(0, clampNumber(state.likes));
-    const rawAmount = getLikesPerSecond(state) * Math.max(0, clampNumber(outcome.seconds));
+    const lossMultiplier = getAlgorithmResearchEffectValue(state, "badIdeaLossMultiplier", 1);
+    const rawAmount = getLikesPerSecond(state) * Math.max(0, clampNumber(outcome.seconds)) * lossMultiplier;
     const amount = Math.min(availableLikes, rawAmount);
     state.likes = Math.max(0, availableLikes - amount);
     return {
@@ -1303,7 +1450,8 @@ function applyBadIdeaOutcome(state, outcome, random) {
 
   if (outcome.type === "loseSubscribers") {
     const availableSubscribers = Math.max(0, Math.floor(clampNumber(state.subscribers)));
-    const amount = Math.min(availableSubscribers, Math.max(0, Math.floor(clampNumber(outcome.amount))));
+    const lossMultiplier = getAlgorithmResearchEffectValue(state, "badIdeaLossMultiplier", 1);
+    const amount = Math.min(availableSubscribers, Math.max(0, Math.ceil(clampNumber(outcome.amount) * lossMultiplier)));
     state.subscribers = Math.max(0, availableSubscribers - amount);
     return {
       label: `-${formatNumber(amount)} Subscribers`,
@@ -1317,6 +1465,18 @@ function applyBadIdeaOutcome(state, outcome, random) {
     label: "No reward",
     message: `${outcome.name}: no reward. The button remains deeply pleased with itself.`
   };
+}
+
+function activateLabBoost(state, boost, now) {
+  state.lab ??= {};
+  state.lab.activeBoosts ??= {};
+  state.lab.activeBoosts[boost.id] = {
+    expiresAt: now + getLabBoostDuration(state, boost) * 1000
+  };
+}
+
+function isPositiveBadIdeaOutcome(outcome) {
+  return ["awardRandomTower", "addLikesFromLps", "addLikesFromClicks", "addSubscribers"].includes(outcome?.type);
 }
 
 function startBadIdeaConsequence(state, consequence, now) {

@@ -25,6 +25,7 @@ import {
   pruneExpiredBadIdeaConsequences,
   pruneExpiredLabBoosts,
   pruneExpiredObscureLpsBoosts,
+  purchaseAlgorithmResearch,
   purchaseLabBoost,
   purchaseTower,
   purchaseUpgrade,
@@ -109,9 +110,9 @@ function bootGame() {
       markChanged({ meaningful: true });
       return gain;
     },
-    onBuyTower: (towerId) => {
+    onBuyTower: (towerId, purchaseAmount = 1) => {
       const amountBefore = getTowerAmount(gameState, towerId);
-      const result = purchaseTower(gameState, towerId);
+      const result = purchaseTower(gameState, towerId, purchaseAmount);
 
       if (!result.ok) {
         ui.showToast(result.reason === "need-more"
@@ -121,7 +122,7 @@ function bootGame() {
       }
 
       audio.purchase();
-      ui.showToast("Tower bought.");
+      ui.showToast(result.amount === 1 ? "Tower bought." : `${formatNumber(result.amount)} towers bought.`);
       if (amountBefore === 0) {
         notifyTowerCameOnline(towerId);
         maybeShowTermsOfService(towerId);
@@ -158,7 +159,9 @@ function bootGame() {
 
       if (!result.ok) {
         ui.showToast(result.reason === "active"
-          ? "An Algorithm Bribe is already running."
+          ? "An Algorithm Bribe is already running. Research Scheduled Bribe to queue another."
+          : result.reason === "queue-full"
+            ? "The Bribe queue already contains one deeply ethical contract."
           : result.reason === "need-more"
             ? `Need ${formatNumber(result.missing)} more subscribers.`
             : "Lab boost unavailable.");
@@ -166,7 +169,25 @@ function bootGame() {
       }
 
       audio.purchase();
-      ui.showToast(`${result.boost.name} activated.`);
+      ui.showToast(result.queued ? `${result.boost.name} queued.` : `${result.boost.name} activated.`);
+      markChanged({ meaningful: true });
+    },
+    onBuyAlgorithmResearch: (projectId) => {
+      const result = purchaseAlgorithmResearch(gameState, projectId);
+
+      if (!result.ok) {
+        ui.showToast(result.reason === "owned"
+          ? "That research is already permanent."
+          : result.reason === "prerequisite"
+            ? `Research ${result.prerequisite?.name ?? "the previous project"} first.`
+            : result.reason === "need-more"
+              ? `Need ${formatNumber(result.missing)} more subscribers.`
+              : "Research project unavailable.");
+        return;
+      }
+
+      audio.purchase();
+      ui.showToast(`${result.project.name} researched permanently.`);
       markChanged({ meaningful: true });
     },
     onPressBadIdeaButton: () => {

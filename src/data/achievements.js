@@ -1,14 +1,16 @@
 import { TOWERS } from "./towers.js";
 import { UPGRADES } from "./upgrades.js";
-import { BAD_IDEA_BUTTON, MEME_LAB_BOOSTS } from "./memeLab.js";
+import { ALGORITHM_RESEARCH_PROJECTS, BAD_IDEA_BUTTON, MEME_LAB_BOOSTS } from "./memeLab.js";
 import { PRESTIGE_TIERS } from "./prestige.js";
 import {
   getClickPower,
+  getAlgorithmResearchCount,
   getLikesPerSecond,
   getPrestigeLevel,
   getTotalTowersOwned,
   getTowerAmount,
-  getUpgradeLevel
+  getUpgradeLevel,
+  hasAlgorithmResearch
 } from "../state.js";
 
 const TOWER_MILESTONE_COPY = {
@@ -688,6 +690,38 @@ const MEME_LAB_COLLECTION_MILESTONES = [
   }
 ];
 
+const ALGORITHM_RESEARCH_MILESTONES = ALGORITHM_RESEARCH_PROJECTS.map((project, index) => ({
+  id: `algorithm_research_${project.id}`,
+  title: project.name,
+  description: `Permanently research ${project.name} in ${project.branchTitle}. The lab has filed this discovery under "probably safe."`,
+  icon: `AR-${index + 1}`,
+  isUnlocked: (state) => hasAlgorithmResearch(state, project.id)
+}));
+
+const ALGORITHM_RESEARCH_COLLECTION_MILESTONES = [
+  {
+    id: "algorithm_research_3",
+    title: "Research Department",
+    description: "Complete 3 Algorithm Research projects. The whiteboard has received a budget.",
+    icon: "AR3",
+    isUnlocked: (state) => getAlgorithmResearchCount(state) >= 3
+  },
+  {
+    id: "algorithm_research_6",
+    title: "Peer Review Board",
+    description: "Complete 6 Algorithm Research projects. Several findings now have footnotes and legal concerns.",
+    icon: "AR6",
+    isUnlocked: (state) => getAlgorithmResearchCount(state) >= 6
+  },
+  {
+    id: "algorithm_research_all",
+    title: "Doctorate In Algorithm Manipulation",
+    description: "Complete every Algorithm Research project. The algorithm has reluctantly cited your work.",
+    icon: "ARALL",
+    isUnlocked: (state) => getAlgorithmResearchCount(state) >= ALGORITHM_RESEARCH_PROJECTS.length
+  }
+];
+
 const SUBSCRIBER_UPGRADE_MILESTONES = [
   {
     id: "subscriber_spawn_all_5",
@@ -783,21 +817,110 @@ const PRESTIGE_MILESTONES = PRESTIGE_TIERS.map((tier) => ({
 }));
 
 export const ACHIEVEMENTS = [
-  ...CORE_MILESTONES,
-  ...TOWER_PURCHASE_MILESTONES,
-  ...TOWER_AMOUNT_MILESTONES,
-  ...LIKE_BUTTON_AMOUNT_MILESTONES,
-  ...TOWER_TIER_FIVE_MILESTONES,
-  ...TOWER_CROSSFEED_MILESTONES,
-  ...LEGACY_OVERCLOCK_MILESTONES,
-  ...MEME_LAB_BOOST_MILESTONES,
-  ...BAD_IDEA_OUTCOME_MILESTONES,
-  ...MEME_LAB_COLLECTION_MILESTONES,
-  ...SUBSCRIBER_UPGRADE_MILESTONES,
-  ...OBSCURE_UPGRADE_MILESTONES,
-  ...UPGRADE_COLLECTION_MILESTONES,
-  ...PRESTIGE_MILESTONES
+  ...withCategory("Core Progression", CORE_MILESTONES),
+  ...withCategory("Tower Collection", TOWER_PURCHASE_MILESTONES),
+  ...withCategory("Tower Collection", TOWER_AMOUNT_MILESTONES),
+  ...withCategory("Tower Collection", LIKE_BUTTON_AMOUNT_MILESTONES),
+  ...withCategory("Tower Upgrades", TOWER_TIER_FIVE_MILESTONES),
+  ...withCategory("Tower Upgrades", TOWER_CROSSFEED_MILESTONES),
+  ...withCategory("Tower Upgrades", LEGACY_OVERCLOCK_MILESTONES),
+  ...withCategory("Meme Lab", MEME_LAB_BOOST_MILESTONES),
+  ...withCategory("Meme Lab", BAD_IDEA_OUTCOME_MILESTONES),
+  ...withCategory("Meme Lab", MEME_LAB_COLLECTION_MILESTONES),
+  ...withCategory("Meme Lab", ALGORITHM_RESEARCH_MILESTONES),
+  ...withCategory("Meme Lab", ALGORITHM_RESEARCH_COLLECTION_MILESTONES),
+  ...withCategory("Special Upgrades", SUBSCRIBER_UPGRADE_MILESTONES),
+  ...withCategory("Special Upgrades", OBSCURE_UPGRADE_MILESTONES),
+  ...withCategory("Special Upgrades", UPGRADE_COLLECTION_MILESTONES),
+  ...withCategory("Prestige", PRESTIGE_MILESTONES)
 ];
+
+export function getAchievementProgress(achievement, state) {
+  const id = achievement?.id ?? "";
+  let match;
+
+  if (id === "first_click") return progress(state.totalClicks, 1);
+  if ((match = id.match(/^clicks_(\d+)$/))) return progress(state.totalClicks, Number(match[1]));
+  if ((match = id.match(/^likes_(\d+)$/))) return progress(state.totalLikesEver, Number(match[1]));
+  if (id === "first_tower") return progress(getTotalTowersOwned(state), 1);
+  if (id === "ten_towers") return progress(getTotalTowersOwned(state), 10);
+  if ((match = id.match(/^towers_(\d+)$/))) return progress(getTotalTowersOwned(state), Number(match[1]));
+  if (id === "first_five_towers") return progress(getDistinctOwnedTowerCount(state, TOWERS.slice(0, 5)), 5);
+  if (id === "all_towers_first") return progress(getDistinctOwnedTowerCount(state, TOWERS), TOWERS.length);
+  if (id === "first_subscriber") return progress(state.totalSubscribersEver, 1);
+  if ((match = id.match(/^subscribers_(\d+)$/))) return progress(state.totalSubscribersEver, Number(match[1]));
+  if (id === "super_subscriber_jackpot") return progress(state.stats?.superSubscribersCollected, 1);
+  if (id === "twenty_lps") return progress(getLikesPerSecond(state), 20);
+  if ((match = id.match(/^lps_(\d+)$/))) return progress(getLikesPerSecond(state), Number(match[1]));
+  if ((match = id.match(/^click_power_(\d+)$/))) return progress(getClickPower(state), Number(match[1]));
+  if ((match = id.match(/^click_boost_(\d+)$/))) return progress(getUpgradeLevel(state, "power_click"), Number(match[1]));
+  if ((match = id.match(/^upgrade_levels_(\d+)$/))) return progress(getTotalUpgradeLevels(state), Number(match[1]));
+  if ((match = id.match(/^click_likes_(\d+)$/))) return progress(state.totalLikesFromClicks, Number(match[1]));
+  if ((match = id.match(/^tower_produced_(\d+)$/))) return progress(getTotalTowerProduced(state), Number(match[1]));
+  if ((match = id.match(/^offline_(\d+)$/))) return progress(state.stats?.offlineLikesEarned, Number(match[1]));
+  if (id === "playtime_1h") return progress(state.playTimeSeconds, 3600, "duration");
+  if (id === "playtime_24h") return progress(state.playTimeSeconds, 86400, "duration");
+
+  for (const tower of TOWERS) {
+    if (id === `tower_${tower.id}_first`) return progress(getTowerAmount(state, tower.id), 1);
+    if ((match = id.match(new RegExp(`^tower_${tower.id}_(\\d+)$`)))) {
+      return progress(getTowerAmount(state, tower.id), Number(match[1]));
+    }
+    if (id === `upgrade_${tower.id}_double_5`) {
+      const ownedTiers = [1, 2, 3, 4, 5].reduce(
+        (count, tier) => count + (getUpgradeLevel(state, `${tower.id}_double_${tier}`) >= 1 ? 1 : 0),
+        0
+      );
+      return progress(ownedTiers, 5);
+    }
+  }
+
+  if (id === "meme_lab_first_bribe") return progress(getTotalLabBoostPurchases(state), 1);
+  if ((match = id.match(/^meme_lab_(\d+)_bribes$/))) return progress(getTotalLabBoostPurchases(state), Number(match[1]));
+  if (id === "meme_lab_all_bribes") {
+    return progress(MEME_LAB_BOOSTS.filter((boost) => getLabBoostPurchaseCount(state, boost.id) >= 1).length, MEME_LAB_BOOSTS.length);
+  }
+  if (id === "bad_idea_first_press") return progress(getBadIdeaPressCount(state), 1);
+  if ((match = id.match(/^bad_idea_(\d+)_presses$/))) return progress(getBadIdeaPressCount(state), Number(match[1]));
+  if (id === "bad_idea_every_outcome") {
+    const outcomes = BAD_IDEA_BUTTON.outcomes.filter((outcome) => outcome.type !== "nothing");
+    return progress(outcomes.filter((outcome) => getBadIdeaOutcomeCount(state, outcome.id) >= 1).length, outcomes.length);
+  }
+  if ((match = id.match(/^meme_lab_(\d+)_subscribers_spent$/))) return progress(getLabSubscribersSpent(state), Number(match[1]));
+  if ((match = id.match(/^algorithm_research_(\d+)$/))) return progress(getAlgorithmResearchCount(state), Number(match[1]));
+  if (id === "algorithm_research_all") return progress(getAlgorithmResearchCount(state), ALGORITHM_RESEARCH_PROJECTS.length);
+  if (id === "subscriber_spawn_all_5") {
+    return progress(SUBSCRIBER_SPAWN_UPGRADES.filter((upgrade) => getUpgradeLevel(state, upgrade.id) >= 1).length, SUBSCRIBER_SPAWN_UPGRADES.length);
+  }
+  if (id === "tower_level_5_first") return progress(getTowerTierFiveUpgradeCount(state), 1);
+  if (id === "tower_level_5_10") return progress(getTowerTierFiveUpgradeCount(state), 10);
+  if (id === "tower_level_5_all") return progress(getTowerTierFiveUpgradeCount(state), TOWERS.length);
+  if (id === "crossfeed_first") return progress(getCrossfeedUpgradeCount(state), 1);
+  if (id === "crossfeed_10") return progress(getCrossfeedUpgradeCount(state), 10);
+  if (id === "crossfeed_all") return progress(getCrossfeedUpgradeCount(state), TOWERS.length);
+  if (id === "legacy_overclock_first") return progress(getLegacyOverclockUpgradeCount(state), 1);
+  if (id === "legacy_overclock_5") return progress(getLegacyOverclockUpgradeCount(state), 5);
+  if (id === "legacy_overclock_all") return progress(getLegacyOverclockUpgradeCount(state), LEGACY_OVERCLOCK_UPGRADES.length);
+  if ((match = id.match(/^prestige_(\d+)$/))) return progress(getPrestigeLevel(state), Number(match[1]));
+
+  return null;
+}
+
+function withCategory(category, achievements) {
+  return achievements.map((achievement) => ({ ...achievement, category }));
+}
+
+function progress(current, target, unit = "number") {
+  return {
+    current: Math.max(0, Number.isFinite(Number(current)) ? Number(current) : 0),
+    target: Math.max(1, Number.isFinite(Number(target)) ? Number(target) : 1),
+    unit
+  };
+}
+
+function getDistinctOwnedTowerCount(state, towers) {
+  return towers.filter((tower) => getTowerAmount(state, tower.id) >= 1).length;
+}
 
 function ownsFirstTowers(state, count) {
   return TOWERS.slice(0, count).every((tower) => getTowerAmount(state, tower.id) >= 1);

@@ -28,6 +28,7 @@ async function main() {
   assertUniqueIds(achievementsModule.ACHIEVEMENTS, "achievement");
   assertUniqueIds(memeLabModule.MEME_LAB_BOOSTS, "meme lab boost");
   assertUniqueIds(memeLabModule.BAD_IDEA_BUTTON.outcomes, "bad idea outcome");
+  assertUniqueIds(memeLabModule.ALGORITHM_RESEARCH_PROJECTS, "algorithm research project");
   assertUniqueIds(leaderboardsModule.LEADERBOARD_METRICS, "leaderboard metric");
   assertAssetsExist(towersModule.TOWERS, "tower");
   assertAssetsExist(upgradesModule.UPGRADES, "upgrade");
@@ -716,6 +717,45 @@ async function main() {
     throw new Error("Expected tower purchase to increase LPS.");
   }
 
+  const bulkState = stateModule.createDefaultState();
+  const bulkQuote = stateModule.getTowerPurchaseQuote(bulkState, "swirling_like_button", 10);
+  bulkState.likes = bulkQuote.cost;
+  const bulkPurchase = stateModule.purchaseTower(bulkState, "swirling_like_button", 10);
+  if (!bulkPurchase.ok || bulkPurchase.amount !== 10 || stateModule.getTowerAmount(bulkState, "swirling_like_button") !== 10 || bulkState.likes !== 0) {
+    throw new Error("Expected a fixed bulk tower purchase to buy and charge for all requested towers.");
+  }
+
+  const maxState = stateModule.createDefaultState();
+  const twentyFiveQuote = stateModule.getTowerPurchaseQuote(maxState, "swirling_like_button", 25);
+  maxState.likes = twentyFiveQuote.cost;
+  const maxQuote = stateModule.getTowerPurchaseQuote(maxState, "swirling_like_button", "max");
+  const maxPurchase = stateModule.purchaseTower(maxState, "swirling_like_button", "max");
+  if (!maxPurchase.ok || maxQuote.amount !== 25 || maxPurchase.amount !== 25 || stateModule.getTowerAmount(maxState, "swirling_like_button") !== 25) {
+    throw new Error("Expected Buy Max to purchase the exact affordable tower amount.");
+  }
+
+  if (achievementsModule.ACHIEVEMENTS.some((achievement) => !achievement.category)) {
+    throw new Error("Expected every milestone to have a navigation category.");
+  }
+
+  const clickProgress = achievementsModule.getAchievementProgress(
+    achievementsModule.ACHIEVEMENTS.find((achievement) => achievement.id === "clicks_100"),
+    { ...stateModule.createDefaultState(), totalClicks: 42 }
+  );
+  if (clickProgress?.current !== 42 || clickProgress?.target !== 100) {
+    throw new Error("Expected milestone progress to expose live current and target values.");
+  }
+
+  const towerProgressState = stateModule.createDefaultState();
+  towerProgressState.towers.swirling_like_button.amount = 25;
+  const towerProgress = achievementsModule.getAchievementProgress(
+    achievementsModule.ACHIEVEMENTS.find((achievement) => achievement.id === "tower_swirling_like_button_50"),
+    towerProgressState
+  );
+  if (towerProgress?.current !== 25 || towerProgress?.target !== 50) {
+    throw new Error("Expected generated tower milestones to expose quantity progress.");
+  }
+
   for (const [level, expectedMultiplier] of [[0, 1], [1, 2], [2, 4], [3, 8]]) {
     const prestigeMultiplierState = stateModule.createDefaultState();
     prestigeMultiplierState.prestige.level = level;
@@ -1053,6 +1093,85 @@ async function main() {
     throw new Error("Expected expired Meme Lab boosts to be pruned.");
   }
 
+  const researchState = stateModule.createDefaultState();
+  researchState.subscribers = 10000;
+  const blockedResearch = stateModule.purchaseAlgorithmResearch(researchState, "audience_memory", labStart);
+  if (blockedResearch.ok || blockedResearch.reason !== "prerequisite") {
+    throw new Error("Expected Algorithm Research branches to unlock in order.");
+  }
+
+  for (const project of memeLabModule.ALGORITHM_RESEARCH_PROJECTS) {
+    const purchase = stateModule.purchaseAlgorithmResearch(researchState, project.id, labStart);
+    if (!purchase.ok) {
+      throw new Error(`Expected Algorithm Research purchase to succeed: ${project.id}`);
+    }
+  }
+
+  if (
+    stateModule.getAlgorithmResearchCount(researchState) !== memeLabModule.ALGORITHM_RESEARCH_PROJECTS.length ||
+    stateModule.getFakeSubscriberConversion(researchState).chance !== 0.08 ||
+    stateModule.getMissedSubscriberRecoveryChance(researchState) !== 0.2
+  ) {
+    throw new Error("Expected permanent Algorithm Research effects to become active.");
+  }
+
+  const serializedResearch = saveModule.serializeState(researchState);
+  const migratedResearch = saveModule.mergeSaveData(serializedResearch);
+  if (
+    stateModule.getAlgorithmResearchCount(migratedResearch) !== memeLabModule.ALGORITHM_RESEARCH_PROJECTS.length ||
+    migratedResearch.lab.researchSubscribersSpent !== 2850
+  ) {
+    throw new Error("Expected Algorithm Research purchases and spending to survive save migration.");
+  }
+
+  const researchedBribeState = stateModule.createDefaultState();
+  researchedBribeState.subscribers = 2000;
+  for (const projectId of ["negotiated_rates", "contract_extension", "scheduled_bribe"]) {
+    stateModule.purchaseAlgorithmResearch(researchedBribeState, projectId, labStart);
+  }
+  const researchedBribe = stateModule.purchaseLabBoost(researchedBribeState, "ten_x_heatwave", labStart);
+  const queuedBribe = stateModule.purchaseLabBoost(researchedBribeState, "front_page_hijack", labStart + 1000);
+  if (
+    !researchedBribe.ok || researchedBribe.cost !== 54 ||
+    !queuedBribe.ok || !queuedBribe.queued || queuedBribe.cost !== 99 ||
+    researchedBribeState.lab.queuedBoostId !== "front_page_hijack" ||
+    researchedBribeState.lab.activeBoosts.ten_x_heatwave.expiresAt !== labStart + 54000
+  ) {
+    throw new Error("Expected researched Bribe discounts, duration extensions, and queueing to apply.");
+  }
+
+  stateModule.pruneExpiredLabBoosts(researchedBribeState, labStart + 55000);
+  if (
+    researchedBribeState.lab.queuedBoostId !== null ||
+    researchedBribeState.lab.activeBoosts.front_page_hijack?.expiresAt !== labStart + 271000
+  ) {
+    throw new Error("Expected a queued Algorithm Bribe to activate after the current Bribe expires.");
+  }
+
+  const researchPrestigeState = stateModule.createDefaultState();
+  researchPrestigeState.subscribers = 2000;
+  for (const projectId of ["follower_forensics", "second_chance_follow", "audience_memory"]) {
+    stateModule.purchaseAlgorithmResearch(researchPrestigeState, projectId, labStart);
+  }
+  researchPrestigeState.subscribers = 500;
+  researchPrestigeState.towers[towersModule.TOWERS[towersModule.TOWERS.length - 1].id].amount = 1;
+  const researchPrestige = stateModule.goViral(researchPrestigeState, labStart);
+  if (
+    !researchPrestige.ok || researchPrestigeState.subscribers !== 100 ||
+    researchPrestigeState.totalSubscribersEver !== 100 ||
+    !stateModule.hasAlgorithmResearch(researchPrestigeState, "audience_memory")
+  ) {
+    throw new Error("Expected Audience Memory and all permanent research to survive Go Viral.");
+  }
+
+  const researchMilestones = achievementsModule.ACHIEVEMENTS.filter((achievement) => achievement.id.startsWith("algorithm_research_"));
+  if (
+    researchMilestones.length !== memeLabModule.ALGORITHM_RESEARCH_PROJECTS.length + 3 ||
+    !researchMilestones.every((achievement) => achievement.isUnlocked(researchState))
+  ) {
+    throw new Error("Expected project and collection milestones for Algorithm Research.");
+  }
+
   if (memeLabModule.BAD_IDEA_BUTTON.outcomes.some((outcome) => /tower.*lps|lps.*tower|towerMultiplier/i.test(outcome.type))) {
     throw new Error("Bad Idea Button should not include tower LPS doubling outcomes.");
   }
@@ -1141,6 +1260,28 @@ async function main() {
   const apologyResult = stateModule.pressBadIdeaButton(apologyState, Date.now(), () => 0.92);
   if (!apologyResult.ok || apologyResult.outcome.id !== "awkward_apology_video" || apologyState.subscribers < 0) {
     throw new Error("Expected Awkward Apology Video to never make Subscribers negative.");
+  }
+
+  const damageControlState = stateModule.createDefaultState();
+  damageControlState.subscribers = 1000;
+  stateModule.purchaseAlgorithmResearch(damageControlState, "risk_assessment", labStart);
+  stateModule.purchaseAlgorithmResearch(damageControlState, "damage_control", labStart);
+  damageControlState.subscribers = 100;
+  const controlledApology = stateModule.pressBadIdeaButton(damageControlState, labStart, () => 0.92);
+  if (!controlledApology.ok || controlledApology.outcome.id !== "awkward_apology_video" || damageControlState.subscribers !== 18) {
+    throw new Error("Expected Damage Control to halve negative Subscriber losses after the Bad Idea cost.");
+  }
+
+  const peerReviewState = stateModule.createDefaultState();
+  peerReviewState.subscribers = 2000;
+  for (const projectId of ["risk_assessment", "damage_control", "peer_review"]) {
+    stateModule.purchaseAlgorithmResearch(peerReviewState, projectId, labStart);
+  }
+  peerReviewState.subscribers = 100;
+  peerReviewState.lab.badIdeaDryStreak = 3;
+  const peerReviewedOutcome = stateModule.pressBadIdeaButton(peerReviewState, labStart, () => 0.99);
+  if (!peerReviewedOutcome.ok || !["awardRandomTower", "addLikesFromLps", "addLikesFromClicks", "addSubscribers"].includes(peerReviewedOutcome.outcome.type)) {
+    throw new Error("Expected Peer Review to guarantee a positive outcome after three non-positive results.");
   }
 
   const originalPlatform = globalThis.memeFarmPlatform;

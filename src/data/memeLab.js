@@ -153,6 +153,105 @@ export const MEME_LAB_PROGRAMS = [
         }
       }
     ]
+  },
+  {
+    id: "algorithm_research",
+    type: "research_tree",
+    title: "Algorithm Research",
+    eyebrow: "Permanent subscriber research",
+    description: "Fund permanent utility research that survives Go Viral resets. Each branch unlocks from top to bottom.",
+    branches: [
+      {
+        id: "audience_research",
+        title: "Audience Research",
+        description: "Study the suspicious people clicking Follow.",
+        projects: [
+          {
+            id: "follower_forensics",
+            name: "Follower Forensics",
+            description: "Fake subscribers gain an additional 8% chance to convert into real subscribers when clicked.",
+            subscriberCost: 100,
+            effect: { type: "fakeSubscriberConversion", value: 0.08 }
+          },
+          {
+            id: "second_chance_follow",
+            name: "Second-Chance Follow",
+            description: "Missed real and golden subscribers have a 20% chance to be recovered automatically.",
+            subscriberCost: 250,
+            requires: "follower_forensics",
+            effect: { type: "missedSubscriberRecovery", value: 0.2 }
+          },
+          {
+            id: "audience_memory",
+            name: "Audience Memory",
+            description: "Keep 20% of your current Subscribers whenever you Go Viral.",
+            subscriberCost: 600,
+            requires: "second_chance_follow",
+            effect: { type: "prestigeSubscriberRetention", value: 0.2 }
+          }
+        ]
+      },
+      {
+        id: "lab_engineering",
+        title: "Lab Engineering",
+        description: "Make temporary corruption cheaper and easier to schedule.",
+        projects: [
+          {
+            id: "negotiated_rates",
+            name: "Negotiated Rates",
+            description: "Algorithm Bribes cost 10% fewer Subscribers.",
+            subscriberCost: 100,
+            effect: { type: "bribeCostMultiplier", value: 0.9 }
+          },
+          {
+            id: "contract_extension",
+            name: "Contract Extension",
+            description: "Algorithm Bribes last 20% longer.",
+            subscriberCost: 250,
+            requires: "negotiated_rates",
+            effect: { type: "bribeDurationMultiplier", value: 1.2 }
+          },
+          {
+            id: "scheduled_bribe",
+            name: "Scheduled Bribe",
+            description: "Pay for and queue one Bribe while another is active. It begins automatically when the current Bribe ends.",
+            subscriberCost: 600,
+            requires: "contract_extension",
+            effect: { type: "bribeQueue", value: 1 }
+          }
+        ]
+      },
+      {
+        id: "bad_idea_research",
+        title: "Bad Idea Research",
+        description: "Apply the scientific method to an object that hates science.",
+        projects: [
+          {
+            id: "risk_assessment",
+            name: "Risk Assessment",
+            description: "Adds a positive, negative, and empty probability breakdown to the Bad Idea Button.",
+            subscriberCost: 100,
+            effect: { type: "badIdeaRiskBreakdown", value: 1 }
+          },
+          {
+            id: "damage_control",
+            name: "Damage Control",
+            description: "Negative Bad Idea outcomes remove 50% fewer Likes and Subscribers.",
+            subscriberCost: 250,
+            requires: "risk_assessment",
+            effect: { type: "badIdeaLossMultiplier", value: 0.5 }
+          },
+          {
+            id: "peer_review",
+            name: "Peer Review",
+            description: "After three non-positive Bad Idea outcomes in a row, the next press is guaranteed positive.",
+            subscriberCost: 600,
+            requires: "damage_control",
+            effect: { type: "badIdeaPityThreshold", value: 3 }
+          }
+        ]
+      }
+    ]
   }
 ];
 
@@ -179,4 +278,14 @@ export const BAD_IDEA_CONSEQUENCES = BAD_IDEA_BUTTON.outcomes
 
 export const BAD_IDEA_CONSEQUENCE_BY_ID = Object.fromEntries(
   BAD_IDEA_CONSEQUENCES.map((consequence) => [consequence.id, consequence])
+);
+
+export const ALGORITHM_RESEARCH = MEME_LAB_PROGRAMS.find((program) => program.id === "algorithm_research");
+
+export const ALGORITHM_RESEARCH_PROJECTS = ALGORITHM_RESEARCH.branches.flatMap((branch) =>
+  branch.projects.map((project) => ({ ...project, branchId: branch.id, branchTitle: branch.title }))
+);
+
+export const ALGORITHM_RESEARCH_PROJECT_BY_ID = Object.fromEntries(
+  ALGORITHM_RESEARCH_PROJECTS.map((project) => [project.id, project])
 );

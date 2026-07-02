@@ -108,6 +108,15 @@
         <button id="tab-towers" class="active" type="button" role="tab" aria-selected="true">Towers</button>
         <button id="tab-upgrades" type="button" role="tab" aria-selected="false">Upgrades</button>
       </div>
+      <div id="tower-buy-controls" class="tower-buy-controls" role="group" aria-label="Tower purchase amount">
+        <span>Buy</span>
+        <button class="active" type="button" data-tower-buy-amount="1" aria-pressed="true">1</button>
+        <button type="button" data-tower-buy-amount="10" aria-pressed="false">10</button>
+        <button type="button" data-tower-buy-amount="25" aria-pressed="false">25</button>
+        <button type="button" data-tower-buy-amount="50" aria-pressed="false">50</button>
+        <button type="button" data-tower-buy-amount="100" aria-pressed="false">100</button>
+        <button type="button" data-tower-buy-amount="max" aria-pressed="false">Max</button>
+      </div>
       <div id="shop-towers" class="shop-content active" role="tabpanel"></div>
       <div id="shop-upgrades" class="shop-content" role="tabpanel" hidden></div>
       <div id="next-unlock" class="next-unlock"></div>
